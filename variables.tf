@@ -51,5 +51,5 @@ variable "emr_ami_id" {
 
 variable "region" {
   description = "AWS Region name"
-  default = "eu-west-2"
+  default     = "eu-west-2"
 }
