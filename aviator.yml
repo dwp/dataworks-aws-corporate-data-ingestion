@@ -1,0 +1,20 @@
+spruce:
+  - base: ci/meta.yml
+    prune:
+      - meta
+    merge:
+      - with_in: ci/
+        regexp: ".*.yml"
+      - with_in: ci/jobs/
+        regexp: ".*.yml"
+      - with_in: ci/jobs/ami-test/
+        regexp: ".*.yml"
+    to: aviator_pipeline.yml
+fly:
+  name: aws-emr-template-repository
+  target: aws-concourse
+  config: aviator_pipeline.yml
+  expose: true
+  check_creds: true
+  load_vars_from:
+    - ci/vars.yml

@@ -1,0 +1,34 @@
+jobs:
+  - name: aws-emr-template-repository-preprod
+    max_in_flight: 1
+    plan:
+      - in_parallel:
+          - get: aws-emr-template-repository
+            trigger: true
+            passed:
+              - aws-emr-template-repository-qa
+          - get: emr-launcher-release
+            version: { tag: ((emr-launcher-version.preprod)) }
+            trigger: true
+            passed:
+              - aws-emr-template-repository-qa
+          - get: emr-relauncher-release
+            version: { tag: ((emr-relauncher-version.preprod)) }
+            trigger: true
+            passed:
+              - aws-emr-template-repository-qa
+          - get: al2-emr-ami
+            trigger: true
+            passed:
+              - aws-emr-template-repository-qa
+      - get: terraform-ecr
+      - .: (( inject meta.plan.terraform-bootstrap ))
+        config:
+          params:
+            AWS_ACC: ((aws_account.preprod))
+      - .: (( inject meta.plan.terraform-apply ))
+        params:
+          TF_WORKSPACE: preprod
+      - .: (( inject meta.plan.terraform-plan ))
+        params:
+          TF_WORKSPACE: preprod

@@ -1,0 +1,32 @@
+---
+Applications:
+- Name: "Hive"
+CustomAmiId: "${ami_id}"
+EbsRootVolumeSize: 100
+LogUri: "s3://${s3_log_bucket}/${s3_log_prefix}"
+Name: "aws-emr-template-repository"
+ReleaseLabel: "emr-${emr_release}"
+SecurityConfiguration: "${security_configuration}"
+ScaleDownBehavior: "TERMINATE_AT_TASK_COMPLETION"
+ServiceRole: "${service_role}"
+JobFlowRole: "${instance_profile}"
+VisibleToAllUsers: True
+Tags:
+- Key: "Persistence"
+  Value: "Ignore"
+- Key: "Owner"
+  Value: "dataworks platform"
+- Key: "AutoShutdown"
+  Value: "False"
+- Key: "CreatedBy"
+  Value: "emr-launcher"
+- Key: "SSMEnabled"
+  Value: "True"
+- Key: "Environment"
+  Value: "${environment_tag_value}"
+- Key: "Application"
+  Value: "aws-emr-template-repository"
+- Key: "Name"
+  Value: "aws-emr-template-repository"
+- Key: "for-use-with-amazon-emr-managed-policies"
+  Value: "true"

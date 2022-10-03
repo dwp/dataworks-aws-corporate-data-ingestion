@@ -1,0 +1,22 @@
+---
+platform: linux
+image_resource:
+  type: docker-image
+  source:
+    repository: ((dataworks.terraform_repository))
+    tag: ((dataworks.terraform_14_version))
+params:
+  TF_INPUT: false
+  WORKSPACE: ((workspace))
+inputs:
+  - name: repo
+run:
+  path: sh
+  args:
+    - -exc
+    - |
+      echo "Creating workspace $WORKSPACE"
+      terraform init
+      terraform workspace new $WORKSPACE
+      terraform apply -auto-approve
+  dir: repo

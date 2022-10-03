@@ -1,0 +1,20 @@
+groups:
+  - name: master
+    jobs:
+      - aws-emr-template-repository-dev
+      - aws-emr-template-repository-qa
+      - aws-emr-template-repository-int
+      - aws-emr-template-repository-preprod
+      - aws-emr-template-repository-prod
+
+  - name: pull-request
+    jobs:
+      - aws-emr-template-repository-pr
+
+  - name: update-pipeline
+    jobs:
+      - update-pipeline
+
+  - name: ami-test
+    jobs:
+      - apply-and-test-with-ami

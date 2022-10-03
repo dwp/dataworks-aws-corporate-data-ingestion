@@ -1,0 +1,32 @@
+{
+  "Correlation_Id": {
+    "S": ""
+  },
+  "DataProduct": {
+    "S": ""
+  },
+  "Date": {
+    "S": ""
+  },
+  "Run_Id": {
+    "N": ""
+  },
+  "Status": {
+    "S": ""
+  },
+  "CurrentStep": {
+    "S": ""
+  },
+  "Cluster_Id": {
+    "S": ""
+  },
+  "S3_Prefix_Snapshots": {
+    "S": ""
+  },
+  "S3_Prefix_Analytical_DataSet": {
+    "S": ""
+  },
+  "Snapshot_Type": {
+    "S": ""
+  }
+}

@@ -1,0 +1,88 @@
+jobs:
+  - name: aws-emr-template-repository-pr
+    plan:
+      - in_parallel:
+        - get: aws-emr-template-repository-pr
+          trigger: true
+          version: every
+        - get: emr-launcher-release
+          version: { tag: ((emr-launcher-version.qa)) }
+          trigger: false
+        - get: emr-relauncher-release
+          version: { tag: ((emr-relauncher-version.qa)) }
+          trigger: false
+        - get: al2-emr-ami
+          trigger: true
+      - get: terraform-ecr
+      - put: aws-emr-template-repository-pr
+        params:
+          path: aws-emr-template-repository-pr
+          status: pending
+      - task: linting-shell
+        input_mapping:
+          aws-emr-template-repository: aws-emr-template-repository-pr
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            source:
+              repository: koalaman/shellcheck-alpine
+              tag: latest
+          run:
+            path: sh
+            args:
+              - -exc
+              - |
+                find . -name "*.sh" ! -name "get_lambda_release.sh" ! -name "cloudwatch.sh" | cat >> shell-list
+
+                # Ignore SC2154 as it will fail all terraform vars that are passed to scripts
+                # Ignore SC1091 due to sourcing of files that aren't in the same path locally so shellcheck will fail, but these files are on the boxes
+                for i in $(cat shell-list); do shellcheck -e SC2154 -e SC1091 $i; done
+            dir: aws-emr-template-repository
+          inputs:
+            - name: aws-emr-template-repository
+      - .: (( inject meta.plan.terraform-bootstrap ))
+        input_mapping:
+          aws-emr-template-repository: aws-emr-template-repository-pr
+      - task: terraform-plan
+        image: terraform-ecr
+        config:
+          params:
+            TF_INPUT: false
+            TF_CLI_ARGS_apply: -lock-timeout=300s
+            TF_CLI_ARGS_plan: -lock-timeout=300s
+            TF_WORKSPACE: qa
+          run:
+            path: sh
+            dir: aws-emr-template-repository
+            args:
+              - -exc
+              - |
+                export TF_VAR_emr_ami_id=$(cat ../al2-emr-ami/id)
+                terraform fmt -recursive -check=true
+                cp ../terraform-config/terraform.tf .
+                cp ../terraform-config/terraform.tfvars .
+                export TF_VAR_emr_ami_id=$(cat ../al2-emr-ami/id)
+                export TF_VAR_emr_launcher_zip="{base_path = \"../emr-launcher-release\", version = \"$(cat ../emr-launcher-release/version)\"}"
+                export TF_VAR_dataworks_emr_relauncher_zip="{base_path = \"../emr-relauncher-release\", version = \"$(cat ../emr-relauncher-release/version)\"}"
+                terraform init
+                terraform workspace show
+                terraform plan
+          inputs:
+            - name: aws-emr-template-repository
+            - name: terraform-config
+            - name: emr-launcher-release
+            - name: al2-emr-ami
+            - name: emr-relauncher-release
+        input_mapping:
+          aws-emr-template-repository: aws-emr-template-repository-pr
+        on_failure:
+          put: aws-emr-template-repository-pr
+          params:
+            path: aws-emr-template-repository-pr
+            status: failure
+        on_success:
+          put: aws-emr-template-repository-pr
+          params:
+            path: aws-emr-template-repository-pr
+            status: success

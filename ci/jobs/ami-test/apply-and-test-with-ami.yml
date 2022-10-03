@@ -1,0 +1,77 @@
+jobs:
+  - name: apply-and-test-with-ami
+    max_in_flight: 1
+    serial_groups: [qa-applies]
+    plan:
+      - in_parallel:
+          - put: meta
+            resource: meta-qa
+          - get: aws-emr-template-repository
+            trigger: true
+            passed:
+              - aws-emr-template-repository-qa
+          - get: dataworks-behavioural-framework
+            trigger: true
+            passed:
+              - aws-emr-template-repository-qa
+          - get: emr-launcher-release
+            version: { tag: ((emr-launcher-version.qa)) }
+            trigger: true
+            passed:
+              - aws-emr-template-repository-qa
+          - get: emr-relauncher-release
+            version: { tag: ((emr-relauncher-version.qa)) }
+            trigger: false
+            passed:
+              - aws-emr-template-repository-qa
+          - get: al2-emr-ami
+            resource: untested-al2-emr-ami
+            trigger: true
+      - .: (( inject meta.plan.check-ami-test-results ))
+        input_mapping:
+          untested_ami: al2-emr-ami
+      - .: (( inject meta.plan.terraform-bootstrap ))
+        config:
+          params:
+            AWS_ACC: ((aws_account.qa))
+          inputs:
+            - name: previous_success
+      - .: (( inject meta.plan.terraform-apply ))
+        config:
+          params:
+            TF_WORKSPACE: qa
+            TEST_AMI_RUN: true
+          inputs:
+            - name: previous_success
+      - .: (( inject meta.plan.terraform-plan ))
+        config:
+          params:
+            TF_WORKSPACE: qa
+            TEST_AMI_RUN: true
+          inputs:
+            - name: previous_success
+      - in_parallel:
+          - .: (( inject meta.plan.e2e-tests))
+            config:
+              params:
+                TF_WORKSPACE: qa
+                AWS_ACC: ((aws_account.qa))
+                AWS_ROLE_ARN: arn:aws:iam::((aws_account.qa)):role/ci
+              inputs:
+                - name: previous_success
+
+    on_failure:
+      do:
+        - .: (( inject meta.plan.ami-test-results ))
+          task: ami-test-result-fail
+          config:
+            params:
+              RESULT: FAILED
+    on_success:
+      do:
+        - .: (( inject meta.plan.ami-test-results ))
+          task: ami-test-result-success
+          config:
+            params:
+              RESULT: SUCCESS
+

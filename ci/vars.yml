@@ -1,0 +1,15 @@
+emr-launcher-version:
+  development: "1.0.33"
+  qa:          "1.0.33"
+  integration: "1.0.33"
+  preprod:     "1.0.33"
+  production:  "1.0.33"
+
+emr-relauncher-version:
+  development: "0.0.7"
+  qa:          "0.0.7"
+  integration: "0.0.7"
+  preprod:     "0.0.7"
+  production:  "0.0.7"
+
+github_release_version: ((dataworks.github_release_resource_version))
