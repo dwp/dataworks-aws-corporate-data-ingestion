@@ -14,6 +14,7 @@ meta:
       .: (( inject meta.plan.terraform-common-config ))
       image: terraform-ecr
       config:
+        platform: linux
         run:
           path: sh
           args:
@@ -39,6 +40,7 @@ meta:
       .: (( inject meta.plan.terraform-common-config ))
       image: terraform-ecr
       config:
+        platform: linux
         run:
           path: sh
           dir: dataworks-aws-corporate-data-ingestion
@@ -68,6 +70,7 @@ meta:
       task: terraform-plan
       .: (( inject meta.plan.terraform-common-config ))
       config:
+        platform: linux
         run:
           path: sh
           args:
@@ -132,6 +135,7 @@ meta:
       task: ami-test-result
       image: terraform-ecr
       config:
+        platform: linux
         params:
           AWS_DEFAULT_REGION: ((dataworks.aws_region))
           GIT_USERNAME: ((dataworks.concourse_github_username))
@@ -169,6 +173,7 @@ meta:
       task: check-ami-test-result
       image: terraform-ecr
       config:
+        platform: linux
         params:
           AWS_DEFAULT_REGION: ((dataworks.aws_region))
           GIT_USERNAME: ((dataworks.concourse_github_username))
