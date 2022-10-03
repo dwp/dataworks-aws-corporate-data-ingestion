@@ -46,7 +46,7 @@ resource "aws_cloudwatch_event_target" "dataworks_aws_corporate_data_ingestion_e
 }
 
 resource "aws_iam_role" "dataworks_aws_corporate_data_ingestion_emr_relauncher_lambda_role" {
-  name               = "dataworks_aws_corporate_data_ingestion_emr_relauncher_lambda_role"
+  name               = "dw_aws_corporate_data_ingestion_emr_relauncher_lambda_role"
   assume_role_policy = data.aws_iam_policy_document.dataworks_aws_corporate_data_ingestion_emr_relauncher_assume_policy.json
   tags = {
     Name = "dataworks_aws_corporate_data_ingestion_emr_relauncher_lambda_role"
