@@ -1,11 +1,11 @@
 jobs:
-  - name: aws-emr-template-repository-dev
+  - name: dataworks-aws-corporate-data-ingestion-dev
     max_in_flight: 1
     plan:
       - in_parallel:
           - put: meta
             resource: meta-development
-          - get: aws-emr-template-repository
+          - get: dataworks-aws-corporate-data-ingestion
             trigger: true
           - get: emr-launcher-release
             version: { tag: ((emr-launcher-version.development)) }

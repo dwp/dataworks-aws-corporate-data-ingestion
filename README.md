@@ -1,4 +1,4 @@
-# aws-emr-template-repository
+# dataworks-aws-corporate-data-ingestion
 
 ## A template repository for building EMR cluster in AWS
 
@@ -25,13 +25,13 @@ In addition, you may want to do the following:
 
 Before you are able to deploy your EMR cluster, the new service will need the networking for it configured.   
 
-[An example](https://git.ucd.gpn.gov.uk/dip/aws-internal-compute/blob/master/aws-emr-template-repository_network.tf) of this can be seen in the `internal-compute` VPC where a lot of our EMR clusters are deployed. 
+[An example](https://git.ucd.gpn.gov.uk/dip/aws-internal-compute/blob/master/dataworks-aws-corporate-data-ingestion_network.tf) of this can be seen in the `internal-compute` VPC where a lot of our EMR clusters are deployed. 
 
 If you are creating the subnets in a different repository, remember to output the address as seen [here](https://git.ucd.gpn.gov.uk/dip/aws-internal-compute/blob/master/outputs.tf#L47-L53)
 
 ## Concourse pipeline
 
-There is a concourse pipeline for aws-emr-template-repository named `aws-emr-template-repository`. The code for this pipeline is in the `ci` folder. The main part of the pipeline (the `master` group) deploys the infrastructure and runs the e2e tests. There are a number of groups for rotating passwords and there are also admin groups for each environment.
+There is a concourse pipeline for dataworks-aws-corporate-data-ingestion named `dataworks-aws-corporate-data-ingestion`. The code for this pipeline is in the `ci` folder. The main part of the pipeline (the `master` group) deploys the infrastructure and runs the e2e tests. There are a number of groups for rotating passwords and there are also admin groups for each environment.
 
 ### Admin jobs
 
@@ -39,7 +39,7 @@ Any jobs that require the use of aviator, e.g. starting and stopping clusters ne
 
 #### Start cluster
 
-This job will start an aws-emr-template-repository cluster. In order to make the cluster do what you want it to do, you can alter the following environment variables in the pipeline config and then run `aviator` to update the pipeline before kicking it off:
+This job will start an dataworks-aws-corporate-data-ingestion cluster. In order to make the cluster do what you want it to do, you can alter the following environment variables in the pipeline config and then run `aviator` to update the pipeline before kicking it off:
 
 The parameters below come from an existing product called `aws-clive` and serve only as an example. They will need to be tailored to the needs of your data product.
 
@@ -51,11 +51,11 @@ The parameters below come from an existing product called `aws-clive` and serve 
 
 #### Stop clusters
 
-For stopping clusters, you can run the `stop-cluster` job to terminate ALL current `aws-emr-template-repository` clusters in the environment.
+For stopping clusters, you can run the `stop-cluster` job to terminate ALL current `dataworks-aws-corporate-data-ingestion` clusters in the environment.
 
 ### Clear dynamo row (i.e. for a cluster restart)   
 
-Sometimes the aws-emr-template-repository cluster is required to restart from the beginning instead of restarting from the failure point.
+Sometimes the dataworks-aws-corporate-data-ingestion cluster is required to restart from the beginning instead of restarting from the failure point.
 To be able to do a full cluster restart, delete the associated DynamoDB row if it exists. The keys to the row are `Correlation_Id` and `DataProduct` in the DynamoDB table storing cluster state information (see [Retries](#retries)).   
 The `clear-dynamodb-row` job is responsible for carrying out the row deletion.
 
@@ -103,7 +103,7 @@ Any resources needed for enabling the AMI-test require to have already been vett
     - get: ANY-RESOURCE
       trigger: false
       passed:
-        - aws-emr-template-repository-qa
+        - dataworks-aws-corporate-data-ingestion-qa
  
 
 ## Optional Features

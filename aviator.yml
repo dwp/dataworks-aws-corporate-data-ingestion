@@ -11,7 +11,7 @@ spruce:
         regexp: ".*.yml"
     to: aviator_pipeline.yml
 fly:
-  name: aws-emr-template-repository
+  name: dataworks-aws-corporate-data-ingestion
   target: aws-concourse
   config: aviator_pipeline.yml
   expose: true

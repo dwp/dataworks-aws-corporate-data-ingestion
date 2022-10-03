@@ -26,9 +26,9 @@ meta:
               sed -i '/^assume_role/ d' terraform.tfvars
               cp terraform.tf ../terraform-config
               cp terraform.tfvars ../terraform-config
-          dir: aws-emr-template-repository
+          dir: dataworks-aws-corporate-data-ingestion
         inputs:
-          - name: aws-emr-template-repository
+          - name: dataworks-aws-corporate-data-ingestion
         outputs:
           - name: terraform-config
       params:
@@ -41,7 +41,7 @@ meta:
       config:
         run:
           path: sh
-          dir: aws-emr-template-repository
+          dir: dataworks-aws-corporate-data-ingestion
           args:
             - -exc
             - |
@@ -58,7 +58,7 @@ meta:
               terraform plan -out terraform.plan
               terraform apply -auto-approve terraform.plan
         inputs:
-          - name: aws-emr-template-repository
+          - name: dataworks-aws-corporate-data-ingestion
           - name: terraform-config
           - name: emr-launcher-release
           - name: al2-emr-ami
@@ -84,9 +84,9 @@ meta:
               terraform workspace show
               terraform init
               terraform plan $DETAILED_EXITCODE
-          dir: aws-emr-template-repository
+          dir: dataworks-aws-corporate-data-ingestion
         inputs:
-          - name: aws-emr-template-repository
+          - name: dataworks-aws-corporate-data-ingestion
           - name: terraform-config
           - name: emr-launcher-release
           - name: al2-emr-ami
@@ -107,7 +107,7 @@ meta:
           AWS_DEFAULT_REGION: ((dataworks.aws_region))
           NUMBER_OF_TOPICS_TO_USE: "3"
           E2E_TEST_TIMEOUT: 7200
-          E2E_FEATURE_TAG_FILTER: "@aws-emr-template-repository"
+          E2E_FEATURE_TAG_FILTER: "@dataworks-aws-corporate-data-ingestion"
           ASSUME_DURATION: 10800
         run:
           path: sh
@@ -125,7 +125,7 @@ meta:
               "../../../meta"
         inputs:
           - name: dataworks-behavioural-framework
-          - name: aws-emr-template-repository
+          - name: dataworks-aws-corporate-data-ingestion
           - name: meta
 
     ami-test-results:

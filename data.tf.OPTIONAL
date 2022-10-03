@@ -1,4 +1,4 @@
-data "aws_iam_policy_document" "aws_emr_template_repository_write_data" {
+data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_write_data" {
   statement {
     effect = "Allow"
 
@@ -49,14 +49,14 @@ data "aws_iam_policy_document" "aws_emr_template_repository_write_data" {
   }
 }
 
-resource "aws_iam_policy" "aws_emr_template_repository_write_data" {
+resource "aws_iam_policy" "dataworks_aws_corporate_data_ingestion_write_data" {
   name        = "AwsEMRWriteData"
   description = "Allow writing of aws-emr-template files and metrics"
-  policy      = data.aws_iam_policy_document.aws_emr_template_repository_write_data.json
+  policy      = data.aws_iam_policy_document.dataworks_aws_corporate_data_ingestion_write_data.json
 }
 
-resource "aws_iam_role_policy_attachment" "aws_emr_template_repository_write_data" {
-  role       = aws_iam_role.aws_emr_template_repository_emr_service.name
-  policy_arn = aws_iam_policy.aws_emr_template_repository_write_data.arn
+resource "aws_iam_role_policy_attachment" "dataworks_aws_corporate_data_ingestion_write_data" {
+  role       = aws_iam_role.dataworks_aws_corporate_data_ingestion_emr_service.name
+  policy_arn = aws_iam_policy.dataworks_aws_corporate_data_ingestion_write_data.arn
 }
 

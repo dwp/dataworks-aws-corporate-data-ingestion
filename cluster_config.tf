@@ -1,5 +1,5 @@
 resource "aws_emr_security_configuration" "ebs_emrfs_em" {
-  name          = "aws_emr_template_repository_ebs_emrfs"
+  name          = "dataworks_aws_corporate_data_ingestion_ebs_emrfs"
   configuration = jsonencode(local.ebs_emrfs_em)
 }
 
@@ -11,8 +11,8 @@ resource "aws_s3_bucket_object" "cluster" {
       s3_log_bucket          = data.terraform_remote_state.security-tools.outputs.logstore_bucket.id
       s3_log_prefix          = local.s3_log_prefix
       ami_id                 = var.emr_ami_id
-      service_role           = aws_iam_role.aws_emr_template_repository_emr_service.arn
-      instance_profile       = aws_iam_instance_profile.aws_emr_template_repository.arn
+      service_role           = aws_iam_role.dataworks_aws_corporate_data_ingestion_emr_service.arn
+      instance_profile       = aws_iam_instance_profile.dataworks_aws_corporate_data_ingestion.arn
       security_configuration = aws_emr_security_configuration.ebs_emrfs_em.id
       emr_release            = var.emr_release[local.environment]
       environment_tag_value  = local.common_repo_tags.Environment
@@ -29,16 +29,16 @@ resource "aws_s3_bucket_object" "instances" {
   content = templatefile("${path.module}/cluster_config/instances.yaml.tpl",
     {
       keep_cluster_alive = local.keep_cluster_alive[local.environment]
-      add_master_sg      = aws_security_group.aws_emr_template_repository_common.id
-      add_slave_sg       = aws_security_group.aws_emr_template_repository_common.id
+      add_master_sg      = aws_security_group.dataworks_aws_corporate_data_ingestion_common.id
+      add_slave_sg       = aws_security_group.dataworks_aws_corporate_data_ingestion_common.id
       subnet_id = (
         local.use_capacity_reservation[local.environment] == true ?
         data.terraform_remote_state.internal_compute.outputs.emr_template_repository_subnet.subnets[index(data.terraform_remote_state.internal_compute.outputs.emr_template_repository_subnet.subnets.*.availability_zone, data.terraform_remote_state.common.outputs.ec2_capacity_reservations.emr_m5_16_x_large_2a.availability_zone)].id :
         data.terraform_remote_state.internal_compute.outputs.emr_template_repository_subnet.subnets[index(data.terraform_remote_state.internal_compute.outputs.emr_template_repository_subnet.subnets.*.availability_zone, local.emr_subnet_non_capacity_reserved_environments)].id
       )
-      master_sg                           = aws_security_group.aws_emr_template_repository_master.id
-      slave_sg                            = aws_security_group.aws_emr_template_repository_slave.id
-      service_access_sg                   = aws_security_group.aws_emr_template_repository_emr_service.id
+      master_sg                           = aws_security_group.dataworks_aws_corporate_data_ingestion_master.id
+      slave_sg                            = aws_security_group.dataworks_aws_corporate_data_ingestion_slave.id
+      service_access_sg                   = aws_security_group.dataworks_aws_corporate_data_ingestion_emr_service.id
       instance_type_core_one              = var.emr_instance_type_core_one[local.environment]
       instance_type_master                = var.emr_instance_type_master[local.environment]
       core_instance_count                 = var.emr_core_instance_count[local.environment]

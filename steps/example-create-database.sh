@@ -20,10 +20,10 @@ set -Eeuo pipefail
     echo "$S3_PREFIX" >>          /opt/emr/s3_prefix.txt
     echo "$EXPORT_DATE" >>        /opt/emr/export_date.txt
 
-    log_wrapper_message "Creating aws-emr-template-repository Databases"
+    log_wrapper_message "Creating dataworks-aws-corporate-data-ingestion Databases"
 
     hive -e "CREATE DATABASE IF NOT EXISTS ${cyi_db} LOCATION '${published_bucket}/${hive_metastore_location}';"
 
-    log_wrapper_message "Finished creating aws-emr-template-repository Databases"
+    log_wrapper_message "Finished creating dataworks-aws-corporate-data-ingestion Databases"
 
 ) >> /var/log/cyi/create_cyi_databases.log 2>&1

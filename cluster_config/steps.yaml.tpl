@@ -2,7 +2,7 @@
 BootstrapActions:
 - Name: "download_scripts"
   ScriptBootstrapAction:
-    Path: "s3://${s3_config_bucket}/component/aws-emr-template-repository/download_scripts.sh"
+    Path: "s3://${s3_config_bucket}/component/dataworks-aws-corporate-data-ingestion/download_scripts.sh"
 - Name: "start_ssm"
   ScriptBootstrapAction:
     Path: "file:/var/ci/start_ssm.sh"

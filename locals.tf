@@ -17,7 +17,7 @@ locals {
 
   overridden_tags = {
     Role         = "emr_template_repository"
-    Owner        = "aws-emr-template-repository"
+    Owner        = "dataworks-aws-corporate-data-ingestion"
     Persistence  = local.persistence_tag_value[local.environment]
     AutoShutdown = local.auto_shutdown_tag_value[local.environment]
   }
@@ -28,7 +28,7 @@ locals {
   }
 
   #Note that if you change this, you MUST first remove the use of it from all log groups because CI can't (and shouldn't) delete them
-  emr_cluster_name       = "aws-emr-template-repository"
+  emr_cluster_name       = "dataworks-aws-corporate-data-ingestion"
   
   env_certificate_bucket = "dw-${local.environment}-public-certificates"
   mgt_certificate_bucket = "dw-${local.management_account[local.environment]}-public-certificates"
@@ -60,7 +60,7 @@ locals {
     production  = "dataworks.dwp.gov.uk"
   }
 
-  aws_emr_template_repository_log_level = {
+  dataworks_aws_corporate_data_ingestion_log_level = {
     development = "DEBUG"
     qa          = "DEBUG"
     integration = "DEBUG"
@@ -68,7 +68,7 @@ locals {
     production  = "INFO"
   }
 
-  aws_emr_template_repository_version = {
+  dataworks_aws_corporate_data_ingestion_version = {
     development = "0.0.1"
     qa          = "0.0.1"
     integration = "0.0.1"
@@ -76,7 +76,7 @@ locals {
     production  = "0.0.1"
   }
 
-  aws_emr_template_repository_alerts = {
+  dataworks_aws_corporate_data_ingestion_alerts = {
     development = false
     qa          = false
     integration = false
@@ -88,7 +88,7 @@ locals {
 
   amazon_region_domain = "${data.aws_region.current.name}.amazonaws.com"
   endpoint_services    = ["dynamodb", "ec2", "ec2messages", "glue", "kms", "logs", "monitoring", ".s3", "s3", "secretsmanager", "ssm", "ssmmessages"]
-  no_proxy             = "169.254.169.254,${join(",", formatlist("%s.%s", local.endpoint_services, local.amazon_region_domain))},${local.aws_emr_template_repository_pushgateway_hostname}"
+  no_proxy             = "169.254.169.254,${join(",", formatlist("%s.%s", local.endpoint_services, local.amazon_region_domain))},${local.dataworks_aws_corporate_data_ingestion_pushgateway_hostname}"
   ebs_emrfs_em = {
     EncryptionConfiguration = {
       EnableInTransitEncryption = false
@@ -103,7 +103,7 @@ locals {
         LocalDiskEncryptionConfiguration = {
           EnableEbsEncryption       = true
           EncryptionKeyProviderType = "AwsKms"
-          AwsKmsKey                 = aws_kms_key.aws_emr_template_repository_ebs_cmk.arn
+          AwsKmsKey                 = aws_kms_key.dataworks_aws_corporate_data_ingestion_ebs_cmk.arn
         }
       }
     }
@@ -156,9 +156,9 @@ locals {
 
   emr_subnet_non_capacity_reserved_environments = data.terraform_remote_state.common.outputs.aws_ec2_non_capacity_reservation_region
 
-  aws_emr_template_repository_pushgateway_hostname = "${aws_service_discovery_service.aws_emr_template_repository_services.name}.${aws_service_discovery_private_dns_namespace.aws_emr_template_repository_services.name}"
+  dataworks_aws_corporate_data_ingestion_pushgateway_hostname = "${aws_service_discovery_service.dataworks_aws_corporate_data_ingestion_services.name}.${aws_service_discovery_private_dns_namespace.dataworks_aws_corporate_data_ingestion_services.name}"
 
-  aws_emr_template_repository_max_retry_count = {
+  dataworks_aws_corporate_data_ingestion_max_retry_count = {
     development = "0"
     qa          = "0"
     integration = "0"
@@ -308,5 +308,5 @@ locals {
     production  = "35"
   }
 
-  hive_metastore_location = "data/aws-emr-template-repository"
+  hive_metastore_location = "data/dataworks-aws-corporate-data-ingestion"
 }

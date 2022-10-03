@@ -10,7 +10,7 @@ chmod u+x /opt/emr/cloudwatch.sh
     source /opt/emr/logging.sh
     
     function log_wrapper_message() {
-        log_aws_emr_template_repository_message "$${1}" "emr-setup.sh" "$${PID}" "$${@:2}" "Running as: ,$USER"
+        log_dataworks_aws_corporate_data_ingestion_message "$${1}" "emr-setup.sh" "$${PID}" "$${@:2}" "Running as: ,$USER"
     }
     log_wrapper_message "Setting up the Proxy"
 
@@ -27,7 +27,7 @@ chmod u+x /opt/emr/cloudwatch.sh
     export HTTPS_PROXY="$FULL_PROXY"
     export no_proxy="$FULL_NO_PROXY"
     export NO_PROXY="$FULL_NO_PROXY"
-    export AWS_EMR_TEMPLATE_REPOSITORY_LOG_LEVEL="${AWS_EMR_TEMPLATE_REPOSITORY_LOG_LEVEL}"
+    export dataworks_aws_corporate_data_ingestion_LOG_LEVEL="${dataworks_aws_corporate_data_ingestion_LOG_LEVEL}"
 
     echo "Setup cloudwatch logs"
     sudo /opt/emr/cloudwatch.sh \
@@ -76,7 +76,7 @@ EOF
     --truststore-password "$TRUSTSTORE_PASSWORD" \
     --truststore-aliases "${truststore_aliases}" \
     --truststore-certs "${truststore_certs}" \
-    --jks-only true >> /var/log/aws-emr-template-repository/acm-cert-retriever.log 2>&1
+    --jks-only true >> /var/log/dataworks-aws-corporate-data-ingestion/acm-cert-retriever.log 2>&1
     
     #shellcheck disable=SC2024
     sudo -E acm-cert-retriever \
@@ -84,7 +84,7 @@ EOF
     --acm-key-passphrase "$ACM_KEY_PASSWORD" \
     --private-key-alias "${private_key_alias}" \
     --truststore-aliases "${truststore_aliases}" \
-    --truststore-certs "${truststore_certs}"  >> /var/log/aws-emr-template-repository/acm-cert-retriever.log 2>&1 # No sudo needed to write to file, so redirect is fine
+    --truststore-certs "${truststore_certs}"  >> /var/log/dataworks-aws-corporate-data-ingestion/acm-cert-retriever.log 2>&1 # No sudo needed to write to file, so redirect is fine
     
     cd /etc/pki/ca-trust/source/anchors/ || exit
 
@@ -120,4 +120,4 @@ EOF
     
     log_wrapper_message "Completed the emr-setup.sh step of the EMR Cluster"
 
-) >> /var/log/aws-emr-template-repository/emr-setup.log 2>&1
+) >> /var/log/dataworks-aws-corporate-data-ingestion/emr-setup.log 2>&1

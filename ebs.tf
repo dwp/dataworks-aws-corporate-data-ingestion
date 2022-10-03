@@ -14,7 +14,7 @@ data "aws_iam_role" "aws_config" {
   name = "aws_config"
 }
 
-data "aws_iam_policy_document" "aws_emr_template_repository_ebs_cmk" {
+data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_ebs_cmk" {
   statement {
     sid    = "EnableIAMPermissionsBreakglass"
     effect = "Allow"
@@ -113,7 +113,7 @@ data "aws_iam_policy_document" "aws_emr_template_repository_ebs_cmk" {
 
     principals {
       type        = "AWS"
-      identifiers = [aws_iam_role.aws_emr_template_repository_emr_service.arn, aws_iam_role.aws_emr_template_repository.arn]
+      identifiers = [aws_iam_role.dataworks_aws_corporate_data_ingestion_emr_service.arn, aws_iam_role.dataworks_aws_corporate_data_ingestion.arn]
     }
 
     actions = [
@@ -129,12 +129,12 @@ data "aws_iam_policy_document" "aws_emr_template_repository_ebs_cmk" {
   }
 
   statement {
-    sid    = "Allowaws_emr_template_repositoryServiceGrant"
+    sid    = "Allowdataworks_aws_corporate_data_ingestionServiceGrant"
     effect = "Allow"
 
     principals {
       type        = "AWS"
-      identifiers = [aws_iam_role.aws_emr_template_repository_emr_service.arn, aws_iam_role.aws_emr_template_repository.arn]
+      identifiers = [aws_iam_role.dataworks_aws_corporate_data_ingestion_emr_service.arn, aws_iam_role.dataworks_aws_corporate_data_ingestion.arn]
     }
 
     actions = ["kms:CreateGrant"]
@@ -149,14 +149,14 @@ data "aws_iam_policy_document" "aws_emr_template_repository_ebs_cmk" {
   }
 }
 
-resource "aws_kms_key" "aws_emr_template_repository_ebs_cmk" {
-  description             = "Encrypts aws_emr_template_repository EBS volumes"
+resource "aws_kms_key" "dataworks_aws_corporate_data_ingestion_ebs_cmk" {
+  description             = "Encrypts dataworks_aws_corporate_data_ingestion EBS volumes"
   deletion_window_in_days = 7
   is_enabled              = true
   enable_key_rotation     = true
-  policy                  = data.aws_iam_policy_document.aws_emr_template_repository_ebs_cmk.json
+  policy                  = data.aws_iam_policy_document.dataworks_aws_corporate_data_ingestion_ebs_cmk.json
 
-  # ProtectsSensitiveData = "True" - the aws_emr_template_repository cluster decrypts sensitive data
+  # ProtectsSensitiveData = "True" - the dataworks_aws_corporate_data_ingestion cluster decrypts sensitive data
   # that it reads from HBase. It can potentially spill this to disk if it can't
   # hold it all in memory, which is likely given the size of the dataset.
   tags = {
@@ -165,12 +165,12 @@ resource "aws_kms_key" "aws_emr_template_repository_ebs_cmk" {
   }
 }
 
-resource "aws_kms_alias" "aws_emr_template_repository_ebs_cmk" {
+resource "aws_kms_alias" "dataworks_aws_corporate_data_ingestion_ebs_cmk" {
   name          = "alias/${local.emr_cluster_name}_ebs_cmk"
-  target_key_id = aws_kms_key.aws_emr_template_repository_ebs_cmk.key_id
+  target_key_id = aws_kms_key.dataworks_aws_corporate_data_ingestion_ebs_cmk.key_id
 }
 
-data "aws_iam_policy_document" "aws_emr_template_repository_ebs_cmk_encrypt" {
+data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_ebs_cmk_encrypt" {
   statement {
     effect = "Allow"
 
@@ -182,7 +182,7 @@ data "aws_iam_policy_document" "aws_emr_template_repository_ebs_cmk_encrypt" {
       "kms:DescribeKey",
     ]
 
-    resources = [aws_kms_key.aws_emr_template_repository_ebs_cmk.arn]
+    resources = [aws_kms_key.dataworks_aws_corporate_data_ingestion_ebs_cmk.arn]
   }
 
   statement {
@@ -190,7 +190,7 @@ data "aws_iam_policy_document" "aws_emr_template_repository_ebs_cmk_encrypt" {
 
     actions = ["kms:CreateGrant"]
 
-    resources = [aws_kms_key.aws_emr_template_repository_ebs_cmk.arn]
+    resources = [aws_kms_key.dataworks_aws_corporate_data_ingestion_ebs_cmk.arn]
     condition {
       test     = "Bool"
       variable = "kms:GrantIsForAWSResource"
@@ -199,11 +199,11 @@ data "aws_iam_policy_document" "aws_emr_template_repository_ebs_cmk_encrypt" {
   }
 }
 
-resource "aws_iam_policy" "aws_emr_template_repository_ebs_cmk_encrypt" {
-  name        = "aws-emr-template-repository-EbsCmkEncrypt"
-  description = "Allow encryption and decryption using the aws_emr_template_repository EBS CMK"
-  policy      = data.aws_iam_policy_document.aws_emr_template_repository_ebs_cmk_encrypt.json
+resource "aws_iam_policy" "dataworks_aws_corporate_data_ingestion_ebs_cmk_encrypt" {
+  name        = "dataworks-aws-corporate-data-ingestion-EbsCmkEncrypt"
+  description = "Allow encryption and decryption using the dataworks_aws_corporate_data_ingestion EBS CMK"
+  policy      = data.aws_iam_policy_document.dataworks_aws_corporate_data_ingestion_ebs_cmk_encrypt.json
   tags = {
-    Name = "aws_emr_template_repository_ebs_cmk_encrypt"
+    Name = "dataworks_aws_corporate_data_ingestion_ebs_cmk_encrypt"
   }
 }

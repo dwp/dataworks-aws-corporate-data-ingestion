@@ -1,4 +1,4 @@
-data "aws_iam_policy_document" "aws_emr_template_repository_write" {
+data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_write" {
   statement {
     effect = "Allow"
 
@@ -43,12 +43,12 @@ data "aws_iam_policy_document" "aws_emr_template_repository_write" {
   }
 }
 
-resource "aws_iam_policy" "aws_emr_template_repository_read_write_processed_bucket" {
-  name        = "aws-emr-template-repository-ReadWriteAccessToProcessedBucket"
+resource "aws_iam_policy" "dataworks_aws_corporate_data_ingestion_read_write_processed_bucket" {
+  name        = "dataworks-aws-corporate-data-ingestion-ReadWriteAccessToProcessedBucket"
   description = "Allow read and write access to the processed bucket"
-  policy      = data.aws_iam_policy_document.aws_emr_template_repository_write.json
+  policy      = data.aws_iam_policy_document.dataworks_aws_corporate_data_ingestion_write.json
   tags = {
-    Name = "aws_emr_template_repository_read_write_processed_bucket"
+    Name = "dataworks_aws_corporate_data_ingestion_read_write_processed_bucket"
   }
 }
 

@@ -1,26 +1,26 @@
 jobs:
-  - name: aws-emr-template-repository-preprod
+  - name: dataworks-aws-corporate-data-ingestion-preprod
     max_in_flight: 1
     plan:
       - in_parallel:
-          - get: aws-emr-template-repository
+          - get: dataworks-aws-corporate-data-ingestion
             trigger: true
             passed:
-              - aws-emr-template-repository-qa
+              - dataworks-aws-corporate-data-ingestion-qa
           - get: emr-launcher-release
             version: { tag: ((emr-launcher-version.preprod)) }
             trigger: true
             passed:
-              - aws-emr-template-repository-qa
+              - dataworks-aws-corporate-data-ingestion-qa
           - get: emr-relauncher-release
             version: { tag: ((emr-relauncher-version.preprod)) }
             trigger: true
             passed:
-              - aws-emr-template-repository-qa
+              - dataworks-aws-corporate-data-ingestion-qa
           - get: al2-emr-ami
             trigger: true
             passed:
-              - aws-emr-template-repository-qa
+              - dataworks-aws-corporate-data-ingestion-qa
       - get: terraform-ecr
       - .: (( inject meta.plan.terraform-bootstrap ))
         config:

@@ -1,8 +1,8 @@
 jobs:
-  - name: aws-emr-template-repository-pr
+  - name: dataworks-aws-corporate-data-ingestion-pr
     plan:
       - in_parallel:
-        - get: aws-emr-template-repository-pr
+        - get: dataworks-aws-corporate-data-ingestion-pr
           trigger: true
           version: every
         - get: emr-launcher-release
@@ -14,13 +14,13 @@ jobs:
         - get: al2-emr-ami
           trigger: true
       - get: terraform-ecr
-      - put: aws-emr-template-repository-pr
+      - put: dataworks-aws-corporate-data-ingestion-pr
         params:
-          path: aws-emr-template-repository-pr
+          path: dataworks-aws-corporate-data-ingestion-pr
           status: pending
       - task: linting-shell
         input_mapping:
-          aws-emr-template-repository: aws-emr-template-repository-pr
+          dataworks-aws-corporate-data-ingestion: dataworks-aws-corporate-data-ingestion-pr
         config:
           platform: linux
           image_resource:
@@ -38,12 +38,12 @@ jobs:
                 # Ignore SC2154 as it will fail all terraform vars that are passed to scripts
                 # Ignore SC1091 due to sourcing of files that aren't in the same path locally so shellcheck will fail, but these files are on the boxes
                 for i in $(cat shell-list); do shellcheck -e SC2154 -e SC1091 $i; done
-            dir: aws-emr-template-repository
+            dir: dataworks-aws-corporate-data-ingestion
           inputs:
-            - name: aws-emr-template-repository
+            - name: dataworks-aws-corporate-data-ingestion
       - .: (( inject meta.plan.terraform-bootstrap ))
         input_mapping:
-          aws-emr-template-repository: aws-emr-template-repository-pr
+          dataworks-aws-corporate-data-ingestion: dataworks-aws-corporate-data-ingestion-pr
       - task: terraform-plan
         image: terraform-ecr
         config:
@@ -54,7 +54,7 @@ jobs:
             TF_WORKSPACE: qa
           run:
             path: sh
-            dir: aws-emr-template-repository
+            dir: dataworks-aws-corporate-data-ingestion
             args:
               - -exc
               - |
@@ -69,20 +69,20 @@ jobs:
                 terraform workspace show
                 terraform plan
           inputs:
-            - name: aws-emr-template-repository
+            - name: dataworks-aws-corporate-data-ingestion
             - name: terraform-config
             - name: emr-launcher-release
             - name: al2-emr-ami
             - name: emr-relauncher-release
         input_mapping:
-          aws-emr-template-repository: aws-emr-template-repository-pr
+          dataworks-aws-corporate-data-ingestion: dataworks-aws-corporate-data-ingestion-pr
         on_failure:
-          put: aws-emr-template-repository-pr
+          put: dataworks-aws-corporate-data-ingestion-pr
           params:
-            path: aws-emr-template-repository-pr
+            path: dataworks-aws-corporate-data-ingestion-pr
             status: failure
         on_success:
-          put: aws-emr-template-repository-pr
+          put: dataworks-aws-corporate-data-ingestion-pr
           params:
-            path: aws-emr-template-repository-pr
+            path: dataworks-aws-corporate-data-ingestion-pr
             status: success

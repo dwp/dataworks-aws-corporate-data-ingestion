@@ -1,15 +1,15 @@
 groups:
   - name: master
     jobs:
-      - aws-emr-template-repository-dev
-      - aws-emr-template-repository-qa
-      - aws-emr-template-repository-int
-      - aws-emr-template-repository-preprod
-      - aws-emr-template-repository-prod
+      - dataworks-aws-corporate-data-ingestion-dev
+      - dataworks-aws-corporate-data-ingestion-qa
+      - dataworks-aws-corporate-data-ingestion-int
+      - dataworks-aws-corporate-data-ingestion-preprod
+      - dataworks-aws-corporate-data-ingestion-prod
 
   - name: pull-request
     jobs:
-      - aws-emr-template-repository-pr
+      - dataworks-aws-corporate-data-ingestion-pr
 
   - name: update-pipeline
     jobs:

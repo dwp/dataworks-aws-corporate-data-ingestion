@@ -7,10 +7,10 @@ variable "emr_launcher_zip" {
   }
 }
 
-resource "aws_lambda_function" "aws_emr_template_repository_emr_launcher" {
+resource "aws_lambda_function" "dataworks_aws_corporate_data_ingestion_emr_launcher" {
   filename      = "${var.emr_launcher_zip["base_path"]}/emr-launcher-${var.emr_launcher_zip["version"]}.zip"
   function_name = "${local.emr_cluster_name}_emr_launcher"
-  role          = aws_iam_role.aws_emr_template_repository_emr_launcher_lambda_role.arn
+  role          = aws_iam_role.dataworks_aws_corporate_data_ingestion_emr_launcher_lambda_role.arn
   handler       = "emr_launcher.handler.handler"
   runtime       = "python3.7"
   source_code_hash = filebase64sha256(
@@ -35,18 +35,18 @@ resource "aws_lambda_function" "aws_emr_template_repository_emr_launcher" {
     Name = "${local.emr_cluster_name}_emr_launcher"
   }
 
-  depends_on = [aws_cloudwatch_log_group.aws_emr_template_repository_emr_launcher_log_group]
+  depends_on = [aws_cloudwatch_log_group.dataworks_aws_corporate_data_ingestion_emr_launcher_log_group]
 }
 
-resource "aws_iam_role" "aws_emr_template_repository_emr_launcher_lambda_role" {
+resource "aws_iam_role" "dataworks_aws_corporate_data_ingestion_emr_launcher_lambda_role" {
   name               = "${local.emr_cluster_name}_emr_launcher_lambda_role"
-  assume_role_policy = data.aws_iam_policy_document.aws_emr_template_repository_emr_launcher_assume_policy.json
+  assume_role_policy = data.aws_iam_policy_document.dataworks_aws_corporate_data_ingestion_emr_launcher_assume_policy.json
   tags = {
     Name = "${local.emr_cluster_name}_emr_launcher_lambda_role"
   }
 }
 
-data "aws_iam_policy_document" "aws_emr_template_repository_emr_launcher_assume_policy" {
+data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_emr_launcher_assume_policy" {
   statement {
     sid     = "EMRLauncherLambdaAssumeRolePolicy"
     effect  = "Allow"
@@ -59,7 +59,7 @@ data "aws_iam_policy_document" "aws_emr_template_repository_emr_launcher_assume_
   }
 }
 
-data "aws_iam_policy_document" "aws_emr_template_repository_emr_launcher_read_s3_policy" {
+data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_emr_launcher_read_s3_policy" {
   statement {
     effect = "Allow"
     actions = [
@@ -80,7 +80,7 @@ data "aws_iam_policy_document" "aws_emr_template_repository_emr_launcher_read_s3
   }
 }
 
-data "aws_iam_policy_document" "aws_emr_template_repository_emr_launcher_runjobflow_policy" {
+data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_emr_launcher_runjobflow_policy" {
   statement {
     effect = "Allow"
     actions = [
@@ -93,7 +93,7 @@ data "aws_iam_policy_document" "aws_emr_template_repository_emr_launcher_runjobf
   }
 }
 
-data "aws_iam_policy_document" "aws_emr_template_repository_emr_launcher_pass_role_document" {
+data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_emr_launcher_pass_role_document" {
   statement {
     effect = "Allow"
     actions = [
@@ -105,74 +105,74 @@ data "aws_iam_policy_document" "aws_emr_template_repository_emr_launcher_pass_ro
   }
 }
 
-resource "aws_iam_policy" "aws_emr_template_repository_emr_launcher_read_s3_policy" {
+resource "aws_iam_policy" "dataworks_aws_corporate_data_ingestion_emr_launcher_read_s3_policy" {
   name        = "${local.emr_cluster_name}ReadS3"
-  description = "Allow aws_emr_template_repository to read from S3 bucket"
-  policy      = data.aws_iam_policy_document.aws_emr_template_repository_emr_launcher_read_s3_policy.json
+  description = "Allow dataworks_aws_corporate_data_ingestion to read from S3 bucket"
+  policy      = data.aws_iam_policy_document.dataworks_aws_corporate_data_ingestion_emr_launcher_read_s3_policy.json
   tags = {
     Name = "${local.emr_cluster_name}_emr_launcher_read_s3_policy"
   }
 }
 
-resource "aws_iam_policy" "aws_emr_template_repository_emr_launcher_runjobflow_policy" {
+resource "aws_iam_policy" "dataworks_aws_corporate_data_ingestion_emr_launcher_runjobflow_policy" {
   name        = "${local.emr_cluster_name}RunJobFlow"
-  description = "Allow aws_emr_template_repository to run job flow"
-  policy      = data.aws_iam_policy_document.aws_emr_template_repository_emr_launcher_runjobflow_policy.json
+  description = "Allow dataworks_aws_corporate_data_ingestion to run job flow"
+  policy      = data.aws_iam_policy_document.dataworks_aws_corporate_data_ingestion_emr_launcher_runjobflow_policy.json
   tags = {
-    Name = "aws_emr_template_repository_emr_launcher_runjobflow_policy"
+    Name = "dataworks_aws_corporate_data_ingestion_emr_launcher_runjobflow_policy"
   }
 }
 
-resource "aws_iam_policy" "aws_emr_template_repository_emr_launcher_pass_role_policy" {
+resource "aws_iam_policy" "dataworks_aws_corporate_data_ingestion_emr_launcher_pass_role_policy" {
   name        = "${local.emr_cluster_name}PassRole"
-  description = "Allow aws_emr_template_repository to pass role"
-  policy      = data.aws_iam_policy_document.aws_emr_template_repository_emr_launcher_pass_role_document.json
+  description = "Allow dataworks_aws_corporate_data_ingestion to pass role"
+  policy      = data.aws_iam_policy_document.dataworks_aws_corporate_data_ingestion_emr_launcher_pass_role_document.json
   tags = {
-    Name = "aws_emr_template_repository_emr_launcher_pass_role_policy"
+    Name = "dataworks_aws_corporate_data_ingestion_emr_launcher_pass_role_policy"
   }
 }
 
-resource "aws_iam_role_policy_attachment" "aws_emr_template_repository_emr_launcher_read_s3_attachment" {
-  role       = aws_iam_role.aws_emr_template_repository_emr_launcher_lambda_role.name
-  policy_arn = aws_iam_policy.aws_emr_template_repository_emr_launcher_read_s3_policy.arn
+resource "aws_iam_role_policy_attachment" "dataworks_aws_corporate_data_ingestion_emr_launcher_read_s3_attachment" {
+  role       = aws_iam_role.dataworks_aws_corporate_data_ingestion_emr_launcher_lambda_role.name
+  policy_arn = aws_iam_policy.dataworks_aws_corporate_data_ingestion_emr_launcher_read_s3_policy.arn
 }
 
-resource "aws_iam_role_policy_attachment" "aws_emr_template_repository_emr_launcher_runjobflow_attachment" {
-  role       = aws_iam_role.aws_emr_template_repository_emr_launcher_lambda_role.name
-  policy_arn = aws_iam_policy.aws_emr_template_repository_emr_launcher_runjobflow_policy.arn
+resource "aws_iam_role_policy_attachment" "dataworks_aws_corporate_data_ingestion_emr_launcher_runjobflow_attachment" {
+  role       = aws_iam_role.dataworks_aws_corporate_data_ingestion_emr_launcher_lambda_role.name
+  policy_arn = aws_iam_policy.dataworks_aws_corporate_data_ingestion_emr_launcher_runjobflow_policy.arn
 }
 
-resource "aws_iam_role_policy_attachment" "aws_emr_template_repository_emr_launcher_pass_role_attachment" {
-  role       = aws_iam_role.aws_emr_template_repository_emr_launcher_lambda_role.name
-  policy_arn = aws_iam_policy.aws_emr_template_repository_emr_launcher_pass_role_policy.arn
+resource "aws_iam_role_policy_attachment" "dataworks_aws_corporate_data_ingestion_emr_launcher_pass_role_attachment" {
+  role       = aws_iam_role.dataworks_aws_corporate_data_ingestion_emr_launcher_lambda_role.name
+  policy_arn = aws_iam_policy.dataworks_aws_corporate_data_ingestion_emr_launcher_pass_role_policy.arn
 }
 
-resource "aws_iam_role_policy_attachment" "aws_emr_template_repository_emr_launcher_policy_execution" {
-  role       = aws_iam_role.aws_emr_template_repository_emr_launcher_lambda_role.name
+resource "aws_iam_role_policy_attachment" "dataworks_aws_corporate_data_ingestion_emr_launcher_policy_execution" {
+  role       = aws_iam_role.dataworks_aws_corporate_data_ingestion_emr_launcher_lambda_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
-resource "aws_sns_topic_subscription" "aws_emr_template_repository_trigger_sns" {
-  topic_arn = aws_sns_topic.aws_emr_template_repository_cw_trigger_sns.arn
+resource "aws_sns_topic_subscription" "dataworks_aws_corporate_data_ingestion_trigger_sns" {
+  topic_arn = aws_sns_topic.dataworks_aws_corporate_data_ingestion_cw_trigger_sns.arn
   protocol  = "lambda"
-  endpoint  = aws_lambda_function.aws_emr_template_repository_emr_launcher.arn
+  endpoint  = aws_lambda_function.dataworks_aws_corporate_data_ingestion_emr_launcher.arn
 }
 
-resource "aws_lambda_permission" "aws_emr_template_repository_emr_launcher_subscription" {
+resource "aws_lambda_permission" "dataworks_aws_corporate_data_ingestion_emr_launcher_subscription" {
   statement_id  = "${local.emr_cluster_name}CWTriggerSNS"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.aws_emr_template_repository_emr_launcher.function_name
+  function_name = aws_lambda_function.dataworks_aws_corporate_data_ingestion_emr_launcher.function_name
   principal     = "sns.amazonaws.com"
-  source_arn    = aws_sns_topic.aws_emr_template_repository_cw_trigger_sns.arn
+  source_arn    = aws_sns_topic.dataworks_aws_corporate_data_ingestion_cw_trigger_sns.arn
 }
 
-resource "aws_iam_policy" "aws_emr_template_repository_emr_launcher_getsecrets" {
+resource "aws_iam_policy" "dataworks_aws_corporate_data_ingestion_emr_launcher_getsecrets" {
   name        = "${local.emr_cluster_name}GetSecrets"
-  description = "Allow aws_emr_template_repository function to get secrets"
-  policy      = data.aws_iam_policy_document.aws_emr_template_repository_emr_launcher_getsecrets.json
+  description = "Allow dataworks_aws_corporate_data_ingestion function to get secrets"
+  policy      = data.aws_iam_policy_document.dataworks_aws_corporate_data_ingestion_emr_launcher_getsecrets.json
 }
 
-data "aws_iam_policy_document" "aws_emr_template_repository_emr_launcher_getsecrets" {
+data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_emr_launcher_getsecrets" {
   statement {
     effect = "Allow"
 
@@ -181,17 +181,17 @@ data "aws_iam_policy_document" "aws_emr_template_repository_emr_launcher_getsecr
     ]
 
     resources = [
-      data.terraform_remote_state.internal_compute.outputs.metadata_store_users.aws_emr_template_repository_writer.secret_arn,
+      data.terraform_remote_state.internal_compute.outputs.metadata_store_users.dataworks_aws_corporate_data_ingestion_writer.secret_arn,
     ]
   }
 }
 
-resource "aws_iam_role_policy_attachment" "aws_emr_template_repository_emr_launcher_getsecrets" {
-  role       = aws_iam_role.aws_emr_template_repository_emr_launcher_lambda_role.name
-  policy_arn = aws_iam_policy.aws_emr_template_repository_emr_launcher_getsecrets.arn
+resource "aws_iam_role_policy_attachment" "dataworks_aws_corporate_data_ingestion_emr_launcher_getsecrets" {
+  role       = aws_iam_role.dataworks_aws_corporate_data_ingestion_emr_launcher_lambda_role.name
+  policy_arn = aws_iam_policy.dataworks_aws_corporate_data_ingestion_emr_launcher_getsecrets.arn
 }
 
-resource "aws_cloudwatch_log_group" "aws_emr_template_repository_emr_launcher_log_group" {
-  name = "/aws/lambda/aws_emr_template_repository_emr_launcher"
+resource "aws_cloudwatch_log_group" "dataworks_aws_corporate_data_ingestion_emr_launcher_log_group" {
+  name = "/aws/lambda/dataworks_aws_corporate_data_ingestion_emr_launcher"
   retention_in_days = 180
 }

@@ -3,7 +3,7 @@ terraform {
 
   backend "s3" {
     bucket         = "{{terraform.state_file_bucket}}"
-    key            = "terraform/dataworks/aws-emr-template-repository.tfstate"
+    key            = "terraform/dataworks/dataworks-aws-corporate-data-ingestion.tfstate"
     region         = "{{terraform.state_file_region}}"
     encrypt        = true
     kms_key_id     = "arn:aws:kms:{{terraform.state_file_region}}:{{terraform.state_file_account}}:key/{{terraform.state_file_kms_key}}"

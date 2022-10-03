@@ -10,7 +10,7 @@
     source /opt/emr/logging.sh
 
     function log_wrapper_message() {
-        log_aws_emr_template_repository_message "$${1}" "update_dynamo.sh" "$${PID}" "$${@:2}" "Running as: ,$USER"
+        log_dataworks_aws_corporate_data_ingestion_message "$${1}" "update_dynamo.sh" "$${PID}" "$${@:2}" "Running as: ,$USER"
     }
 
   log_wrapper_message "Start running update_dynamo.sh Shell"
@@ -42,7 +42,7 @@
   S3_PREFIX=$(cat $S3_PREFIX_FILE)
   SNAPSHOT_TYPE=$(cat $SNAPSHOT_TYPE_FILE)
   EXPORT_DATE=$(cat $EXPORT_DATE_FILE)
-  DATA_PRODUCT="AWS_EMR_TEMPLATE_REPOSITORY"
+  DATA_PRODUCT="dataworks_aws_corporate_data_ingestion"
 
   if [[ -z "$EXPORT_DATE" ]]; then
     log_wrapper_message "Export date from file was empty, so defaulting to today's date"
@@ -182,4 +182,4 @@
   #kick off loop to process all step files
   check_step_dir
 
-) >> /var/log/aws-emr-template-repository/update_dynamo.log 2>&1
+) >> /var/log/dataworks-aws-corporate-data-ingestion/update_dynamo.log 2>&1

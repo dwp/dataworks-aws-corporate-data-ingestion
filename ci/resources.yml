@@ -1,26 +1,26 @@
 resources:
-  - name: aws-emr-template-repository-pr
+  - name: dataworks-aws-corporate-data-ingestion-pr
     type: pull-request
     source:
-      repository: dwp/aws-emr-template-repository
+      repository: dwp/dataworks-aws-corporate-data-ingestion
       access_token: ((dataworks-secrets.concourse_github_pat))
     webhook_token: ((dataworks.concourse_github_webhook_token))
     check_every: 5m
 
-  - name: aws-emr-template-repository
+  - name: dataworks-aws-corporate-data-ingestion
     type: git
     source:
       branch: master
-      uri: https://github.com/dwp/aws-emr-template-repository.git
+      uri: https://github.com/dwp/dataworks-aws-corporate-data-ingestion.git
       access_token: ((dataworks-secrets.concourse_github_pat))
     webhook_token: ((dataworks.concourse_github_webhook_token))
     check_every: 5m
 
-  - name: aws-emr-template-repository-pipeline
+  - name: dataworks-aws-corporate-data-ingestion-pipeline
     type: git
     source:
       branch: master
-      uri: https://github.com/dwp/aws-emr-template-repository.git
+      uri: https://github.com/dwp/dataworks-aws-corporate-data-ingestion.git
       access_token: ((dataworks-secrets.concourse_github_pat))
       paths:
         - ci/*

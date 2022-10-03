@@ -10,7 +10,7 @@
     source /opt/emr/logging.sh
 
     function log_wrapper_message() {
-        log_aws_emr_template_repository_message "$${1}" "status_metrics.sh" "$${PID}" "$${@:2}" "Running as: ,$USER"
+        log_dataworks_aws_corporate_data_ingestion_message "$${1}" "status_metrics.sh" "$${PID}" "$${@:2}" "Running as: ,$USER"
     }
 
   log_wrapper_message "Start running status_metrics.sh Shell"
@@ -49,8 +49,8 @@
   push_metric() {
     log_wrapper_message "Sending to push gateway with value $1"
 
-    cat << EOF | curl --data-binary @- "http://${aws_emr_template_repository_pushgateway_hostname}:9091/metrics/job/${emr_cluster_name}"
-                aws_emr_template_repository_status{snapshot_type="$SNAPSHOT_TYPE", export_date="$EXPORT_DATE", cluster_id="$CLUSTER_ID", component="AWS_EMR_TEMPLATE_REPOSITORY", correlation_id="$CORRELATION_ID"} $1
+    cat << EOF | curl --data-binary @- "http://${dataworks_aws_corporate_data_ingestion_pushgateway_hostname}:9091/metrics/job/${emr_cluster_name}"
+                dataworks_aws_corporate_data_ingestion_status{snapshot_type="$SNAPSHOT_TYPE", export_date="$EXPORT_DATE", cluster_id="$CLUSTER_ID", component="dataworks_aws_corporate_data_ingestion", correlation_id="$CORRELATION_ID"} $1
 EOF
   }
 
@@ -102,4 +102,4 @@ EOF
   #kick off loop to process all step files
   check_step_dir
 
-) >> /var/log/aws-emr-template-repository/status_metrics.log 2>&1
+) >> /var/log/dataworks-aws-corporate-data-ingestion/status_metrics.log 2>&1
