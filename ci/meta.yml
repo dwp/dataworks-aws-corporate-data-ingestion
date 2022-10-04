@@ -1,20 +1,31 @@
 meta:
   plan:
     terraform-common-config:
-      image: terraform-ecr
       config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: ((dataworks.terraform_repository))
+            version: ((dataworks.terraform_14_version))
+            tag: ((dataworks.terraform_14_version))
         params:
           TF_INPUT: false
+          AWS_REGION: ((dataworks.aws_region))
           TF_CLI_ARGS_apply: -lock-timeout=300s
           TF_CLI_ARGS_plan: -lock-timeout=300s
-          TF_VAR_costcode: ((dataworks.costcode))
 
     terraform-bootstrap:
       task: terraform-bootstrap
       .: (( inject meta.plan.terraform-common-config ))
-      image: terraform-ecr
       config:
         platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: dwpdigital/jinja-yaml-aws
+            version: 0.0.19
+            tag: 0.0.19
         run:
           path: sh
           args:
@@ -38,7 +49,6 @@ meta:
     terraform-apply:
       task: terraform-apply
       .: (( inject meta.plan.terraform-common-config ))
-      image: terraform-ecr
       config:
         platform: linux
         run:
