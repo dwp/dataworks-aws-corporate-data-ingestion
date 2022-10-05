@@ -181,7 +181,7 @@ data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_emr_launc
     ]
 
     resources = [
-      data.terraform_remote_state.internal_compute.outputs.metadata_store_users.dataworks_aws_corporate_data_ingestion_writer.secret_arn,
+      data.terraform_remote_state.internal_compute.outputs.metadata_store_users.corporate_data_ingestion_writer.secret_arn,
     ]
   }
 }
