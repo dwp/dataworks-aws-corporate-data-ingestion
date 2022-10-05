@@ -4,8 +4,8 @@ groups:
       - dataworks-aws-corporate-data-ingestion-dev
       - dataworks-aws-corporate-data-ingestion-qa
       - dataworks-aws-corporate-data-ingestion-int
-      - dataworks-aws-corporate-data-ingestion-preprod
-      - dataworks-aws-corporate-data-ingestion-prod
+#      - dataworks-aws-corporate-data-ingestion-preprod
+#      - dataworks-aws-corporate-data-ingestion-prod
 
   - name: pull-request
     jobs:

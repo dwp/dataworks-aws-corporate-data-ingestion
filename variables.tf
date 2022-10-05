@@ -46,10 +46,10 @@ variable "emr_core_instance_count" {
 }
 
 variable "emr_ami_id" {
-  description = "AMI ID to use for the HBase EMR nodes"
+  description = "AMI ID to use for the EMR nodes"
 }
 
 variable "region" {
   description = "AWS Region name"
-  default = "eu-west-2"
+  default     = "eu-west-2"
 }

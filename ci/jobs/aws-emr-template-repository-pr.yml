@@ -47,6 +47,7 @@ jobs:
       - task: terraform-plan
         image: terraform-ecr
         config:
+          platform: linux
           params:
             TF_INPUT: false
             TF_CLI_ARGS_apply: -lock-timeout=300s

@@ -1,19 +1,31 @@
 meta:
   plan:
     terraform-common-config:
-      image: terraform-ecr
       config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: ((dataworks.terraform_repository))
+            version: ((dataworks.terraform_14_version))
+            tag: ((dataworks.terraform_14_version))
         params:
           TF_INPUT: false
+          AWS_REGION: ((dataworks.aws_region))
           TF_CLI_ARGS_apply: -lock-timeout=300s
           TF_CLI_ARGS_plan: -lock-timeout=300s
-          TF_VAR_costcode: ((dataworks.costcode))
 
     terraform-bootstrap:
       task: terraform-bootstrap
       .: (( inject meta.plan.terraform-common-config ))
-      image: terraform-ecr
       config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: dwpdigital/jinja-yaml-aws
+            version: 0.0.19
+            tag: 0.0.19
         run:
           path: sh
           args:
@@ -37,8 +49,8 @@ meta:
     terraform-apply:
       task: terraform-apply
       .: (( inject meta.plan.terraform-common-config ))
-      image: terraform-ecr
       config:
+        platform: linux
         run:
           path: sh
           dir: dataworks-aws-corporate-data-ingestion
@@ -68,6 +80,7 @@ meta:
       task: terraform-plan
       .: (( inject meta.plan.terraform-common-config ))
       config:
+        platform: linux
         run:
           path: sh
           args:
@@ -132,6 +145,7 @@ meta:
       task: ami-test-result
       image: terraform-ecr
       config:
+        platform: linux
         params:
           AWS_DEFAULT_REGION: ((dataworks.aws_region))
           GIT_USERNAME: ((dataworks.concourse_github_username))
@@ -169,6 +183,7 @@ meta:
       task: check-ami-test-result
       image: terraform-ecr
       config:
+        platform: linux
         params:
           AWS_DEFAULT_REGION: ((dataworks.aws_region))
           GIT_USERNAME: ((dataworks.concourse_github_username))

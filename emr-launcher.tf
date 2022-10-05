@@ -181,7 +181,7 @@ data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_emr_launc
     ]
 
     resources = [
-      data.terraform_remote_state.internal_compute.outputs.metadata_store_users.dataworks_aws_corporate_data_ingestion_writer.secret_arn,
+      data.terraform_remote_state.internal_compute.outputs.metadata_store_users.corporate_data_ingestion_writer.secret_arn,
     ]
   }
 }
@@ -192,6 +192,6 @@ resource "aws_iam_role_policy_attachment" "dataworks_aws_corporate_data_ingestio
 }
 
 resource "aws_cloudwatch_log_group" "dataworks_aws_corporate_data_ingestion_emr_launcher_log_group" {
-  name = "/aws/lambda/dataworks_aws_corporate_data_ingestion_emr_launcher"
+  name              = "/aws/lambda/dataworks_aws_corporate_data_ingestion_emr_launcher"
   retention_in_days = 180
 }
