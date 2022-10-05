@@ -63,7 +63,7 @@ resource "aws_lambda_permission" "dataworks_aws_corporate_data_ingestion_emr_rel
 
 data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_emr_relauncher_assume_policy" {
   statement {
-    sid     = "dataworks_aws_corporate_data_ingestionEMRLauncherLambdaAssumeRolePolicy"
+    sid     = "CorpDataIngestEMRLauncherLambdaAssumeRolePolicy"
     effect  = "Allow"
     actions = ["sts:AssumeRole"]
 
