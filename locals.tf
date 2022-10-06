@@ -1,8 +1,8 @@
 locals {
   persistence_tag_value = {
-    development = "mon-fri,08:00-18:00"
+    development = "Ignore"
     qa          = "Ignore"
-    integration = "mon-fri,08:00-18:00"
+    integration = "Ignore"
     preprod     = "Ignore"
     production  = "Ignore"
   }
@@ -16,7 +16,7 @@ locals {
   }
 
   overridden_tags = {
-    Role         = "emr_template_repository"
+    Role         = "corporate-data-ingestion"
     Owner        = "dataworks-aws-corporate-data-ingestion"
     Persistence  = local.persistence_tag_value[local.environment]
     AutoShutdown = local.auto_shutdown_tag_value[local.environment]
@@ -28,7 +28,7 @@ locals {
   }
 
   #Note that if you change this, you MUST first remove the use of it from all log groups because CI can't (and shouldn't) delete them
-  emr_cluster_name = "dataworks-aws-corporate-data-ingestion"
+  emr_cluster_name = "corporate-data-ingestion"
 
   env_certificate_bucket = "dw-${local.environment}-public-certificates"
   mgt_certificate_bucket = "dw-${local.management_account[local.environment]}-public-certificates"
