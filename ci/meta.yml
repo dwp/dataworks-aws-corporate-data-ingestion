@@ -142,9 +142,13 @@ meta:
 
     ami-test-results:
       task: ami-test-result
-      image: terraform-ecr
       config:
         platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: ((dataworks.terraform_repository))
+            tag: ((dataworks.terraform_version))
         params:
           AWS_DEFAULT_REGION: ((dataworks.aws_region))
           GIT_USERNAME: ((dataworks.concourse_github_username))
@@ -180,9 +184,13 @@ meta:
 
     check-ami-test-results:
       task: check-ami-test-result
-      image: terraform-ecr
       config:
         platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: ((dataworks.terraform_repository))
+            tag: ((dataworks.terraform_version))
         params:
           AWS_DEFAULT_REGION: ((dataworks.aws_region))
           GIT_USERNAME: ((dataworks.concourse_github_username))

@@ -45,9 +45,13 @@ jobs:
         input_mapping:
           dataworks-aws-corporate-data-ingestion: dataworks-aws-corporate-data-ingestion-pr
       - task: terraform-plan
-        image: terraform-ecr
         config:
           platform: linux
+          image_resource:
+            type: docker-image
+            source:
+              repository: ((dataworks.terraform_repository))
+              tag: ((dataworks.terraform_version))
           params:
             TF_INPUT: false
             TF_CLI_ARGS_apply: -lock-timeout=300s
