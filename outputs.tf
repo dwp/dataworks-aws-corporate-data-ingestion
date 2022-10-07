@@ -13,4 +13,6 @@ output "private_dns" {
     dataworks_aws_corporate_data_ingestion_discovery_dns = aws_service_discovery_private_dns_namespace.dataworks_aws_corporate_data_ingestion_services
     dataworks_aws_corporate_data_ingestion_discovery     = aws_service_discovery_service.dataworks_aws_corporate_data_ingestion_services
   }
+
+  sensitive = true
 }

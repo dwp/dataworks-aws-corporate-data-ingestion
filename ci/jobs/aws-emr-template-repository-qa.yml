@@ -18,7 +18,6 @@ jobs:
             trigger: false
           - get: al2-emr-ami
             trigger: true
-      - get: terraform-ecr
       - .: (( inject meta.plan.terraform-bootstrap ))
         config:
           params:

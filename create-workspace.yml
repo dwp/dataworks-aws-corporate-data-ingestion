@@ -4,7 +4,7 @@ image_resource:
   type: docker-image
   source:
     repository: ((dataworks.terraform_repository))
-    tag: ((dataworks.terraform_14_version))
+    tag: ((dataworks.terraform_version))
 params:
   TF_INPUT: false
   WORKSPACE: ((workspace))
