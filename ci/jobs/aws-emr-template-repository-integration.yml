@@ -23,7 +23,6 @@ jobs:
             trigger: true
             passed:
               - dataworks-aws-corporate-data-ingestion-qa
-      - get: terraform-ecr
       - .: (( inject meta.plan.terraform-bootstrap ))
         config:
           params:

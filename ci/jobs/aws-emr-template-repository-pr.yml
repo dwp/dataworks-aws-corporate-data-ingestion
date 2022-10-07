@@ -13,7 +13,6 @@ jobs:
           trigger: false
         - get: al2-emr-ami
           trigger: true
-      - get: terraform-ecr
       - put: dataworks-aws-corporate-data-ingestion-pr
         params:
           path: dataworks-aws-corporate-data-ingestion-pr
