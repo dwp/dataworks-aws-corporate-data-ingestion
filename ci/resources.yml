@@ -85,7 +85,7 @@ resources:
     type: registry-image-resource
     source:
       repository: terraform
-      tag: ((dataworks.terraform_14_version))
+      tag: ((dataworks.terraform_version))
       aws_region: ((dataworks.aws_region))
       aws_role_arn: arn:aws:iam::((aws_account.management)):role/ci
 
