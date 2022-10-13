@@ -308,5 +308,62 @@ locals {
     production  = "35"
   }
 
+  spark_executor_cores = {
+    development = 1
+    qa          = 1
+    integration = 1
+    preprod     = 1
+    production  = 1
+  }
+
+  spark_executor_memory = {
+    development = 10
+    qa          = 10
+    integration = 10
+    preprod     = 35
+    production  = 35 # At least 20 or more per executor core
+  }
+
+  spark_driver_memory = {
+    development = 5
+    qa          = 5
+    integration = 5
+    preprod     = 10
+    production  = 10 # Doesn't need as much as executors
+  }
+
+  spark_driver_cores = {
+    development = 1
+    qa          = 1
+    integration = 1
+    preprod     = 1
+    production  = 1
+  }
+  spark_kyro_buffer = {
+    development = "128m"
+    qa          = "128m"
+    integration = "128m"
+    preprod     = "2047m"
+    production  = "2047m" # Max amount allowed
+  }
+
+  spark_yarn_executor_memory_overhead = {
+    development = 2
+    qa          = 2
+    integration = 2
+    preprod     = 7
+    production  = 7
+  }
+
+  spark_executor_instances = {
+    development = 50
+    qa          = 50
+    integration = 50
+    preprod     = 600
+    production  = 600 # More than possible as it won't create them if no core or memory available
+  }
+
+  spark_default_parallelism = local.spark_executor_instances[local.environment] * local.spark_executor_cores[local.environment] * 2
+
   hive_metastore_location = "data/dataworks-aws-corporate-data-ingestion"
 }
