@@ -88,6 +88,21 @@ resource "aws_s3_bucket_object" "configurations" {
       tez_am_resource_memory_mb                     = local.tez_am_resource_memory_mb[local.environment]
       tez_am_launch_cmd_opts                        = local.tez_am_launch_cmd_opts[local.environment]
       tez_runtime_io_sort_mb                        = local.tez_runtime_io_sort_mb[local.environment]
+      s3_published_bucket                           = data.terraform_remote_state.common.outputs.published_bucket.id
+      spark_kyro_buffer                             = local.spark_kyro_buffer[local.environment]
+      spark_executor_cores                          = local.spark_executor_cores[local.environment]
+      spark_executor_memory                         = local.spark_executor_memory[local.environment]
+      spark_driver_memory                           = local.spark_driver_memory[local.environment]
+      spark_driver_cores                            = local.spark_driver_cores[local.environment]
+      spark_yarn_executor_memory_overhead           = local.spark_yarn_executor_memory_overhead[local.environment]
+      spark_executor_instances                      = local.spark_executor_instances[local.environment]
+      spark_default_parallelism                     = local.spark_default_parallelism
+      hive_metastore_endpoint                       = data.terraform_remote_state.internal_compute.outputs.hive_metastore_v2.endpoint
+      hive_metastore_database_name                  = data.terraform_remote_state.internal_compute.outputs.hive_metastore_v2.database_name
+      hive_metastore_username                       = data.terraform_remote_state.internal_compute.outputs.metadata_store_users.corporate_data_ingestion_writer.username
+      hive_metastore_pwd                            = data.terraform_remote_state.internal_compute.outputs.metadata_store_users.corporate_data_ingestion_writer.secret_name
+      tez_runtime_unordered_output_buffer_size_mb   = local.tez_runtime_unordered_output_buffer_size_mb[local.environment]
+
     }
   )
   tags = {

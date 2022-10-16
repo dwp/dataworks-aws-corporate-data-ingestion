@@ -33,3 +33,8 @@ jobs:
             TF_WORKSPACE: default
             AWS_ACC: ((aws_account.development))
             AWS_ROLE_ARN: arn:aws:iam::((aws_account.development)):role/ci
+      - .: (( inject meta.plan.rotate-corporate-data-ingestion-writer-password ))
+        config:
+          params:
+            AWS_ACC: ((aws_account.development))
+            AWS_ROLE_ARN: arn:aws:iam::((aws_account.development)):role/ci
