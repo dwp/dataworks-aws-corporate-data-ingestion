@@ -7,3 +7,4 @@
 
 terraform.tf
 aviator_pipeline.yml
+__pycache__
