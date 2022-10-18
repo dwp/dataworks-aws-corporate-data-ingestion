@@ -9,7 +9,7 @@ variable "dataworks_emr_relauncher_zip" {
 
 resource "aws_lambda_function" "dataworks_aws_corporate_data_ingestion_emr_relauncher" {
   filename      = "${var.dataworks_emr_relauncher_zip["base_path"]}/dataworks-emr-relauncher-${var.dataworks_emr_relauncher_zip["version"]}.zip"
-  function_name = "dataworks_aws_corporate_data_ingestion_emr_relauncher"
+  function_name = replace("${local.emr_cluster_name}_emr_relauncher", "-", "_")
   role          = aws_iam_role.dataworks_aws_corporate_data_ingestion_emr_relauncher_lambda_role.arn
   handler       = "event_handler.handler"
   runtime       = "python3.8"
