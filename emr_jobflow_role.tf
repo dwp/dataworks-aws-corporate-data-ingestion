@@ -29,7 +29,7 @@ resource "aws_iam_instance_profile" "dataworks_aws_corporate_data_ingestion" {
 
 resource "aws_iam_role_policy_attachment" "ec2_for_ssm_attachment" {
   role       = aws_iam_role.dataworks_aws_corporate_data_ingestion.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
 resource "aws_iam_role_policy_attachment" "dataworks_aws_corporate_data_ingestion_ebs_cmk" {
@@ -140,6 +140,10 @@ data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_write_log
     actions = [
       "s3:GetBucketLocation",
       "s3:ListBucket",
+      "s3:GetEncryptionConfiguration",
+      "s3:AbortMultipartUpload",
+      "s3:ListMultipartUploadParts",
+      "s3:ListBucketMultipartUploads"
     ]
 
     resources = [
@@ -289,11 +293,18 @@ data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_write_dyn
     effect = "Allow"
 
     actions = [
-      "dynamodb:*",
+      "dynamodb:DescribeTable",
+      "dynamodb:GetItem",
+      "dynamodb:UpdateItem",
+      "dynamodb:PutItem",
+      "dynamodb:Scan",
+      "dynamodb:GetRecords",
+      "dynamodb:Query",
     ]
 
     resources = [
-      "arn:aws:dynamodb:${var.region}:${local.account[local.environment]}:table/${local.data_pipeline_metadata}"
+      data.terraform_remote_state.internal_compute.outputs.uc_export_crown_dynamodb_table.arn,
+      data.terraform_remote_state.internal_compute.outputs.data_pipeline_metadata_dynamo.arn
     ]
   }
 }
@@ -307,7 +318,7 @@ resource "aws_iam_policy" "dataworks_aws_corporate_data_ingestion_write_dynamodb
   }
 }
 
-resource "aws_iam_role_policy_attachment" "analytical_dataset_generator_dynamodb" {
+resource "aws_iam_role_policy_attachment" "dataworks_aws_corporate_data_ingestion_dynamodb" {
   role       = aws_iam_role.dataworks_aws_corporate_data_ingestion.name
   policy_arn = aws_iam_policy.dataworks_aws_corporate_data_ingestion_write_dynamodb.arn
 }
@@ -327,9 +338,15 @@ data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_metadata_
   }
 }
 
-resource "aws_iam_role_policy_attachment" "dataworks_aws_corporate_data_ingestion_read_write_processed_bucket" {
+
+resource "aws_iam_role_policy_attachment" "dataworks_aws_corporate_data_ingestion_read_write_published_bucket" {
   role       = aws_iam_role.dataworks_aws_corporate_data_ingestion.name
-  policy_arn = aws_iam_policy.dataworks_aws_corporate_data_ingestion_read_write_processed_bucket.arn
+  policy_arn = aws_iam_policy.dataworks_aws_corporate_data_ingestion_read_write_published_bucket.arn
+}
+
+resource "aws_iam_role_policy_attachment" "dataworks_aws_corporate_data_ingestion_read_write_corporate_bucket" {
+  role       = aws_iam_role.dataworks_aws_corporate_data_ingestion.name
+  policy_arn = aws_iam_policy.dataworks_aws_corporate_data_ingestion_read_write_corporate_bucket.arn
 }
 
 resource "aws_iam_policy" "dataworks_aws_corporate_data_ingestion_metadata_change" {

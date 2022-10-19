@@ -74,6 +74,8 @@ resource "aws_s3_bucket_object" "configurations" {
     {
       s3_log_bucket                                 = data.terraform_remote_state.security-tools.outputs.logstore_bucket.id
       s3_log_prefix                                 = local.s3_log_prefix
+      s3_published_bucket                           = data.terraform_remote_state.common.outputs.published_bucket.id
+      s3_corporate_bucket                           = data.terraform_remote_state.aws_ingestion.outputs.corporate_storage_bucket.id
       proxy_no_proxy                                = replace(replace(local.no_proxy, ",", "|"), ".s3", "*.s3")
       proxy_http_host                               = data.terraform_remote_state.internal_compute.outputs.internet_proxy.host
       proxy_http_port                               = data.terraform_remote_state.internal_compute.outputs.internet_proxy.port
