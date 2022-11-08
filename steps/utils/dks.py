@@ -14,12 +14,13 @@ from data import EncryptionMaterials, UCMessage
 
 
 class HTTPRetry:
-    def __init__(self,
-                 retries: int = 10,
-                 backoff: int = 0.1,
-                 status_forcelist: Tuple[int] = (429, 500, 502, 503, 504),
-                 methods: Tuple[str] = ("PUT",),
-                 ):
+    def __init__(
+        self,
+        retries: int = 10,
+        backoff: int = 0.1,
+        status_forcelist: Tuple[int] = (429, 500, 502, 503, 504),
+        methods: Tuple[str] = ("POST", "GET"),
+    ):
         self._retry_strategy = Retry(
             total=retries,
             backoff_factor=backoff,
@@ -27,50 +28,66 @@ class HTTPRetry:
             allowed_methods=methods,
         )
 
-    def retry_session(self):
+    def retry_session(self, http=False):
         adapter = HTTPAdapter(max_retries=self._retry_strategy)
         session = Session()
         session.mount("https://", adapter)
+        if http:
+            session.mount("http://", adapter)
         return session
 
 
 class DKSService:
     def __init__(
-            self,
-            dks_decrypt_endpoint: str,
-            https_retry_config: HTTPRetry,
-            certificates: tuple,
-            dks_call_accumulator=None,
+        self,
+        dks_decrypt_endpoint: str,
+        dks_datakey_endpoint: str,
+        certificates: tuple,
+        http_retry_config: HTTPRetry = HTTPRetry(),
+        dks_call_accumulator=None,
     ):
         self._dks_decrypt_endpoint = dks_decrypt_endpoint
-        self._https_retry = https_retry_config
+        self._dks_datakey_endpoint = dks_datakey_endpoint
+        self._http_retry = http_retry_config
         self._certificates = certificates
         self.dks_call_count = dks_call_accumulator
 
-    def _get_decrypted_key_from_dks(self, encrypted_data_key: str, key_encryption_key_id: str) -> str:
+    def get_new_data_key(self) -> dict:
+        with self._http_retry.retry_session() as session:
+            response = session.get(
+                url=self._dks_datakey_endpoint,
+                cert=self._certificates[0],
+                verify=self._certificates[1],
+            )
+            content = response.json()
+            return content
+
+    def _get_decrypted_key_from_dks(
+        self, encrypted_data_key: str, key_encryption_key_id: str
+    ) -> str:
         if self.dks_call_count is not None:
             self.dks_call_count += 1
 
-        with self._https_retry.retry_session() as session:
+        with self._http_retry.retry_session() as session:
             response = session.post(
                 url=self._dks_decrypt_endpoint,
                 params={"keyId": key_encryption_key_id, "correlationId": ""},
                 data=encrypted_data_key,
                 cert=self._certificates[0],
-                verify=self._certificates[1]
+                verify=self._certificates[1],
             )
         content = response.json()
-        return content["plaintextDataKey"]
+        return content
 
     @lru_cache(maxsize=int(os.getenv("DKS_CACHE_SIZE", "128")))
     def decrypt_data_key(self, encryption_materials: EncryptionMaterials) -> str:
         return self._get_decrypted_key_from_dks(
             encryption_materials.encryptedEncryptionKey,
-            encryption_materials.keyEncryptionKeyId
+            encryption_materials.keyEncryptionKeyId,
         )
 
 
-class MessageDecryptionHelper:
+class MessageCryptoHelper:
     def __init__(self, data_key_service: DKSService):
         self.data_key_service = data_key_service
 
@@ -92,6 +109,6 @@ class MessageDecryptionHelper:
         decrypted_dbobject: str = self.decrypt_string(
             ciphertext=message.encrypted_dbobject,
             data_key=data_key,
-            iv=encryption_materials.initialisationVector
+            iv=encryption_materials.initialisationVector,
         )
         return decrypted_dbobject

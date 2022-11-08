@@ -29,4 +29,6 @@ def generate_encrypted_string(input_string: str) -> (str, EncryptionMaterials):
     datakey_ascii = base64.b64encode(datakey_bytes).decode("ascii")
     ciphertext_ascii = base64.b64encode(ciphertext).decode("ascii")
 
-    return ciphertext_ascii, EncryptionMaterials("not_encrypted", iv_ascii, datakey_ascii)
+    return ciphertext_ascii, EncryptionMaterials(
+        "not_encrypted", iv_ascii, datakey_ascii
+    )
