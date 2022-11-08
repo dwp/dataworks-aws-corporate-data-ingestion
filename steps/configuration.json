@@ -1,0 +1,4 @@
+{
+  "s3_corporate_bucket": "${s3_corporate_bucket}",
+  "s3_published_bucket": "${s3_published_bucket}"
+}

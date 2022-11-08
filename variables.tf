@@ -53,3 +53,13 @@ variable "region" {
   description = "AWS Region name"
   default     = "eu-west-2"
 }
+
+variable "corporate_storage_s3_prefix" {
+  default = {
+    development = "corporate_storage/"
+    qa          = "corporate_storage/"
+    integration = "corporate_storage/"
+    preprod     = "corporate_storage/"
+    production  = "corporate_storage/"
+  }
+}

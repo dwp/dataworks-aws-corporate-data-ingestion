@@ -14,11 +14,15 @@ resource "aws_s3_bucket_object" "download_scripts_sh" {
   content = templatefile("${path.module}/bootstrap_actions/download_scripts.sh",
     {
       VERSION                                          = local.dataworks_aws_corporate_data_ingestion_version[local.environment]
-      dataworks_aws_corporate_data_ingestion_LOG_LEVEL = local.dataworks_aws_corporate_data_ingestion_log_level[local.environment]
       ENVIRONMENT_NAME                                 = local.environment
       S3_COMMON_LOGGING_SHELL                          = format("s3://%s/%s", data.terraform_remote_state.common.outputs.config_bucket.id, data.terraform_remote_state.common.outputs.application_logging_common_file.s3_id)
       S3_LOGGING_SHELL                                 = format("s3://%s/%s", data.terraform_remote_state.common.outputs.config_bucket.id, aws_s3_bucket_object.logging_script.key)
+      dataworks_aws_corporate_data_ingestion_log_level = local.dataworks_aws_corporate_data_ingestion_log_level[local.environment]
+      dataworks_aws_corporate_data_ingestion_log_path  = "/var/log/dataworks-aws-corporate-data-ingestion/sns_notification.log"
       scripts_location                                 = format("s3://%s/%s", data.terraform_remote_state.common.outputs.config_bucket.id, "component/${local.emr_cluster_name}")
+      python_logger_script                             = format("s3://%s/%s", data.terraform_remote_state.common.outputs.config_bucket.id, aws_s3_bucket_object.logger.key)
+      python_configuration_file                        = format("s3://%s/%s", data.terraform_remote_state.common.outputs.config_bucket.id, aws_s3_bucket_object.python_configuration_file.key)
+      corporate_data_ingestion_script                  = format("s3://%s/%s", data.terraform_remote_state.common.outputs.config_bucket.id, aws_s3_bucket_object.corporate_data_ingestion_script.key)
   })
   tags = {
     Name = "download_scripts_sh"
@@ -178,4 +182,16 @@ resource "aws_s3_bucket_object" "update_dynamo_sh" {
   tags = {
     Name = "update_dynamo"
   }
+}
+
+resource "aws_s3_bucket_object" "installer_sh" {
+  bucket     = data.terraform_remote_state.common.outputs.config_bucket.id
+  kms_key_id = data.terraform_remote_state.common.outputs.config_bucket_cmk.arn
+  key        = "component/${local.emr_cluster_name}/installer.sh"
+  content = templatefile("${path.module}/bootstrap_actions/installer.sh",
+    {
+      full_proxy    = data.terraform_remote_state.internal_compute.outputs.internet_proxy.url
+      full_no_proxy = local.no_proxy
+    }
+  )
 }

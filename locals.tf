@@ -113,7 +113,7 @@ locals {
   }
 
   keep_cluster_alive = {
-    development = true
+    development = false
     qa          = false
     integration = false
     preprod     = false
@@ -142,6 +142,14 @@ locals {
     integration = "temp"
     preprod     = "temp"
     production  = "temp"
+  }
+
+  skip_sns_notification_on_corporate_data_ingestion_completion = {
+    development = "true"
+    qa          = "true"
+    integration = "true"
+    preprod     = "false"
+    production  = "false"
   }
 
   # These should be `false` unless we have agreed this data product is to use the capacity reservations so as not to interfere with existing data products running
