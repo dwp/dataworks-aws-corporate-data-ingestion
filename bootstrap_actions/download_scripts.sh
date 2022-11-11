@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2154,SC1083,SC2288  # interfere with templated "for" loop
 
 sudo mkdir -p /var/log/dataworks-aws-corporate-data-ingestion
 sudo mkdir -p /opt/emr/steps
