@@ -3,11 +3,33 @@ from dataclasses import dataclass
 from typing import Dict
 
 
+@dataclass
+class ConfigurationFile:
+    """Class for keeping configuration read from terraform-interpolated configuration file."""
+
+    s3_corporate_bucket: str
+    s3_published_bucket: str
+    dks_decrypt_endpoint: str
+
+
+@dataclass
+class Configuration:
+    """Class for keeping application configuration."""
+
+    correlation_id: str
+    run_timestamp: str  # format: "%Y-%m-%d_%H-%M-%S"
+    collection_name: str
+    source_s3_prefix: str
+    destination_s3_prefix: str
+    configuration_file: ConfigurationFile
+
+
 @dataclass(eq=True, frozen=True)
 class EncryptionMaterials:
-    keyEncryptionKeyId: str
-    initialisationVector: str
+    encryptionKeyId: str
     encryptedEncryptionKey: str
+    initialisationVector: str
+    keyEncryptionKeyId: str
 
 
 class UCMessage:

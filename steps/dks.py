@@ -1,9 +1,12 @@
 import base64
 import binascii
 import os
+from dataclasses import dataclass
 from functools import lru_cache
+from logging import getLogger
 from typing import Tuple
 
+import pyspark
 from Crypto.Cipher import AES
 from Crypto.Util import Counter
 from requests import Session
@@ -12,29 +15,15 @@ from urllib3 import Retry
 
 from data import EncryptionMaterials, UCMessage
 
+logger = getLogger("dks")
 
-class HTTPRetry:
-    def __init__(
-        self,
-        retries: int = 10,
-        backoff: int = 0.1,
-        status_forcelist: Tuple[int] = (429, 500, 502, 503, 504),
-        methods: Tuple[str] = ("POST", "GET"),
-    ):
-        self._retry_strategy = Retry(
-            total=retries,
-            backoff_factor=backoff,
-            status_forcelist=status_forcelist,
-            allowed_methods=methods,
-        )
 
-    def retry_session(self, http=False):
-        adapter = HTTPAdapter(max_retries=self._retry_strategy)
-        session = Session()
-        session.mount("https://", adapter)
-        if http:
-            session.mount("http://", adapter)
-        return session
+@dataclass
+class RetryConfig:
+    retries: int = 10
+    backoff: int = 0.1
+    status_forcelist: Tuple[int] = (429, 500, 502, 503, 504)
+    methods: Tuple[str] = ("POST", "GET")
 
 
 class DKSService:
@@ -43,17 +32,36 @@ class DKSService:
         dks_decrypt_endpoint: str,
         dks_datakey_endpoint: str,
         certificates: tuple,
-        http_retry_config: HTTPRetry = HTTPRetry(),
-        dks_call_accumulator=None,
+        verify: str,
+        retry_config: RetryConfig = RetryConfig(),
+        dks_call_accumulator: pyspark.Accumulator = None,
     ):
         self._dks_decrypt_endpoint = dks_decrypt_endpoint
         self._dks_datakey_endpoint = dks_datakey_endpoint
-        self._http_retry = http_retry_config
+        self._retry_config = retry_config
         self._certificates = certificates
+        self._verify = verify
+        self._http_adapter = None
         self.dks_call_count = dks_call_accumulator
 
+    def _retry_session(self, http=False) -> Session:
+        if not self._http_adapter:
+            self._http_adapter = HTTPAdapter(
+                max_retries=Retry(
+                    total=self._retry_config.retries,
+                    backoff_factor=self._retry_config.backoff,
+                    status_forcelist=self._retry_config.status_forcelist,
+                    allowed_methods=self._retry_config.methods,
+                )
+            )
+        session = Session()
+        session.mount("https://", self._http_adapter)
+        if http:
+            session.mount("http://", self._http_adapter)
+        return session
+
     def get_new_data_key(self) -> dict:
-        with self._http_retry.retry_session() as session:
+        with self._retry_session() as session:
             response = session.get(
                 url=self._dks_datakey_endpoint,
                 cert=self._certificates[0],
@@ -63,31 +71,40 @@ class DKSService:
             return content
 
     def _get_decrypted_key_from_dks(
-        self, encrypted_data_key: str, key_encryption_key_id: str
+        self,
+        encrypted_data_key: str,
+        key_encryption_key_id: str,
     ) -> str:
-        if self.dks_call_count is not None:
-            self.dks_call_count += 1
-
-        with self._http_retry.retry_session() as session:
+        with self._retry_session() as session:
             response = session.post(
                 url=self._dks_decrypt_endpoint,
                 params={"keyId": key_encryption_key_id, "correlationId": ""},
                 data=encrypted_data_key,
-                cert=self._certificates[0],
-                verify=self._certificates[1],
+                cert=self._certificates,
+                verify=self._verify,
             )
+
         content = response.json()
-        return content
+        if "plaintextDataKey" not in content:
+            # todo: check response code & provide detail in exception message
+            raise Exception("Unable to retrieve datakey from DKS")
+
+        if self.dks_call_count is not None:
+            self.dks_call_count += 1
+        return content["plaintextDataKey"]
 
     @lru_cache(maxsize=int(os.getenv("DKS_CACHE_SIZE", "128")))
-    def decrypt_data_key(self, encryption_materials: EncryptionMaterials) -> str:
+    def decrypt_data_key(
+        self,
+        encryption_materials: EncryptionMaterials,
+    ) -> str:
         return self._get_decrypted_key_from_dks(
             encryption_materials.encryptedEncryptionKey,
             encryption_materials.keyEncryptionKeyId,
         )
 
 
-class MessageCryptoHelper:
+class MessageCryptoHelper(object):
     def __init__(self, data_key_service: DKSService):
         self.data_key_service = data_key_service
 
@@ -103,7 +120,9 @@ class MessageCryptoHelper:
         decrypted_bytes: bytes = aes.decrypt(ciphertext_bytes)
         return decrypted_bytes.decode("utf8")
 
-    def get_decrypted_dbobject(self, message: UCMessage) -> str:
+    def decrypt_dbobject(
+        self, message: UCMessage, record_accumulator: pyspark.Accumulator = None
+    ) -> str:
         encryption_materials = message.encryption_materials
         data_key = self.data_key_service.decrypt_data_key(encryption_materials)
         decrypted_dbobject: str = self.decrypt_string(
@@ -111,4 +130,7 @@ class MessageCryptoHelper:
             data_key=data_key,
             iv=encryption_materials.initialisationVector,
         )
+
+        if record_accumulator:
+            record_accumulator += 1
         return decrypted_dbobject
