@@ -27,3 +27,10 @@ resource "aws_s3_bucket_object" "python_configuration_file" {
     }
   )
 }
+
+resource "aws_s3_bucket_object" "python_utils" {
+  for_each = toset(["data.py", "dks.py"])
+  bucket   = data.terraform_remote_state.common.outputs.config_bucket.id
+  key      = "component/${local.emr_cluster_name}/${each.key}"
+  content  = file("${path.module}/steps/${each.key}")
+}
