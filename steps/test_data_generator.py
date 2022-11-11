@@ -12,6 +12,7 @@ def generate_test_encryption_material(index: int) -> (int, EncryptionMaterials):
         keyEncryptionKeyId=f"KeyEncryptionKeyId-{index}",
         initialisationVector=f"initialisationVector-{index}",
         encryptedEncryptionKey=f"encryptedEncryptionKey-{index}",
+        encryptionKeyId="",
     )
 
 
@@ -30,5 +31,5 @@ def generate_encrypted_string(input_string: str) -> (str, EncryptionMaterials):
     ciphertext_ascii = base64.b64encode(ciphertext).decode("ascii")
 
     return ciphertext_ascii, EncryptionMaterials(
-        "not_encrypted", iv_ascii, datakey_ascii
+        "not_encrypted", iv_ascii, datakey_ascii, ""
     )

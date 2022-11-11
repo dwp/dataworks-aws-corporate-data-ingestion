@@ -1,8 +1,8 @@
 from unittest import TestCase
 from unittest.mock import MagicMock
 
-from data import UCMessage, EncryptionMaterials
-from dks import DKSService, HTTPRetry, MessageCryptoHelper
+from data import UCMessage
+from dks import DKSService, RetryConfig, MessageCryptoHelper
 from test_data_generator import (
     generate_test_encryption_material,
     generate_encrypted_string,
@@ -16,8 +16,9 @@ class TestDKSCache(TestCase):
         dks_service = DKSService(
             dks_decrypt_endpoint="http://localhost:8443/datakey/actions/decrypt",
             dks_datakey_endpoint="http://localhost:8443/datakey",
-            http_retry_config=HTTPRetry(),
+            retry_config=RetryConfig(),
             certificates=(None, None),
+            verify="",
         )
 
         def mock_decryption(*args):
@@ -82,20 +83,6 @@ class TestDKSCache(TestCase):
         self.assertEqual(dks_service.decrypt_data_key.cache_info().misses, 0)
         self.assertEqual(dks_service.decrypt_data_key.cache_info().currsize, 0)
 
-    dks_helper = DKSService(
-        dks_decrypt_endpoint="http://localhost:8443/datakey/actions/decrypt",
-        dks_datakey_endpoint="http://localhost:8443/datakey",
-        http_retry_config=HTTPRetry(),
-        certificates=(None, None),
-    )
-
-    encryption_materials_raw = dks_helper.get_new_data_key()
-    encryption_materials = EncryptionMaterials(
-        keyEncryptionKeyId=encryption_materials_raw["dataKeyEncryptionKeyId"],
-        initialisationVector="",
-        encryptedEncryptionKey=encryption_materials_raw["ciphertextDataKey"],
-    )
-
 
 class TestMessageDecryptionHelper(TestCase):
     def test_decrypt_string(self):
@@ -103,7 +90,8 @@ class TestMessageDecryptionHelper(TestCase):
             dks_decrypt_endpoint="http://localhost:8443/datakey/actions/decrypt",
             dks_datakey_endpoint="http://localhost:8443/datakey",
             certificates=(None, None),
-            http_retry_config=HTTPRetry(),
+            verify="",
+            retry_config=RetryConfig(),
         )
         # mock the data key service - data key not encrypted
         dks_service._get_decrypted_key_from_dks = MagicMock(side_effect=lambda x, y: x)
@@ -124,6 +112,4 @@ class TestMessageDecryptionHelper(TestCase):
             uc_message = MagicMock(UCMessage)
             uc_message.encryption_materials = encryption_materials
             uc_message.encrypted_dbobject = ciphertext
-            self.assertEqual(
-                plaintext, decryption_helper.get_decrypted_dbobject(uc_message)
-            )
+            self.assertEqual(plaintext, decryption_helper.decrypt_dbobject(uc_message))
