@@ -20,8 +20,8 @@ DEFAULT_AWS_REGION = "eu-west-2"
 
 # Interpolated by terraform
 logger = setup_logging(
-    log_level="INFO",
-    log_path="/opt/emr/steps/pyspark_ingestion.log",
+    log_level="${log_level}",
+    log_path="${log_path}",
 )
 
 
@@ -134,6 +134,7 @@ class CorporateDataIngester:
             decryption_helper = Utils.get_decryption_helper(
                 decrypt_endpoint=self.configuration.configuration_file.dks_decrypt_endpoint,
                 dks_call_accumulator=dks_call_accumulator,
+
             )
 
             logger.info(f"Emptying destination prefix")
@@ -160,7 +161,6 @@ class CorporateDataIngester:
             dks_call_count = dks_call_accumulator.value
 
             self.create_result_file_in_s3_destination_prefix(record_count)
-
             logger.info(f"Number files in RDD: {file_count}")
             logger.info(f"Number of records in RDD: {record_count}")
             logger.info(f"Number of call to DKS: {dks_call_count}")

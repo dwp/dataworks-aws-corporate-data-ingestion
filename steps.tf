@@ -25,6 +25,7 @@ resource "aws_s3_bucket_object" "python_configuration_file" {
       s3_corporate_bucket  = data.terraform_remote_state.aws_ingestion.outputs.corporate_storage_bucket.id
       s3_published_bucket  = data.terraform_remote_state.common.outputs.published_bucket.id
       dks_decrypt_endpoint = "${data.terraform_remote_state.crypto.outputs.dks_endpoint[local.environment]}/datakey/actions/decrypt"
+      dks_max_retries      = local.dks_max_retries[local.environment]
     }
   )
 }

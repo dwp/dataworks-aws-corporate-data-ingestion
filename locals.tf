@@ -128,6 +128,14 @@ locals {
     production  = "TERMINATE_CLUSTER"
   }
 
+  dks_max_retries = {
+    development = 2
+    qa          = 2
+    integration = 2
+    preprod     = 10
+    production  = 10
+  }
+
   cw_agent_namespace                   = "/app/${local.emr_cluster_name}"
   cw_agent_log_group_name              = "/app/${local.emr_cluster_name}"
   cw_agent_bootstrap_loggrp_name       = "/app/${local.emr_cluster_name}/bootstrap_actions"

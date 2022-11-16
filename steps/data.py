@@ -10,6 +10,7 @@ class ConfigurationFile:
     s3_corporate_bucket: str
     s3_published_bucket: str
     dks_decrypt_endpoint: str
+    dks_max_retries: str
 
 
 @dataclass

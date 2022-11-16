@@ -44,7 +44,8 @@ chmod u+x /opt/emr/logging.sh
     aws s3 cp "${python_logger_script}" /opt/emr/steps/.
     aws s3 cp "${python_configuration_file}" /opt/emr/steps/.
 %{ for python_util_file in python_utils ~}
-    aws s3 cp "${python_util_file}" /opt/emr/steps/utils/.
+    filename=$(echo ${python_util_file} | rev | cut -d'/' -f 1 | rev)
+    aws s3 cp "${python_util_file}" /opt/emr/steps/$filename
 %{ endfor ~}
     sudo chmod --recursive a+rx /opt/emr/steps/
 
