@@ -124,9 +124,9 @@ class CorporateDataIngester:
             bucket=self.configuration.configuration_file.s3_published_bucket,
             prefix=self.configuration.destination_s3_prefix.lstrip("/"),
         )
+        correlation_id = self.configuration.correlation_id
 
         try:
-            # Set up accumulators, instantiate providers for decryption
             file_accumulator = self.spark.sparkContext.accumulator(0)
             record_accumulator = self.spark.sparkContext.accumulator(0)
             dks_call_accumulator = self.spark.sparkContext.accumulator(0)
@@ -134,7 +134,6 @@ class CorporateDataIngester:
             decryption_helper = Utils.get_decryption_helper(
                 decrypt_endpoint=self.configuration.configuration_file.dks_decrypt_endpoint,
                 dks_call_accumulator=dks_call_accumulator,
-
             )
 
             logger.info(f"Emptying destination prefix")
@@ -143,17 +142,13 @@ class CorporateDataIngester:
             file_rdd = self.read_binary(s3_source_url).mapValues(
                 lambda x: Utils.decompress(x, file_accumulator)
             )
-            record_rdd = (
-                file_rdd.flatMapValues(Utils.to_records)
-                .coalesce(1)
-                .map(lambda x: UCMessage(x[1]))
-                .map(
-                    lambda x: decryption_helper.decrypt_dbobject(x, record_accumulator)
-                )
+            file_rdd \
+                .flatMapValues(Utils.to_records) \
+                .map(lambda x: UCMessage(x[1])) \
+                .map(lambda x: decryption_helper.decrypt_dbobject(x, record_accumulator, correlation_id)) \
                 .saveAsTextFile(
                     s3_destination_url,
                     compressionCodecClass="com.hadoop.compression.lzo.LzopCodec",
-                )
             )
 
             file_count = file_accumulator.value
@@ -167,14 +162,14 @@ class CorporateDataIngester:
 
         except Py4JJavaError as err:
             logger.error(
-                f"""Spark error occurred processing collection named {self.configuration.collection_name} """
-                f""" for correlation id: {self.configuration.correlation_id} {str(err)}" """
+                f"""Spark error occurred processing collection named {correlation_id} """
+                f""" for correlation id: {correlation_id} {str(err)}" """
             )
             raise
         except Exception as err:
             logger.error(
                 f"""Unexpected error occurred processing collection named {self.configuration.collection_name} """
-                f""" for correlation id: {self.configuration.correlation_id} "{str(err)}" """
+                f""" for correlation id: {correlation_id} "{str(err)}" """
             )
             raise
 

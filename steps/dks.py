@@ -20,7 +20,7 @@ logger = getLogger("dks")
 
 @dataclass
 class RetryConfig:
-    retries: int = 10
+    retries: int = 3
     backoff: int = 0.1
     status_forcelist: Tuple[int] = (429, 500, 502, 503, 504)
     methods: Tuple[str] = ("POST", "GET")
@@ -74,17 +74,22 @@ class DKSService:
         self,
         encrypted_data_key: str,
         key_encryption_key_id: str,
+        correlation_id: str,
     ) -> str:
         with self._retry_session() as session:
             response = session.post(
                 url=self._dks_decrypt_endpoint,
-                params={"keyId": key_encryption_key_id, "correlationId": ""},
+                params={
+                    "keyId": key_encryption_key_id,
+                    "correlationId": correlation_id,
+                },
                 data=encrypted_data_key,
                 cert=self._certificates,
                 verify=self._verify,
             )
 
         content = response.json()
+
         if "plaintextDataKey" not in content:
             # todo: check response code & provide detail in exception message
             raise Exception("Unable to retrieve datakey from DKS")
@@ -97,10 +102,12 @@ class DKSService:
     def decrypt_data_key(
         self,
         encryption_materials: EncryptionMaterials,
+        correlation_id: str,
     ) -> str:
         return self._get_decrypted_key_from_dks(
             encryption_materials.encryptedEncryptionKey,
             encryption_materials.keyEncryptionKeyId,
+            correlation_id,
         )
 
 
@@ -121,10 +128,15 @@ class MessageCryptoHelper(object):
         return decrypted_bytes.decode("utf8")
 
     def decrypt_dbobject(
-        self, message: UCMessage, record_accumulator: pyspark.Accumulator = None
+        self,
+        message: UCMessage,
+        correlation_id: str,
+        record_accumulator: pyspark.Accumulator = None,
     ) -> str:
         encryption_materials = message.encryption_materials
-        data_key = self.data_key_service.decrypt_data_key(encryption_materials)
+        data_key = self.data_key_service.decrypt_data_key(
+            encryption_materials, correlation_id
+        )
         decrypted_dbobject: str = self.decrypt_string(
             ciphertext=message.encrypted_dbobject,
             data_key=data_key,
