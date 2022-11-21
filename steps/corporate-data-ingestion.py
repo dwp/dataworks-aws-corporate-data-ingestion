@@ -27,30 +27,14 @@ logger = setup_logging(
 
 class Utils(object):
     @staticmethod
-    def get_list_keys_for_s3_prefix(s3_client: BaseClient, s3_bucket: str, s3_prefix: str) -> List[str]:
-        logger.info(
-            "Looking for files to process in bucket : %s with prefix : %s",
-            s3_bucket,
-            s3_prefix,
-        )
-        keys = []
-        paginator = s3_client.get_paginator("list_objects_v2")
-        pages = paginator.paginate(Bucket=s3_bucket, Prefix=s3_prefix)
-        for page in pages:
-            if "Contents" in page:
-                for obj in page["Contents"]:
-                    keys.append(obj["Key"])
-        if s3_prefix in keys:
-            keys.remove(s3_prefix)
-        return keys
-
-    @staticmethod
     def decompress(compressed_text: bytes, accumulator: pyspark.Accumulator) -> bytes:
+        """Decompresses jsonl.gz"""
         accumulator += 1
         return zlib.decompress(compressed_text, 16 + zlib.MAX_WBITS)
 
     @staticmethod
     def to_records(multi_record_bytes: bytes) -> List[str]:
+        """Decodes, removes empty line from end of each file, and splits by line"""
         return multi_record_bytes.decode().rstrip("\n").split("\n")
 
     @staticmethod
@@ -219,8 +203,11 @@ def get_parameters() -> argparse.Namespace:
 
 
 def main():
+    logger.info("getting args")
     args = get_parameters()
-    logger.info(f"args: ", extra={arg: val for arg, val in vars(args).items()})
+    logger.info(f"args: {str(args)}")
+
+    logger.info("parsing configuration file")
     with open("/opt/emr/steps/configuration.json", "r") as fd:
         data = json.load(fd)
     configuration_file = ConfigurationFile(**data)
@@ -232,6 +219,8 @@ def main():
         destination_s3_prefix=args.destination_s3_prefix,
         configuration_file=configuration_file,
     )
+
+    logger.info("initialising CorporateDataIngester")
     ingester = CorporateDataIngester(configuration)
     logger.info(f"Processing spark job for correlation_id: {args.correlation_id}")
     ingester.execute()
