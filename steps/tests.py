@@ -1,5 +1,6 @@
 import base64
 import binascii
+from datetime import datetime, timezone
 import json
 from unittest import TestCase
 from unittest.mock import MagicMock
@@ -191,7 +192,7 @@ class TestMessageDecryptionHelper(TestCase):
             )
 
             (message, encryption_material, db_object) = TestUtils.generate_test_uc_message(index)
-            decrypted_uc_message = decryption_helper.decrypt_dbobject(message=message, correlation_id="")
+            decrypted_uc_message = decryption_helper.decrypt_message_dbObject(message=message, correlation_id="")
 
             self.assertIn("message", decrypted_uc_message.message_json)
             self.assertIn("dbObject", decrypted_uc_message.message_json["message"])
@@ -220,29 +221,36 @@ class TestUCMessage(TestCase):
             message.update({"timestamp": kafkaTimestamp})
         return json.dumps(message)
 
-    def test_getLastModified(self):
+    def test_get_last_modified(self):
         epoch = "1980-01-01T00:00:00.000+0000"
+
+        def format_ts(ts: datetime) -> str:
+            return ts.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + ts.strftime("%z")
+
+        ct = format_ts(datetime(year=2000, month=1, day=1, tzinfo=timezone.utc))
+        kt = format_ts(datetime(year=2000, month=1, day=2, tzinfo=timezone.utc))
+        lt = format_ts(datetime(year=2000, month=1, day=3, tzinfo=timezone.utc))
 
         # where the record type is MONGO_DELETE use kt > lt > ct > epoch
         self.assertEqual(
-            ("kt-0123", "kafkaMessageDateTime"),
-            UCMessage(self.get_event("lt-0123", "ct-0123", "kt-0123", "MONGO_DELETE")).last_modified,
+            (kt, "kafkaMessageDateTime"),
+            UCMessage(self.get_event(lt, ct, kt, "MONGO_DELETE")).last_modified,
         )
         self.assertEqual(
-            ("lt-0123", "_lastModifiedDateTime"),
-            UCMessage(self.get_event("lt-0123", "ct-0123", "", "MONGO_DELETE")).last_modified,
+            (lt, "_lastModifiedDateTime"),
+            UCMessage(self.get_event(lt, ct, "", "MONGO_DELETE")).last_modified,
         )
         self.assertEqual(
-            ("lt-0123", "_lastModifiedDateTime"),
-            UCMessage(self.get_event("lt-0123", "ct-0123", None, "MONGO_DELETE")).last_modified,
+            (lt, "_lastModifiedDateTime"),
+            UCMessage(self.get_event(lt, ct, None, "MONGO_DELETE")).last_modified,
         )
         self.assertEqual(
-            ("ct-0123", "createdDateTime"),
-            UCMessage(self.get_event("", "ct-0123", None, "MONGO_DELETE")).last_modified,
+            (ct, "createdDateTime"),
+            UCMessage(self.get_event("", ct, None, "MONGO_DELETE")).last_modified,
         )
         self.assertEqual(
-            ("ct-0123", "createdDateTime"),
-            UCMessage(self.get_event(None, "ct-0123", None, "MONGO_DELETE")).last_modified,
+            (ct, "createdDateTime"),
+            UCMessage(self.get_event(None, ct, None, "MONGO_DELETE")).last_modified,
         )
         self.assertEqual(
             (epoch, "epoch"),
@@ -253,34 +261,34 @@ class TestUCMessage(TestCase):
             UCMessage(self.get_event(None, None, None, "MONGO_DELETE")).last_modified,
         )
         self.assertEqual(
-            ("kt-0123", "kafkaMessageDateTime"),
-            UCMessage(self.get_event("", "", "kt-0123", "MONGO_DELETE")).last_modified,
+            (kt, "kafkaMessageDateTime"),
+            UCMessage(self.get_event("", "", kt, "MONGO_DELETE")).last_modified,
         )
         self.assertEqual(
-            UCMessage(self.get_event(None, None, "kt-0123", "MONGO_DELETE")).last_modified,
-            ("kt-0123", "kafkaMessageDateTime"),
+            (kt, "kafkaMessageDateTime"),
+            UCMessage(self.get_event(None, None, kt, "MONGO_DELETE")).last_modified,
         )
 
         # where the record is not "MONGO_DELETE", use lt > ct > epoch
         self.assertEqual(
-            ("lt-0123", "_lastModifiedDateTime"),
-            UCMessage(self.get_event("lt-0123", "ct-0123", "kt-0123", "UPDATE")).last_modified,
+            (lt, "_lastModifiedDateTime"),
+            UCMessage(self.get_event(lt, ct, kt, "UPDATE")).last_modified,
         )
         self.assertEqual(
-            ("ct-0123", "createdDateTime"),
-            UCMessage(self.get_event("", "ct-0123", "kt-0123", "UPDATE")).last_modified,
+            (ct, "createdDateTime"),
+            UCMessage(self.get_event("", ct, kt, "UPDATE")).last_modified,
         )
         self.assertEqual(
-            ("ct-0123", "createdDateTime"),
-            UCMessage(self.get_event(None, "ct-0123", "kt-0123", "UPDATE")).last_modified,
-        )
-        self.assertEqual(
-            (epoch, "epoch"),
-            UCMessage(self.get_event(None, "", "kt-0123", "UPDATE")).last_modified,
+            (ct, "createdDateTime"),
+            UCMessage(self.get_event(None, ct, kt, "UPDATE")).last_modified,
         )
         self.assertEqual(
             (epoch, "epoch"),
-            UCMessage(self.get_event(None, None, "kt-0123", "UPDATE")).last_modified,
+            UCMessage(self.get_event(None, "", kt, "UPDATE")).last_modified,
+        )
+        self.assertEqual(
+            (epoch, "epoch"),
+            UCMessage(self.get_event(None, None, kt, "UPDATE")).last_modified,
         )
         self.assertEqual(
             (epoch, "epoch"),
@@ -291,12 +299,12 @@ class TestUCMessage(TestCase):
             UCMessage(self.get_event(None, None, None, "UPDATE")).last_modified,
         )
         self.assertEqual(
-            ("lt-0123", "_lastModifiedDateTime"),
-            UCMessage(self.get_event("lt-0123", "", "", "UPDATE")).last_modified,
+            (lt, "_lastModifiedDateTime"),
+            UCMessage(self.get_event(lt, "", "", "UPDATE")).last_modified,
         )
         self.assertEqual(
-            ("lt-0123", "_lastModifiedDateTime"),
-            UCMessage(self.get_event("lt-0123", None, None, "UPDATE")).last_modified,
+            (lt, "_lastModifiedDateTime"),
+            UCMessage(self.get_event(lt, None, None, "UPDATE")).last_modified,
         )
 
     def test_get_decrypted_uc_message(self):
@@ -326,3 +334,30 @@ class TestUCMessage(TestCase):
             self.assertNotIn("encryption", result.message_json)
             self.assertIn("dbObject", result.message_json["message"])
             self.assertEqual("'decrypted dbObject'", result.message_json["message"]["dbObject"])
+
+    def test_get_timestamp(self):
+        # test successes (input_timestamp, expected ms_since_epoch)
+        test_valid_timestamps = [
+            ("2020-05-21T17:18:15.693+0000", "1590081495693"),
+            ("2020-05-21T17:18:15.693000+0000", "1590081495693"),
+            ("", "315532800000"),
+        ]
+
+        for test_kafka_timestamp, result in test_valid_timestamps:
+            message = json.dumps({"message": {"encryption": {}, "_lastModifiedDateTime": test_kafka_timestamp}})
+            self.assertEqual(result, UCMessage(message).timestamp)
+
+        # test failures (input_timestamp, expected Exception)
+        test_invalid_timestamps = [
+            ("2020-05-21T17:18:15.693+00", ValueError),
+            ("2020-05-21T17:18:15+0000", ValueError),
+            ("2020-13-21T17:18:15+0000", ValueError),
+            ("20-05-21T17:18:15+0000", ValueError),
+            (123, TypeError),
+            (None, TypeError),
+        ]
+
+        for test_kafka_timestamp, error in test_invalid_timestamps:
+            message = json.dumps({"message": {"encryption": {}, "_lastModifiedDateTime": test_kafka_timestamp}})
+            with self.assertRaises(error):
+                _ = UCMessage(message).timestamp

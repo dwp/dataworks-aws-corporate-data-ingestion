@@ -127,7 +127,7 @@ class MessageCryptoHelper(object):
         decrypted_bytes: bytes = aes.decrypt(ciphertext_bytes)
         return decrypted_bytes.decode("utf8")
 
-    def decrypt_dbobject(
+    def decrypt_message_dbObject(
         self,
         message: UCMessage,
         correlation_id: str,
