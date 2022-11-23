@@ -1,4 +1,6 @@
 {
   "s3_corporate_bucket": "${s3_corporate_bucket}",
-  "s3_published_bucket": "${s3_published_bucket}"
+  "s3_published_bucket": "${s3_published_bucket}",
+  "dks_decrypt_endpoint": "${dks_decrypt_endpoint}",
+  "dks_max_retries": "${dks_max_retries}"
 }

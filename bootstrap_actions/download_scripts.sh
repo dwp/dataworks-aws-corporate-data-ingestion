@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2154,SC1083,SC2288  # interfere with templated "for" loop
 
 sudo mkdir -p /var/log/dataworks-aws-corporate-data-ingestion
 sudo mkdir -p /opt/emr/steps
@@ -42,7 +43,11 @@ chmod u+x /opt/emr/logging.sh
     aws s3 cp "${corporate_data_ingestion_script}" /opt/emr/steps/.
     aws s3 cp "${python_logger_script}" /opt/emr/steps/.
     aws s3 cp "${python_configuration_file}" /opt/emr/steps/.
-    sudo chmod --recursive a+rx /opt/emr/steps/.
+%{ for python_util_file in python_utils ~}
+    filename=$(echo "${python_util_file}" | rev | cut -d'/' -f 1 | rev)
+    aws s3 cp "${python_util_file}" "/opt/emr/steps/$filename"
+%{ endfor ~}
+    sudo chmod --recursive a+rx /opt/emr/steps/
 
     log_wrapper_message "Script downloads completed"
 

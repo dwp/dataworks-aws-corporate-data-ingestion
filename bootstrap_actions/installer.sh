@@ -32,6 +32,8 @@
     sudo -E $PIP install boto3==1.23.1 >> /var/log/dataworks-aws-corporate-data-ingestion/install-boto3.log 2>&1
     #shellcheck disable=SC2024
     sudo -E $PIP install requests >> /var/log/dataworks-aws-corporate-data-ingestion/install-requests.log 2>&1
+    #shellcheck disable=SC2024
+    sudo -E $PIP install urllib3 >> /var/log/dataworks-aws-corporate-data-ingestion/install-urllib3.log 2>&1
 
     #shellcheck disable=SC2024
     {

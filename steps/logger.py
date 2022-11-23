@@ -5,7 +5,7 @@ import datetime as dt
 
 
 class CustomLogFormatter(logging.Formatter):
-    converter=dt.datetime.fromtimestamp
+    converter = dt.datetime.fromtimestamp
 
     def formatTime(self, record, datefmt=None):
         ct = self.converter(record.created)

@@ -40,9 +40,15 @@ jobs:
             dir: dataworks-aws-corporate-data-ingestion
           inputs:
             - name: dataworks-aws-corporate-data-ingestion
+
+      - .: (( inject meta.plan.python-unit-tests ))
+        input_mapping:
+          dataworks-aws-corporate-data-ingestion: dataworks-aws-corporate-data-ingestion-pr
+
       - .: (( inject meta.plan.terraform-bootstrap ))
         input_mapping:
           dataworks-aws-corporate-data-ingestion: dataworks-aws-corporate-data-ingestion-pr
+
       - task: terraform-plan
         config:
           platform: linux
