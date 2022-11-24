@@ -145,7 +145,7 @@ class CorporateDataIngester:
             file_rdd \
                 .flatMapValues(Utils.to_records) \
                 .map(lambda x: UCMessage(x[1])) \
-                .map(lambda x: decryption_helper.decrypt_dbobject(x, record_accumulator, correlation_id)) \
+                .map(lambda x: decryption_helper.decrypt_dbobject(x, correlation_id, record_accumulator)) \
                 .saveAsTextFile(
                     s3_destination_url,
                     compressionCodecClass="com.hadoop.compression.lzo.LzopCodec",
