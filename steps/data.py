@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Dict
 
@@ -47,5 +48,34 @@ class UCMessage:
         return EncryptionMaterials(**self.message_json["message"]["encryption"])
 
     @property
-    def encrypted_dbobject(self) -> str:
+    def dbobject(self) -> str:
         return self.message_json["message"]["dbObject"]
+
+    @property
+    def last_modified(self) -> (str, str):
+        record_type = self.message_json.get("message", {}).get("@type", "NOT_SET")
+
+        epoch = "1980-01-01T00:00:00.000+0000"
+        kafka_timestamp = self.message_json.get("timestamp", "")
+        last_modified_timestamp = self.message_json.get("message", {}).get("_lastModifiedDateTime", "")
+        created_timestamp = self.message_json.get("message", {}).get("createdDateTime", "")
+
+        if record_type == "MONGO_DELETE" and kafka_timestamp != "" and isinstance(kafka_timestamp, str):
+            return kafka_timestamp, "kafkaMessageDateTime"
+
+        if last_modified_timestamp != "":
+            return last_modified_timestamp, "_lastModifiedDateTime"
+
+        if created_timestamp != "":
+            return created_timestamp, "createdDateTime"
+
+        return epoch, "epoch"
+
+    def get_decrypted_uc_message(self, decrypted_dbobject: str):
+        """Returns new UCMessage object, replacing encrypted dbObject attribute with the decrypted
+            dbObject provided.  Removes encryption materials.
+        """
+        json_message = deepcopy(self.message_json)
+        json_message["message"].update([("dbObject", decrypted_dbobject)])
+        json_message["message"].pop("encryption", None)
+        return UCMessage(json.dumps(json_message))

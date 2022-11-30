@@ -146,10 +146,11 @@ class CorporateDataIngester:
                 .flatMapValues(Utils.to_records) \
                 .map(lambda x: UCMessage(x[1])) \
                 .map(lambda x: decryption_helper.decrypt_dbobject(x, correlation_id, record_accumulator)) \
+                .map(lambda x: x.dbobject) \
                 .saveAsTextFile(
                     s3_destination_url,
                     compressionCodecClass="com.hadoop.compression.lzo.LzopCodec",
-            )
+                )
 
             file_count = file_accumulator.value
             record_count = record_accumulator.value
