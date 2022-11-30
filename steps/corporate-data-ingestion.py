@@ -3,6 +3,7 @@ import json
 import uuid
 import zlib
 from datetime import datetime
+from os import path
 from typing import Optional, List
 
 import boto3
@@ -12,9 +13,9 @@ from botocore.client import BaseClient
 from py4j.protocol import Py4JJavaError
 from pyspark.sql import SparkSession
 
-from logger import setup_logging
 from data import UCMessage, ConfigurationFile, Configuration
 from dks import MessageCryptoHelper, DKSService
+from logger import setup_logging
 
 DEFAULT_AWS_REGION = "eu-west-2"
 
@@ -62,11 +63,15 @@ class Utils(object):
 class CorporateDataIngester:
     def __init__(self, configuration):
         self.configuration = configuration
+        logger.info("S3 client: initialising")
         self.s3_client = self.get_s3_client()
+        logger.info("S3 client: initialised")
+        logger.info("Spark session: initialising")
         self.spark = self.get_spark_session()
+        logger.info("Spark session: initialised")
 
     @staticmethod
-    def get_spark_session():
+    def get_spark_session() -> SparkSession:
         spark = (
             SparkSession.builder.master("yarn")
             .config("spark.executor.heartbeatInterval", "300000")
@@ -96,20 +101,32 @@ class CorporateDataIngester:
 
     # Processes and publishes data
     def execute(self):
+        logger.info("Reading configuration")
+        correlation_id = self.configuration.correlation_id
+        export_date = self.configuration.export_date
+
+        corporate_bucket = self.configuration.configuration_file.s3_corporate_bucket
+        source_prefix = self.configuration.source_s3_prefix
+
+        published_bucket = self.configuration.configuration_file.s3_published_bucket
+        destination_prefix = self.configuration.destination_s3_prefix
+
+        # define source and destination s3 URIs
         s3_source_url = "s3://{bucket}/{prefix}".format(
-            bucket=self.configuration.configuration_file.s3_corporate_bucket,
-            prefix=self.configuration.source_s3_prefix.lstrip("/"),
+            bucket=corporate_bucket,
+            prefix=source_prefix.lstrip("/"),
         )
         s3_destination_url = "s3://{bucket}/{prefix}".format(
-            bucket=self.configuration.configuration_file.s3_published_bucket,
-            prefix=self.configuration.destination_s3_prefix.lstrip("/"),
+            bucket=published_bucket,
+            prefix=path.join(destination_prefix.lstrip("/"), export_date)
         )
-        correlation_id = self.configuration.correlation_id
 
+        # begin processing
         try:
             file_accumulator = self.spark.sparkContext.accumulator(0)
             record_accumulator = self.spark.sparkContext.accumulator(0)
             dks_call_accumulator = self.spark.sparkContext.accumulator(0)
+
             logger.info(f"Instantiating decryption helper")
             decryption_helper = Utils.get_decryption_helper(
                 decrypt_endpoint=self.configuration.configuration_file.dks_decrypt_endpoint,
@@ -117,21 +134,21 @@ class CorporateDataIngester:
             )
 
             logger.info(f"Emptying destination prefix")
-            self.empty_s3_destination_prefix()
+            self.empty_s3_prefix(published_bucket=published_bucket, prefix=destination_prefix)
 
-            file_rdd = self.read_binary(s3_source_url).mapValues(
-                lambda x: Utils.decompress(x, file_accumulator)
+            # Persist records to JSONL in S3
+            logger.info("starting pyspark processing")
+            (
+                self.read_binary(s3_source_url)
+                .mapValues(lambda x: Utils.decompress(x, file_accumulator))
+                .flatMapValues(Utils.to_records)
+                .map(lambda x: UCMessage(x[1]))
+                .map(lambda x: decryption_helper.decrypt_message_dbObject(x, correlation_id, record_accumulator))
+                .map(lambda x: x.dbobject)
+                .saveAsTextFile(s3_destination_url, compressionCodecClass="com.hadoop.compression.lzo.LzopCodec")
             )
-            file_rdd \
-                .flatMapValues(Utils.to_records) \
-                .map(lambda x: UCMessage(x[1])) \
-                .map(lambda x: decryption_helper.decrypt_dbobject(x, correlation_id, record_accumulator)) \
-                .map(lambda x: x.dbobject) \
-                .saveAsTextFile(
-                    s3_destination_url,
-                    compressionCodecClass="com.hadoop.compression.lzo.LzopCodec",
-                )
 
+            # stats for logging
             file_count = file_accumulator.value
             record_count = record_accumulator.value
             dks_call_count = dks_call_accumulator.value
@@ -155,10 +172,11 @@ class CorporateDataIngester:
             raise
 
     # Empty S3 destination prefix before publishing
-    def empty_s3_destination_prefix(self) -> None:
+    @staticmethod
+    def empty_s3_prefix(published_bucket, prefix) -> None:
         s3_resource = boto3.resource("s3")
-        bucket = s3_resource.Bucket(self.configuration.configuration_file.s3_published_bucket)
-        bucket.objects.filter(Prefix=self.configuration.destination_s3_prefix).delete()
+        bucket = s3_resource.Bucket(published_bucket)
+        bucket.objects.filter(Prefix=prefix).delete()
 
     # Creates result file in S3 in S3 destination prefix
     def create_result_file_in_s3_destination_prefix(self, record_ingested_count: int) -> None:
@@ -171,7 +189,7 @@ class CorporateDataIngester:
             )
 
             s3_client = self.get_s3_client()
-            response = s3_client.put_object(
+            _ = s3_client.put_object(
                 Body=result_json,
                 Bucket=self.configuration.configuration_file.s3_published_bucket,
                 Key=f"corporate_data_ingestion/audit_logs_transition/results/{self.configuration.correlation_id}/result.json",
@@ -190,6 +208,7 @@ def get_parameters() -> argparse.Namespace:
     parser.add_argument("--correlation_id", default=str(uuid.uuid4()))
     parser.add_argument("--source_s3_prefix", required=True)
     parser.add_argument("--destination_s3_prefix", required=True)
+    parser.add_argument("--export_date", required=False, help="format %Y-%m-%d, uses today if not provided")
     args, unrecognized_args = parser.parse_known_args()
 
     if len(unrecognized_args) > 0:
@@ -203,6 +222,7 @@ def get_parameters() -> argparse.Namespace:
 
 
 def main():
+    job_start_time = datetime.now()
     logger.info("getting args")
     args = get_parameters()
     logger.info(f"args: {str(args)}")
@@ -213,15 +233,17 @@ def main():
     configuration_file = ConfigurationFile(**data)
     configuration = Configuration(
         correlation_id=args.correlation_id,
-        run_timestamp=datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
+        run_timestamp=job_start_time.strftime("%Y-%m-%d_%H-%M-%S"),
+        export_date=args.export_date if args.export_date else job_start_time.strftime("%Y-%m-%d"),
         collection_name="data.businessAudit",
         source_s3_prefix=args.source_s3_prefix,
         destination_s3_prefix=args.destination_s3_prefix,
         configuration_file=configuration_file,
     )
 
-    logger.info("initialising CorporateDataIngester")
+    logger.info("CorporateDataIngester initialising")
     ingester = CorporateDataIngester(configuration)
+    logger.info("CorporateDataIngester initialised")
     logger.info(f"Processing spark job for correlation_id: {args.correlation_id}")
     ingester.execute()
 

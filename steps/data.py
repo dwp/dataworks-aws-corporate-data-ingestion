@@ -2,7 +2,7 @@ import json
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Dict
-import datetime
+import datetime as dt
 
 
 @dataclass
@@ -21,6 +21,7 @@ class Configuration:
 
     correlation_id: str
     run_timestamp: str  # format: "%Y-%m-%d_%H-%M-%S"
+    export_date: str    # format: "%Y-%m-%d"
     collection_name: str
     source_s3_prefix: str
     destination_s3_prefix: str
@@ -69,7 +70,7 @@ class UCMessage:
         return self._timestamp
 
     @staticmethod
-    def _convert_ms_since_epoch(date_value: datetime.datetime):
+    def _convert_ms_since_epoch(date_value: dt.datetime):
         return round(date_value.timestamp() * 1000)
 
     def _get_last_modified(self) -> (str, str):
@@ -93,7 +94,7 @@ class UCMessage:
 
     def _get_timestamp(self) -> str:
         last_modified: str = self.last_modified[0]
-        return str(round(1000 * datetime.datetime.strptime(last_modified, self._py_date_format).timestamp()))
+        return str(round(1000 * dt.datetime.strptime(last_modified, self._py_date_format).timestamp()))
 
     def get_decrypted_uc_message(self, decrypted_dbobject: str):
         """Returns new UCMessage object, replacing encrypted dbObject attribute with the decrypted
