@@ -3,11 +3,13 @@
 
 sudo mkdir -p /var/log/dataworks-aws-corporate-data-ingestion
 sudo mkdir -p /opt/emr/steps
+sudo mkdir -p /opt/emr/audit_sql
 sudo mkdir -p /opt/shared
 sudo mkdir -p /var/ci
 sudo chown hadoop:hadoop /var/log/dataworks-aws-corporate-data-ingestion
 sudo chown hadoop:hadoop /opt/emr
 sudo chown hadoop:hadoop /opt/emr/steps
+sudo chown hadoop:hadoop /opt/emr/audit_sql
 sudo chown hadoop:hadoop /opt/shared
 sudo chown hadoop:hadoop /var/ci
 export LOG_LEVEL="${dataworks_aws_corporate_data_ingestion_log_level}"
@@ -48,6 +50,10 @@ chmod u+x /opt/emr/logging.sh
     aws s3 cp "${python_util_file}" "/opt/emr/steps/$filename"
 %{ endfor ~}
     sudo chmod --recursive a+rx /opt/emr/steps/
+
+    log_wrapper_message "Downloading audit sql files"
+    aws s3 cp --recursive "${scripts_location}/audit_sql/" /opt/emr/audit_sql/
+
 
     log_wrapper_message "Script downloads completed"
 

@@ -1,5 +1,6 @@
 import base64
 import binascii
+from datetime import datetime, timezone
 import json
 from unittest import TestCase
 from unittest.mock import MagicMock
@@ -51,9 +52,7 @@ class TestUtils:
             verify="",
         )
 
-        dks_service._get_decrypted_key_from_dks = MagicMock(
-            side_effect=cls.mock_decrypt
-        )
+        dks_service._get_decrypted_key_from_dks = MagicMock(side_effect=cls.mock_decrypt)
         return dks_service
 
     @staticmethod
@@ -66,9 +65,7 @@ class TestUtils:
             verify="",
             retry_config=RetryConfig(),
         )
-        dks_service._get_decrypted_key_from_dks = MagicMock(
-            side_effect=lambda *args: args[0]
-        )
+        dks_service._get_decrypted_key_from_dks = MagicMock(side_effect=lambda *args: args[0])
         return dks_service
 
     @staticmethod
@@ -98,10 +95,7 @@ class TestDKSCache(TestCase):
         """LRU Cache works as intended and reduces requests to decrypt data keys"""
         unique_requests = 50
 
-        test_encryption_materials = [
-            TestUtils.generate_test_encryption_material(i)
-            for i in range(unique_requests)
-        ]
+        test_encryption_materials = [TestUtils.generate_test_encryption_material(i) for i in range(unique_requests)]
 
         requests = [
             (index, materials, TestUtils.mock_decrypt(materials.encryptedEncryptionKey))
@@ -113,52 +107,30 @@ class TestDKSCache(TestCase):
         for index, materials, expected_result in requests:
             # For each request, assert the result, cache hits, misses, size and requests to decrypt
             self.assertEqual(
-                dks_service.decrypt_data_key(
-                    encryption_materials=materials, correlation_id=""
-                ),
+                dks_service.decrypt_data_key(encryption_materials=materials, correlation_id=""),
                 expected_result,
             )
             self.assertEqual(dks_service.decrypt_data_key.cache_info().hits, 0)
-            self.assertEqual(
-                dks_service.decrypt_data_key.cache_info().misses, index + 1
-            )
-            self.assertEqual(
-                dks_service.decrypt_data_key.cache_info().currsize, index + 1
-            )
-            self.assertEqual(
-                dks_service._get_decrypted_key_from_dks.call_count, index + 1
-            )
+            self.assertEqual(dks_service.decrypt_data_key.cache_info().misses, index + 1)
+            self.assertEqual(dks_service.decrypt_data_key.cache_info().currsize, index + 1)
+            self.assertEqual(dks_service._get_decrypted_key_from_dks.call_count, index + 1)
 
         for index, materials, expected_result in requests:
             # Repeat the same requests again
             # For each request, assert the result, cache hits, misses, size and requests to decrypt
             self.assertEqual(
-                dks_service.decrypt_data_key(
-                    encryption_materials=materials, correlation_id=""
-                ),
+                dks_service.decrypt_data_key(encryption_materials=materials, correlation_id=""),
                 expected_result,
             )
             self.assertEqual(dks_service.decrypt_data_key.cache_info().hits, index + 1)
-            self.assertEqual(
-                dks_service.decrypt_data_key.cache_info().misses, unique_requests
-            )
-            self.assertEqual(
-                dks_service.decrypt_data_key.cache_info().currsize, unique_requests
-            )
-            self.assertEqual(
-                dks_service._get_decrypted_key_from_dks.call_count, unique_requests
-            )
+            self.assertEqual(dks_service.decrypt_data_key.cache_info().misses, unique_requests)
+            self.assertEqual(dks_service.decrypt_data_key.cache_info().currsize, unique_requests)
+            self.assertEqual(dks_service._get_decrypted_key_from_dks.call_count, unique_requests)
 
         # Assert the total expected hits/misses, cache size before+after clearing
-        self.assertEqual(
-            dks_service.decrypt_data_key.cache_info().hits, unique_requests
-        )
-        self.assertEqual(
-            dks_service.decrypt_data_key.cache_info().misses, unique_requests
-        )
-        self.assertEqual(
-            dks_service.decrypt_data_key.cache_info().currsize, unique_requests
-        )
+        self.assertEqual(dks_service.decrypt_data_key.cache_info().hits, unique_requests)
+        self.assertEqual(dks_service.decrypt_data_key.cache_info().misses, unique_requests)
+        self.assertEqual(dks_service.decrypt_data_key.cache_info().currsize, unique_requests)
         dks_service.decrypt_data_key.cache_clear()
         self.assertEqual(dks_service.decrypt_data_key.cache_info().hits, 0)
         self.assertEqual(dks_service.decrypt_data_key.cache_info().misses, 0)
@@ -169,7 +141,6 @@ class TestMessageDecryptionHelper(TestCase):
     def test_decrypt_string(self):
         """Test decryption of ciphertext.
         - Generates 50 plain+encrypted payloads with EncryptionMaterials
-        - Data key remains plaintext (dks mocked)
         - Decrypted value compared to initial plaintext
         """
         dks_service = TestUtils.dks_mock_no_datakey_encryption()
@@ -187,15 +158,13 @@ class TestMessageDecryptionHelper(TestCase):
         ]
 
         for index, plaintext, ciphertext, encryption_materials in encrypt_decrypt_tests:
-            uc_message = MagicMock(UCMessage)
-            uc_message.encryption_materials = encryption_materials
-            uc_message.encrypted_dbobject = ciphertext
-            self.assertEqual(
-                plaintext,
-                decryption_helper.decrypt_dbobject(
-                    message=uc_message, correlation_id=""
-                ),
+            decrypted_text = decryption_helper.decrypt_string(
+                ciphertext=ciphertext,
+                data_key=encryption_materials.encryptedEncryptionKey,
+                iv=encryption_materials.initialisationVector,
             )
+
+            self.assertEqual(plaintext, decrypted_text)
 
     def test_decrypt_dbobject(self):
         """Tests parsing of message sending ciphertext for decryption
@@ -216,23 +185,179 @@ class TestMessageDecryptionHelper(TestCase):
         for index in range(unique_messages):
             # new mocks
             decryption_helper.decrypt_string = MagicMock(
-                side_effect=lambda ciphertext, data_key, iv: ciphertext
+                side_effect=lambda ciphertext, data_key, iv: ciphertext + "-decrypted"
             )
             decryption_helper.data_key_service.decrypt_data_key = MagicMock(
                 side_effect=lambda *args: args[0].encryptedEncryptionKey
             )
 
-            (
-                message,
-                encryption_material,
-                db_object,
-            ) = TestUtils.generate_test_uc_message(index)
-            decryption_helper.decrypt_dbobject(message=message, correlation_id="")
-            decryption_helper.data_key_service.decrypt_data_key.assert_called_once_with(
-                encryption_material, ""
-            )
+            (message, encryption_material, db_object) = TestUtils.generate_test_uc_message(index)
+            decrypted_uc_message = decryption_helper.decrypt_message_dbObject(message=message, correlation_id="")
+
+            self.assertIn("message", decrypted_uc_message.message_json)
+            self.assertIn("dbObject", decrypted_uc_message.message_json["message"])
+            self.assertNotIn("encryption", decrypted_uc_message.message_json["message"])
+            self.assertEqual(db_object + "-decrypted", decrypted_uc_message.dbobject)
+
+            decryption_helper.data_key_service.decrypt_data_key.assert_called_once_with(encryption_material, "")
             decryption_helper.decrypt_string.assert_called_once_with(
                 ciphertext=db_object,
                 data_key=encryption_material.encryptedEncryptionKey,
                 iv=encryption_material.initialisationVector,
             )
+
+
+class TestUCMessage(TestCase):
+    @staticmethod
+    def get_event(lastModifiedDateTime=None, createdDateTime=None, kafkaTimestamp=None, message_type=None):
+        message = {"message": {}}
+        if message_type is not None:
+            message["message"].update({"@type": message_type})
+        if lastModifiedDateTime is not None:
+            message["message"].update({"_lastModifiedDateTime": lastModifiedDateTime})
+        if createdDateTime is not None:
+            message["message"].update({"createdDateTime": createdDateTime})
+        if kafkaTimestamp is not None:
+            message.update({"timestamp": kafkaTimestamp})
+        return json.dumps(message)
+
+    def test_get_last_modified(self):
+        epoch = "1980-01-01T00:00:00.000+0000"
+
+        def format_ts(ts: datetime) -> str:
+            return ts.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + ts.strftime("%z")
+
+        ct = format_ts(datetime(year=2000, month=1, day=1, tzinfo=timezone.utc))
+        kt = format_ts(datetime(year=2000, month=1, day=2, tzinfo=timezone.utc))
+        lt = format_ts(datetime(year=2000, month=1, day=3, tzinfo=timezone.utc))
+
+        # where the record type is MONGO_DELETE use kt > lt > ct > epoch
+        self.assertEqual(
+            (kt, "kafkaMessageDateTime"),
+            UCMessage(self.get_event(lt, ct, kt, "MONGO_DELETE")).last_modified,
+        )
+        self.assertEqual(
+            (lt, "_lastModifiedDateTime"),
+            UCMessage(self.get_event(lt, ct, "", "MONGO_DELETE")).last_modified,
+        )
+        self.assertEqual(
+            (lt, "_lastModifiedDateTime"),
+            UCMessage(self.get_event(lt, ct, None, "MONGO_DELETE")).last_modified,
+        )
+        self.assertEqual(
+            (ct, "createdDateTime"),
+            UCMessage(self.get_event("", ct, None, "MONGO_DELETE")).last_modified,
+        )
+        self.assertEqual(
+            (ct, "createdDateTime"),
+            UCMessage(self.get_event(None, ct, None, "MONGO_DELETE")).last_modified,
+        )
+        self.assertEqual(
+            (epoch, "epoch"),
+            UCMessage(self.get_event(None, "", None, "MONGO_DELETE")).last_modified,
+        )
+        self.assertEqual(
+            (epoch, "epoch"),
+            UCMessage(self.get_event(None, None, None, "MONGO_DELETE")).last_modified,
+        )
+        self.assertEqual(
+            (kt, "kafkaMessageDateTime"),
+            UCMessage(self.get_event("", "", kt, "MONGO_DELETE")).last_modified,
+        )
+        self.assertEqual(
+            (kt, "kafkaMessageDateTime"),
+            UCMessage(self.get_event(None, None, kt, "MONGO_DELETE")).last_modified,
+        )
+
+        # where the record is not "MONGO_DELETE", use lt > ct > epoch
+        self.assertEqual(
+            (lt, "_lastModifiedDateTime"),
+            UCMessage(self.get_event(lt, ct, kt, "UPDATE")).last_modified,
+        )
+        self.assertEqual(
+            (ct, "createdDateTime"),
+            UCMessage(self.get_event("", ct, kt, "UPDATE")).last_modified,
+        )
+        self.assertEqual(
+            (ct, "createdDateTime"),
+            UCMessage(self.get_event(None, ct, kt, "UPDATE")).last_modified,
+        )
+        self.assertEqual(
+            (epoch, "epoch"),
+            UCMessage(self.get_event(None, "", kt, "UPDATE")).last_modified,
+        )
+        self.assertEqual(
+            (epoch, "epoch"),
+            UCMessage(self.get_event(None, None, kt, "UPDATE")).last_modified,
+        )
+        self.assertEqual(
+            (epoch, "epoch"),
+            UCMessage(self.get_event(None, None, "", "UPDATE")).last_modified,
+        )
+        self.assertEqual(
+            (epoch, "epoch"),
+            UCMessage(self.get_event(None, None, None, "UPDATE")).last_modified,
+        )
+        self.assertEqual(
+            (lt, "_lastModifiedDateTime"),
+            UCMessage(self.get_event(lt, "", "", "UPDATE")).last_modified,
+        )
+        self.assertEqual(
+            (lt, "_lastModifiedDateTime"),
+            UCMessage(self.get_event(lt, None, None, "UPDATE")).last_modified,
+        )
+
+    def test_get_decrypted_uc_message(self):
+        standard_test = json.dumps(
+            {
+                "message": {
+                    "encryption": {"encryptiona": "a", "encryptionb": "b", "encryptionc": "c"},
+                    "dbObject": "'encrypted dbobject'",
+                }
+            }
+        )
+        encryption_missing_test = json.dumps({"message": {"dbObject": "'encrypted dbobject'"}})
+        dbobject_missing_test = json.dumps(
+            {
+                "message": {
+                    "encryption": {"encryptiona": "a", "encryptionb": "b", "encryptionc": "c"},
+                }
+            }
+        )
+
+        results = [
+            UCMessage(test).get_decrypted_uc_message("'decrypted dbObject'")
+            for test in [standard_test, encryption_missing_test, dbobject_missing_test]
+        ]
+
+        for result in results:
+            self.assertNotIn("encryption", result.message_json)
+            self.assertIn("dbObject", result.message_json["message"])
+            self.assertEqual("'decrypted dbObject'", result.message_json["message"]["dbObject"])
+
+    def test_get_timestamp(self):
+        # test successes (input_timestamp, expected ms_since_epoch)
+        test_valid_timestamps = [
+            ("2020-05-21T17:18:15.693+0000", "1590081495693"),
+            ("2020-05-21T17:18:15.693000+0000", "1590081495693"),
+            ("", "315532800000"),
+        ]
+
+        for test_kafka_timestamp, result in test_valid_timestamps:
+            message = json.dumps({"message": {"encryption": {}, "_lastModifiedDateTime": test_kafka_timestamp}})
+            self.assertEqual(result, UCMessage(message).timestamp)
+
+        # test failures (input_timestamp, expected Exception)
+        test_invalid_timestamps = [
+            ("2020-05-21T17:18:15.693+00", ValueError),
+            ("2020-05-21T17:18:15+0000", ValueError),
+            ("2020-13-21T17:18:15+0000", ValueError),
+            ("20-05-21T17:18:15+0000", ValueError),
+            (123, TypeError),
+            (None, TypeError),
+        ]
+
+        for test_kafka_timestamp, error in test_invalid_timestamps:
+            message = json.dumps({"message": {"encryption": {}, "_lastModifiedDateTime": test_kafka_timestamp}})
+            with self.assertRaises(error):
+                _ = UCMessage(message).timestamp

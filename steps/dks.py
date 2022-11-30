@@ -127,22 +127,21 @@ class MessageCryptoHelper(object):
         decrypted_bytes: bytes = aes.decrypt(ciphertext_bytes)
         return decrypted_bytes.decode("utf8")
 
-    def decrypt_dbobject(
+    def decrypt_message_dbObject(
         self,
         message: UCMessage,
         correlation_id: str,
         record_accumulator: pyspark.Accumulator = None,
-    ) -> str:
+    ) -> UCMessage:
         encryption_materials = message.encryption_materials
-        data_key = self.data_key_service.decrypt_data_key(
-            encryption_materials, correlation_id
-        )
+        data_key = self.data_key_service.decrypt_data_key(encryption_materials, correlation_id)
         decrypted_dbobject: str = self.decrypt_string(
-            ciphertext=message.encrypted_dbobject,
+            ciphertext=message.dbobject,
             data_key=data_key,
             iv=encryption_materials.initialisationVector,
         )
 
         if record_accumulator:
             record_accumulator += 1
-        return decrypted_dbobject
+
+        return message.get_decrypted_uc_message(decrypted_dbobject)
