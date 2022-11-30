@@ -51,9 +51,7 @@ class TestUtils:
             verify="",
         )
 
-        dks_service._get_decrypted_key_from_dks = MagicMock(
-            side_effect=cls.mock_decrypt
-        )
+        dks_service._get_decrypted_key_from_dks = MagicMock(side_effect=cls.mock_decrypt)
         return dks_service
 
     @staticmethod
@@ -66,9 +64,7 @@ class TestUtils:
             verify="",
             retry_config=RetryConfig(),
         )
-        dks_service._get_decrypted_key_from_dks = MagicMock(
-            side_effect=lambda *args: args[0]
-        )
+        dks_service._get_decrypted_key_from_dks = MagicMock(side_effect=lambda *args: args[0])
         return dks_service
 
     @staticmethod
@@ -98,10 +94,7 @@ class TestDKSCache(TestCase):
         """LRU Cache works as intended and reduces requests to decrypt data keys"""
         unique_requests = 50
 
-        test_encryption_materials = [
-            TestUtils.generate_test_encryption_material(i)
-            for i in range(unique_requests)
-        ]
+        test_encryption_materials = [TestUtils.generate_test_encryption_material(i) for i in range(unique_requests)]
 
         requests = [
             (index, materials, TestUtils.mock_decrypt(materials.encryptedEncryptionKey))
@@ -113,52 +106,30 @@ class TestDKSCache(TestCase):
         for index, materials, expected_result in requests:
             # For each request, assert the result, cache hits, misses, size and requests to decrypt
             self.assertEqual(
-                dks_service.decrypt_data_key(
-                    encryption_materials=materials, correlation_id=""
-                ),
+                dks_service.decrypt_data_key(encryption_materials=materials, correlation_id=""),
                 expected_result,
             )
             self.assertEqual(dks_service.decrypt_data_key.cache_info().hits, 0)
-            self.assertEqual(
-                dks_service.decrypt_data_key.cache_info().misses, index + 1
-            )
-            self.assertEqual(
-                dks_service.decrypt_data_key.cache_info().currsize, index + 1
-            )
-            self.assertEqual(
-                dks_service._get_decrypted_key_from_dks.call_count, index + 1
-            )
+            self.assertEqual(dks_service.decrypt_data_key.cache_info().misses, index + 1)
+            self.assertEqual(dks_service.decrypt_data_key.cache_info().currsize, index + 1)
+            self.assertEqual(dks_service._get_decrypted_key_from_dks.call_count, index + 1)
 
         for index, materials, expected_result in requests:
             # Repeat the same requests again
             # For each request, assert the result, cache hits, misses, size and requests to decrypt
             self.assertEqual(
-                dks_service.decrypt_data_key(
-                    encryption_materials=materials, correlation_id=""
-                ),
+                dks_service.decrypt_data_key(encryption_materials=materials, correlation_id=""),
                 expected_result,
             )
             self.assertEqual(dks_service.decrypt_data_key.cache_info().hits, index + 1)
-            self.assertEqual(
-                dks_service.decrypt_data_key.cache_info().misses, unique_requests
-            )
-            self.assertEqual(
-                dks_service.decrypt_data_key.cache_info().currsize, unique_requests
-            )
-            self.assertEqual(
-                dks_service._get_decrypted_key_from_dks.call_count, unique_requests
-            )
+            self.assertEqual(dks_service.decrypt_data_key.cache_info().misses, unique_requests)
+            self.assertEqual(dks_service.decrypt_data_key.cache_info().currsize, unique_requests)
+            self.assertEqual(dks_service._get_decrypted_key_from_dks.call_count, unique_requests)
 
         # Assert the total expected hits/misses, cache size before+after clearing
-        self.assertEqual(
-            dks_service.decrypt_data_key.cache_info().hits, unique_requests
-        )
-        self.assertEqual(
-            dks_service.decrypt_data_key.cache_info().misses, unique_requests
-        )
-        self.assertEqual(
-            dks_service.decrypt_data_key.cache_info().currsize, unique_requests
-        )
+        self.assertEqual(dks_service.decrypt_data_key.cache_info().hits, unique_requests)
+        self.assertEqual(dks_service.decrypt_data_key.cache_info().misses, unique_requests)
+        self.assertEqual(dks_service.decrypt_data_key.cache_info().currsize, unique_requests)
         dks_service.decrypt_data_key.cache_clear()
         self.assertEqual(dks_service.decrypt_data_key.cache_info().hits, 0)
         self.assertEqual(dks_service.decrypt_data_key.cache_info().misses, 0)

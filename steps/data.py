@@ -73,7 +73,7 @@ class UCMessage:
 
     def get_decrypted_uc_message(self, decrypted_dbobject: str):
         """Returns new UCMessage object, replacing encrypted dbObject attribute with the decrypted
-            dbObject provided.  Removes encryption materials.
+        dbObject provided.  Removes encryption materials.
         """
         json_message = deepcopy(self.message_json)
         json_message["message"].update([("dbObject", decrypted_dbobject)])

@@ -27,9 +27,7 @@ logger = setup_logging(
 
 class Utils(object):
     @staticmethod
-    def get_list_keys_for_s3_prefix(
-        s3_client: BaseClient, s3_bucket: str, s3_prefix: str
-    ) -> List[str]:
+    def get_list_keys_for_s3_prefix(s3_client: BaseClient, s3_bucket: str, s3_prefix: str) -> List[str]:
         logger.info(
             "Looking for files to process in bucket : %s with prefix : %s",
             s3_bucket,
@@ -105,9 +103,7 @@ class CorporateDataIngester:
 
     @staticmethod
     def get_s3_client() -> BaseClient:
-        client_config = boto_config.Config(
-            max_pool_connections=100, retries={"max_attempts": 10, "mode": "standard"}
-        )
+        client_config = boto_config.Config(max_pool_connections=100, retries={"max_attempts": 10, "mode": "standard"})
         client = boto3.client("s3", config=client_config)
         return client
 
@@ -177,15 +173,11 @@ class CorporateDataIngester:
     # Empty S3 destination prefix before publishing
     def empty_s3_destination_prefix(self) -> None:
         s3_resource = boto3.resource("s3")
-        bucket = s3_resource.Bucket(
-            self.configuration.configuration_file.s3_published_bucket
-        )
+        bucket = s3_resource.Bucket(self.configuration.configuration_file.s3_published_bucket)
         bucket.objects.filter(Prefix=self.configuration.destination_s3_prefix).delete()
 
     # Creates result file in S3 in S3 destination prefix
-    def create_result_file_in_s3_destination_prefix(
-        self, record_ingested_count: int
-    ) -> None:
+    def create_result_file_in_s3_destination_prefix(self, record_ingested_count: int) -> None:
         try:
             result_json = json.dumps(
                 {
@@ -209,9 +201,7 @@ class CorporateDataIngester:
 
 def get_parameters() -> argparse.Namespace:
     """Define and parse command line args."""
-    parser = argparse.ArgumentParser(
-        description="Receive args provided to spark submit job"
-    )
+    parser = argparse.ArgumentParser(description="Receive args provided to spark submit job")
     # Parse command line inputs and set defaults
     parser.add_argument("--correlation_id", default=str(uuid.uuid4()))
     parser.add_argument("--source_s3_prefix", required=True)
