@@ -88,6 +88,12 @@ cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<CWAGEN
             "log_group_name": "$${cwa_bootstrap_loggrp_name}",
             "log_stream_name": "{instance_id}-update-dynamo.log",
             "timezone": "UTC"
+          },
+          {
+            "file_path": "/var/log/dataworks-aws-corporate-data-ingestion/corporate-data-ingestion.log",
+            "log_group_name": "$${cwa_steps_loggrp_name}",
+            "log_stream_name": "{instance_id}-corporate-data-ingestion.log",
+            "timezone": "UTC"
           }
         ]
       }
