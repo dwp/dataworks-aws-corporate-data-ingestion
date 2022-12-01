@@ -75,24 +75,10 @@ Configurations:
     "hive.vectorized.execution.ptf.enabled": "false"
     "hive.vectorized.row.serde.inputformat.excludes": ""
     "hive_timeline_logging_enabled": "true"
-    "hive.server2.tez.initialize.default.sessions": "true"
     "hive.blobstore.optimizations.enabled": "false"
     "hive.prewarm.enabled": "true"
-    "hive.tez.container.size": "${hive_tez_container_size}"
-    "hive.tez.java.opts": "${hive_tez_java_opts}"
     "hive.auto.convert.join": "true"
     "hive.auto.convert.join.noconditionaltask.size": "4915"
-    "hive.server2.tez.session.lifetime": "0"
-
-- Classification: "tez-site"
-  Properties:
-    "tez.grouping.min-size": "${tez_grouping_min_size}"
-    "tez.grouping.max-size": "${tez_grouping_max_size}"
-    "tez.am.resource.memory.mb": "${tez_am_resource_memory_mb}"
-    "tez.am.launch.cmd-opts": "${tez_am_launch_cmd_opts}"
-    "tez.am.container.reuse.enabled": "true"
-    "tez.runtime.io.sort.mb": "${tez_runtime_io_sort_mb}"
-    "tez.runtime.unordered.output.buffer.size-mb": "${tez_runtime_unordered_output_buffer_size_mb}"
 
 - Classification: "emrfs-site"
   Properties:
