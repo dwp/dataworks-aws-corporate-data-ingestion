@@ -82,14 +82,6 @@ resource "aws_s3_bucket_object" "configurations" {
       proxy_https_host                              = data.terraform_remote_state.internal_compute.outputs.internet_proxy.host
       proxy_https_port                              = data.terraform_remote_state.internal_compute.outputs.internet_proxy.port
       environment                                   = local.environment
-      hive_tez_container_size                       = local.hive_tez_container_size[local.environment]
-      hive_tez_java_opts                            = local.hive_tez_java_opts[local.environment]
-      hive_auto_convert_join_noconditionaltask_size = local.hive_auto_convert_join_noconditionaltask_size[local.environment]
-      tez_grouping_min_size                         = local.tez_grouping_min_size[local.environment]
-      tez_grouping_max_size                         = local.tez_grouping_max_size[local.environment]
-      tez_am_resource_memory_mb                     = local.tez_am_resource_memory_mb[local.environment]
-      tez_am_launch_cmd_opts                        = local.tez_am_launch_cmd_opts[local.environment]
-      tez_runtime_io_sort_mb                        = local.tez_runtime_io_sort_mb[local.environment]
       s3_published_bucket                           = data.terraform_remote_state.common.outputs.published_bucket.id
       spark_kyro_buffer                             = local.spark_kyro_buffer[local.environment]
       spark_executor_cores                          = local.spark_executor_cores[local.environment]
@@ -103,7 +95,6 @@ resource "aws_s3_bucket_object" "configurations" {
       hive_metastore_database_name                  = data.terraform_remote_state.internal_compute.outputs.hive_metastore_v2.database_name
       hive_metastore_username                       = data.terraform_remote_state.internal_compute.outputs.metadata_store_users.corporate_data_ingestion_writer.username
       hive_metastore_pwd                            = data.terraform_remote_state.internal_compute.outputs.metadata_store_users.corporate_data_ingestion_writer.secret_name
-      tez_runtime_unordered_output_buffer_size_mb   = local.tez_runtime_unordered_output_buffer_size_mb[local.environment]
 
     }
   )
