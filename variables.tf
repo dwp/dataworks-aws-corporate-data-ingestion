@@ -16,9 +16,9 @@ variable "truststore_aliases" {
 
 variable "emr_instance_type_master" {
   default = {
-    development = "m5.xlarge"
-    qa          = "m5.xlarge"
-    integration = "m5.xlarge"
+    development = "m5.4xlarge"
+    qa          = "m5.4xlarge"
+    integration = "m5.4xlarge"
     preprod     = "m5.16xlarge"
     production  = "m5.16xlarge"
   }
