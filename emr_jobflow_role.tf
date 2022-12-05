@@ -27,11 +27,6 @@ resource "aws_iam_instance_profile" "dataworks_aws_corporate_data_ingestion" {
   }
 }
 
-resource "aws_iam_role_policy_attachment" "ec2_for_ssm_attachment_2" {
-  role       = aws_iam_role.dataworks_aws_corporate_data_ingestion.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
-}
-
 resource "aws_iam_role_policy_attachment" "ec2_for_ssm_attachment" {
   role       = aws_iam_role.dataworks_aws_corporate_data_ingestion.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
