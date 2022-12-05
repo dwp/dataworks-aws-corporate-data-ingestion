@@ -161,8 +161,8 @@ data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_write_log
     ]
 
     resources = [
-      "${data.terraform_remote_state.security-tools.outputs.logstore_bucket.arn}/${local.s3_log_prefix}",
       "${data.terraform_remote_state.security-tools.outputs.logstore_bucket.arn}/${local.s3_log_prefix}_$folder$",
+      "${data.terraform_remote_state.security-tools.outputs.logstore_bucket.arn}/${local.s3_log_prefix}/",
       "${data.terraform_remote_state.security-tools.outputs.logstore_bucket.arn}/${local.s3_log_prefix}/*",
     ]
   }
