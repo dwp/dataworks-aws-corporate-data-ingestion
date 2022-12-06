@@ -26,12 +26,13 @@ resource "aws_s3_bucket_object" "python_configuration_file" {
       s3_published_bucket  = data.terraform_remote_state.common.outputs.published_bucket.id
       dks_decrypt_endpoint = "${data.terraform_remote_state.crypto.outputs.dks_endpoint[local.environment]}/datakey/actions/decrypt"
       dks_max_retries      = local.dks_max_retries[local.environment]
+      extra_python_files   = jsonencode(local.extra_python_files)
     }
   )
 }
 
 resource "aws_s3_bucket_object" "python_utils" {
-  for_each = toset(["data.py", "dks.py"])
+  for_each = local.extra_python_files
   bucket   = data.terraform_remote_state.common.outputs.config_bucket.id
   key      = "component/${local.emr_cluster_name}/${each.key}"
   content  = file("${path.module}/steps/${each.key}")
