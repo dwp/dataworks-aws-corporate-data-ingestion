@@ -13,6 +13,7 @@ class ConfigurationFile:
     s3_published_bucket: str
     dks_decrypt_endpoint: str
     dks_max_retries: str
+    extra_python_files: list
 
 
 @dataclass
@@ -25,6 +26,8 @@ class Configuration:
     collection_name: str
     source_s3_prefix: str
     destination_s3_prefix: str
+    transition_db_name: str
+    db_name: str
     configuration_file: ConfigurationFile
 
 

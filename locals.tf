@@ -136,6 +136,8 @@ locals {
     production  = 10
   }
 
+  extra_python_files = toset(["data.py", "dks.py", "utils.py", "hive.py"])
+
   cw_agent_namespace                   = "/app/${local.emr_cluster_name}"
   cw_agent_log_group_name              = "/app/${local.emr_cluster_name}"
   cw_agent_bootstrap_loggrp_name       = "/app/${local.emr_cluster_name}/bootstrap_actions"
