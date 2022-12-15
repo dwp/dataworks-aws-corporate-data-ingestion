@@ -102,12 +102,12 @@ class CorporateDataIngester:
             logger.info("starting pyspark processing")
             (
                 self.read_binary(s3_source_url)
-                .mapValues(lambda x: Utils.decompress(x, file_accumulator))
-                .flatMapValues(Utils.to_records)
-                .map(lambda x: UCMessage(x[1]))
-                .map(lambda x: decryption_helper.decrypt_message_dbObject(x, correlation_id, record_accumulator))
-                .map(lambda x: x.dbobject)
-                .saveAsTextFile(s3_destination_url, compressionCodecClass="com.hadoop.compression.lzo.LzopCodec")
+                    .mapValues(lambda x: Utils.decompress(x, file_accumulator))
+                    .flatMapValues(Utils.to_records)
+                    .map(lambda x: UCMessage(x[1]))
+                    .map(lambda x: decryption_helper.decrypt_message_dbObject(x, correlation_id, record_accumulator))
+                    .map(lambda x: x.dbobject)
+                    .saveAsTextFile(s3_destination_url, compressionCodecClass="com.hadoop.compression.lzo.LzopCodec")
             )
 
             # stats for logging
@@ -185,94 +185,139 @@ def get_parameters() -> argparse.Namespace:
 
 
 def main():
+    try:
+        job_start_time = datetime.now()
+        logger.info("getting args")
+        args = get_parameters()
+        logger.info(f"args: {str(args)}")
 
-    job_start_time = datetime.now()
-    logger.info("getting args")
-    args = get_parameters()
-    logger.info(f"args: {str(args)}")
+        logger.info("parsing configuration file")
+        with open("/opt/emr/steps/configuration.json", "r") as fd:
+            data = json.load(fd)
+        configuration_file = ConfigurationFile(**data)
+        configuration = Configuration(
+            correlation_id=args.correlation_id,
+            run_timestamp=job_start_time.strftime("%Y-%m-%d_%H-%M-%S"),
+            export_date=args.export_date if args.export_date else job_start_time.strftime("%Y-%m-%d"),
+            collection_name="data.businessAudit",
+            source_s3_prefix=args.source_s3_prefix,
+            destination_s3_prefix=args.destination_s3_prefix,
+            transition_db_name=args.transition_db_name,
+            db_name=args.db_name,
+            configuration_file=configuration_file,
+        )
 
-    logger.info("parsing configuration file")
-    with open("/opt/emr/steps/configuration.json", "r") as fd:
-        data = json.load(fd)
-    configuration_file = ConfigurationFile(**data)
-    configuration = Configuration(
-        correlation_id=args.correlation_id,
-        run_timestamp=job_start_time.strftime("%Y-%m-%d_%H-%M-%S"),
-        export_date=args.export_date if args.export_date else job_start_time.strftime("%Y-%m-%d"),
-        collection_name="data.businessAudit",
-        source_s3_prefix=args.source_s3_prefix,
-        destination_s3_prefix=args.destination_s3_prefix,
-        transition_db_name=args.transition_db_name,
-        db_name=args.db_name,
-        configuration_file=configuration_file,
-    )
-
-    logger.info("Spark session: initialising")
-    spark_session = get_spark_session()
-    logger.info(configuration_file.extra_python_files)
-    for filename in configuration_file.extra_python_files:
+        logger.info("Spark session: initialising")
+        spark_session = get_spark_session()
+        logger.info(configuration_file.extra_python_files)
+        for filename in configuration_file.extra_python_files:
             spark_session.sparkContext.addPyFile(path.join("/opt/emr/steps", filename))
-    logger.info("Spark session: initialised")
+        logger.info("Spark session: initialised")
 
-    logger.info("CorporateDataIngester initialising")
-    ingester = CorporateDataIngester(configuration, spark_session)
-    logger.info("CorporateDataIngester initialised")
-    logger.info(f"Processing spark job for correlation_id: {args.correlation_id}")
-    ingester.execute()
+        logger.info("CorporateDataIngester initialising")
+        ingester = CorporateDataIngester(configuration, spark_session)
+        logger.info("CorporateDataIngester initialised")
+        logger.info(f"Processing spark job for correlation_id: {args.correlation_id}")
+        ingester.execute()
 
-    s3_destination_url = "s3://{bucket}/{prefix}".format(
-        bucket=configuration.configuration_file.s3_published_bucket,
-        prefix=path.join(configuration.destination_s3_prefix.lstrip("/"), configuration.export_date)
-    )
+        s3_destination_url = "s3://{bucket}/{prefix}".format(
+            bucket=configuration.configuration_file.s3_published_bucket,
+            prefix=path.join(configuration.destination_s3_prefix.lstrip("/"), configuration.export_date)
+        )
 
-    # Instantiate Hive service
-    hive_service = HiveService(transition_db_name=configuration.transition_db_name,
-                               db_name=configuration.db_name,
-                               correlation_id=configuration.correlation_id,
-                               spark_session=spark_session)
-    hive_service.create_database_if_not_exist(configuration.transition_db_name)
-    hive_service.create_database_if_not_exist(configuration.db_name)
+        # Instantiate Hive service
+        hive_service = HiveService(transition_db_name=configuration.transition_db_name,
+                                   db_name=configuration.db_name,
+                                   correlation_id=configuration.correlation_id,
+                                   spark_session=spark_session)
+        hive_service.create_database_if_not_exist(configuration.transition_db_name)
+        hive_service.create_database_if_not_exist(configuration.db_name)
 
-    # Declare parameters for audit logs processing
-    sql_file_base_location = "/opt/emr/audit_sql/"
-    db_name = configuration.transition_db_name
-    table_name = "auditlog"
-    export_date = configuration.export_date
+        # Declare parameters for audit logs processing
+        sql_file_base_location = "/opt/emr/audit_sql/"
+        db_name = configuration.transition_db_name
+        table_name = "auditlog"
+        export_date = configuration.export_date
 
-    # Create raw managed table (two columns)
-    sql_statement = f"""
-        CREATE TABLE IF NOT EXISTS {db_name}.auditlog_raw (val STRING)
-        PARTITIONED BY (date_str STRING) STORED
-        AS orc TBLPROPERTIES ('orc.compress'='ZLIB')
-    """
-    hive_service.execute_sql_statement_with_interpolation(sql_statement=sql_statement)
+        # Create raw managed table (two columns)
+        sql_statement = f"""
+            CREATE TABLE IF NOT EXISTS {db_name}.auditlog_raw (val STRING)
+            PARTITIONED BY (date_str STRING) STORED
+            AS orc TBLPROPERTIES ('orc.compress'='ZLIB')
+        """
+        hive_service.execute_sql_statement_with_interpolation(sql_statement=sql_statement)
 
-    # Create expanded managed table (multi-columns)
-    interpolation_dict = {"#{hivevar:auditlog_database}": configuration.transition_db_name}
-    hive_service.execute_sql_statement_with_interpolation(file=path.join(sql_file_base_location,
-                                                                         "auditlog_managed_table.sql"),
-                                                          interpolation_dict=interpolation_dict)
+        # Create expanded managed table (multi-columns)
+        interpolation_dict = {"#{hivevar:auditlog_database}": configuration.transition_db_name}
+        hive_service.execute_sql_statement_with_interpolation(file=path.join(sql_file_base_location,
+                                                                             "auditlog_managed_table.sql"),
+                                                              interpolation_dict=interpolation_dict)
 
-    # Create raw external table (two columns) and populate raw managed table
-    external_table_name = f"auditlog_raw_{configuration.export_date.replace('-', '_')}"
-    sql_statement = f"""
-        CREATE EXTERNAL TABLE {db_name}.{external_table_name} (val STRING) PARTITIONED BY (date_str STRING) STORED AS TEXTFILE LOCATION '{s3_destination_url}';
-        ALTER TABLE {db_name}.{external_table_name} ADD IF NOT EXISTS PARTITION(date_str='{export_date}') LOCATION '{s3_destination_url}';
-        INSERT OVERWRITE TABLE {db_name}.{table_name}_raw SELECT * FROM {db_name}.{external_table_name};
-        DROP TABLE IF EXISTS {db_name}.{external_table_name}
-    """
-    hive_service.execute_sql_statement_with_interpolation(sql_statement=sql_statement)
+        # Create raw external table (two columns) and populate raw managed table
+        external_table_name = f"auditlog_raw_{configuration.export_date.replace('-', '_')}"
+        sql_statement = f"""
+            CREATE EXTERNAL TABLE {db_name}.{external_table_name} (val STRING) PARTITIONED BY (date_str STRING) STORED AS TEXTFILE LOCATION '{s3_destination_url}';
+            ALTER TABLE {db_name}.{external_table_name} ADD IF NOT EXISTS PARTITION(date_str='{export_date}') LOCATION '{s3_destination_url}';
+            INSERT OVERWRITE TABLE {db_name}.{table_name}_raw SELECT * FROM {db_name}.{external_table_name};
+            DROP TABLE IF EXISTS {db_name}.{external_table_name}
+        """
+        hive_service.execute_sql_statement_with_interpolation(sql_statement=sql_statement)
 
-    # Create raw expended table (multi-columns) and populate expended managed table
-    interpolation_dict = {"#{hivevar:auditlog_database}": configuration.transition_db_name,
-                          "#{hivevar:date_underscore}": export_date.replace("-", "_"),
-                          "#{hivevar:date_hyphen}": export_date,
-                          "#{hivevar:serde}": "org.openx.data.jsonserde.JsonSerDe",
-                          "#{hivevar:data_location}": s3_destination_url,
-                          }
-    hive_service.execute_sql_statement_with_interpolation(file=path.join(sql_file_base_location,
-                                                                         "auditlog_external_table.sql"),
-                                                          interpolation_dict=interpolation_dict)
+        # Create raw expended table (multi-columns) and populate expended managed table
+        interpolation_dict = {"#{hivevar:auditlog_database}": configuration.transition_db_name,
+                              "#{hivevar:date_underscore}": export_date.replace("-", "_"),
+                              "#{hivevar:date_hyphen}": export_date,
+                              "#{hivevar:serde}": "org.openx.data.jsonserde.JsonSerDe",
+                              "#{hivevar:data_location}": s3_destination_url,
+                              }
+        hive_service.execute_sql_statement_with_interpolation(file=path.join(sql_file_base_location,
+                                                                             "auditlog_external_table.sql"),
+                                                              interpolation_dict=interpolation_dict)
+
+        # Create secured view-like table
+        sec_v_location = f"s3://{configuration.configuration_file.s3_published_bucket}/data/uc/auditlog_sec_v/"
+        interpolation_dict = {"#{hivevar:uc_database}": configuration.db_name,
+                              "#{hivevar:location_str}": sec_v_location}
+        hive_service.execute_sql_statement_with_interpolation(
+            file=path.join(sql_file_base_location, "create_auditlog_sec_v.sql"),
+            interpolation_dict=interpolation_dict)
+
+        # Alter secured view-like table
+        with open(path.join(sql_file_base_location, "auditlog_sec_v_columns.txt"), "r") as fd:
+            sec_v_columns = fd.read().strip('\n')
+            interpolation_dict = {"#{hivevar:uc_database}": configuration.db_name,
+                                  "#{hivevar:date_hyphen}": export_date,
+                                  "#{hivevar:uc_dw_auditlog_database}": configuration.transition_db_name,
+                                  "#{hivevar:auditlog_sec_v_columns}": sec_v_columns,
+                                  "#{hivevar:location_str}": sec_v_location,
+                                  }
+            hive_service.execute_sql_statement_with_interpolation(
+                file=path.join(sql_file_base_location, "alter_add_part_auditlog_sec_v.sql"),
+                interpolation_dict=interpolation_dict)
+
+        # Create redacted view-like table
+        red_v_location = f"s3://{configuration.configuration_file.s3_published_bucket}/data/uc/auditlog_red_v/"
+        interpolation_dict = {"#{hivevar:uc_database}": configuration.db_name,
+                              "#{hivevar:location_str}": red_v_location}
+        hive_service.execute_sql_statement_with_interpolation(
+            file=path.join(sql_file_base_location, "create_auditlog_red_v.sql"),
+            interpolation_dict=interpolation_dict)
+
+        # Alter redacted view-like table
+        with open(path.join(sql_file_base_location, "auditlog_red_v_columns.txt"), "r") as fd:
+            red_v_columns = fd.read().strip('\n')
+            interpolation_dict = {"#{hivevar:uc_database}": configuration.db_name,
+                                  "#{hivevar:date_hyphen}": export_date,
+                                  "#{hivevar:uc_dw_auditlog_database}": configuration.transition_db_name,
+                                  "#{hivevar:auditlog_red_v_columns}": red_v_columns,
+                                  "#{hivevar:location_str}": red_v_location,
+                                  }
+            hive_service.execute_sql_statement_with_interpolation(
+                file=path.join(sql_file_base_location, "alter_add_part_auditlog_red_v.sql"),
+                interpolation_dict=interpolation_dict)
+
+    except Exception as err:
+        logger.error(err)
 
 
 if __name__ == "__main__":
