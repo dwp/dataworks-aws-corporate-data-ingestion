@@ -1,5 +1,6 @@
 import argparse
 import json
+import sys
 import uuid
 from datetime import datetime
 from os import path
@@ -318,6 +319,7 @@ def main():
 
     except Exception as err:
         logger.error(err)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
