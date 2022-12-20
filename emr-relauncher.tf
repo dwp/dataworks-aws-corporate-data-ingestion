@@ -25,7 +25,7 @@ resource "aws_lambda_function" "dataworks_aws_corporate_data_ingestion_emr_relau
 
   environment {
     variables = {
-      SNS_TOPIC       = aws_sns_topic.dataworks_aws_corporate_data_ingestion_cw_trigger_sns.arn
+      SNS_TOPIC       = aws_sns_topic.corporate_data_ingestion.arn
       TABLE_NAME      = local.data_pipeline_metadata
       MAX_RETRY_COUNT = local.dataworks_aws_corporate_data_ingestion_max_retry_count[local.environment]
       LOG_LEVEL       = "debug"
@@ -99,7 +99,7 @@ data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_emr_relau
     ]
 
     resources = [
-      aws_sns_topic.dataworks_aws_corporate_data_ingestion_cw_trigger_sns.arn
+      aws_sns_topic.corporate_data_ingestion.arn
     ]
   }
 }

@@ -152,20 +152,6 @@ resource "aws_iam_role_policy_attachment" "dataworks_aws_corporate_data_ingestio
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
-resource "aws_sns_topic_subscription" "dataworks_aws_corporate_data_ingestion_trigger_sns" {
-  topic_arn = aws_sns_topic.dataworks_aws_corporate_data_ingestion_cw_trigger_sns.arn
-  protocol  = "lambda"
-  endpoint  = aws_lambda_function.dataworks_aws_corporate_data_ingestion_emr_launcher.arn
-}
-
-resource "aws_lambda_permission" "dataworks_aws_corporate_data_ingestion_emr_launcher_subscription" {
-  statement_id  = "${local.emr_cluster_name}CWTriggerSNS"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.dataworks_aws_corporate_data_ingestion_emr_launcher.function_name
-  principal     = "sns.amazonaws.com"
-  source_arn    = aws_sns_topic.dataworks_aws_corporate_data_ingestion_cw_trigger_sns.arn
-}
-
 resource "aws_iam_policy" "dataworks_aws_corporate_data_ingestion_emr_launcher_getsecrets" {
   name        = "${local.emr_cluster_name}GetSecrets"
   description = "Allow dataworks_aws_corporate_data_ingestion function to get secrets"
