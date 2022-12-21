@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 get_release_information(){
-    VERSION=$(curl --silent "https://api.github.com/repos/dwp/${REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-    RESPONSE=$(curl --silent "https://api.github.com/repos/dwp/${REPO}/releases/latest")
+    VERSION=$(curl --silent --insecure "https://api.github.com/repos/dwp/${REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    RESPONSE=$(curl --silent --insecure "https://api.github.com/repos/dwp/${REPO}/releases/latest")
 }
 
 update_tfvars() {
@@ -34,7 +34,7 @@ fetch_asset(){
         echo "${REPO}-release/$EXISTING_VERSION already exists: Skipping download"
     else
         mkdir "../${REPO}-release"
-        (cd "../${REPO}-release/" && curl -L -O "${ASSET}")
+        (cd "../${REPO}-release/" && curl --insecure -L -O "${ASSET}")
     fi
 
     update_tfvars

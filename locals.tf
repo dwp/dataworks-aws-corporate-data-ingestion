@@ -250,4 +250,12 @@ locals {
   spark_default_parallelism = local.spark_executor_instances[local.environment] * local.spark_executor_cores[local.environment] * 2
 
   hive_metastore_location = "data/dataworks-aws-corporate-data-ingestion"
+
+  run_daily_export_on_schedule = {
+    development = true
+    qa          = true
+    integration = true
+    preprod     = false
+    production  = false
+  }
 }
