@@ -113,7 +113,7 @@ data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_ebs_cmk" 
 
     principals {
       type        = "AWS"
-      identifiers = [aws_iam_role.dataworks_aws_corporate_data_ingestion_emr_service.arn, aws_iam_role.dataworks_aws_corporate_data_ingestion.arn]
+      identifiers = [aws_iam_role.dataworks_aws_corporate_data_ingestion.arn, aws_iam_role.dataworks_aws_corporate_data_ingestion_emr_service.arn]
     }
 
     actions = [
@@ -134,7 +134,7 @@ data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_ebs_cmk" 
 
     principals {
       type        = "AWS"
-      identifiers = [aws_iam_role.dataworks_aws_corporate_data_ingestion_emr_service.arn, aws_iam_role.dataworks_aws_corporate_data_ingestion.arn]
+      identifiers = [aws_iam_role.dataworks_aws_corporate_data_ingestion.arn, aws_iam_role.dataworks_aws_corporate_data_ingestion_emr_service.arn]
     }
 
     actions = ["kms:CreateGrant"]
