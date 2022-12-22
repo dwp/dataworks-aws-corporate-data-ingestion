@@ -1,12 +1,8 @@
 resource "aws_sns_topic" "corporate_data_ingestion" {
   name = "corporate_data_ingestion_cw_trigger_sns"
-
-  tags = merge(
-    local.common_repo_tags,
-    {
-      "Name" = "corporate_data_ingestion"
-    },
-  )
+  tags = {
+    Name = "corporate_data_ingestion_cw_trigger_sns"
+  }
 }
 
 resource "aws_sns_topic_policy" "corporate_data_ingestion" {
