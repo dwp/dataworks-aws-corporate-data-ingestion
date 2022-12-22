@@ -121,7 +121,7 @@ locals {
   }
 
   step_fail_action = {
-    development = "CONTINUE"
+    development = "TERMINATE_CLUSTER"
     qa          = "TERMINATE_CLUSTER"
     integration = "TERMINATE_CLUSTER"
     preprod     = "TERMINATE_CLUSTER"
@@ -252,9 +252,9 @@ locals {
   hive_metastore_location = "data/dataworks-aws-corporate-data-ingestion"
 
   run_daily_export_on_schedule = {
-    development = true
-    qa          = true
-    integration = true
+    development = false
+    qa          = false
+    integration = false
     preprod     = false
     production  = false
   }
