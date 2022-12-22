@@ -11,6 +11,6 @@ resource "aws_cloudwatch_event_target" "run_daily_export" {
   target_id = aws_sns_topic.corporate_data_ingestion.name
   arn       = aws_sns_topic.corporate_data_ingestion.arn
   input     = <<JSON
-  {"s3_overrides":null,"overrides":{"Instances":{"KeepJobFlowAliveWhenNoSteps":true}},"extend":null,"additional_step_args":null}
+  {"s3_overrides":null,"overrides":null,"extend":null,"additional_step_args":null}
   JSON
 }
