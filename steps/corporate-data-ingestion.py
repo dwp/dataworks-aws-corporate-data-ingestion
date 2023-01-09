@@ -15,14 +15,17 @@ from data import UCMessage, ConfigurationFile, Configuration
 from utils import Utils
 from hive import HiveService
 from logger import setup_logging
+from logging import getLogger
 
 DEFAULT_AWS_REGION = "eu-west-2"
 
 # Interpolated by terraform
-logger = setup_logging(
+setup_logging(
     log_level="${log_level}",
     log_path="${log_path}",
 )
+
+logger = getLogger("corporate-data-ingestion")
 
 
 def get_spark_session() -> SparkSession:

@@ -106,6 +106,26 @@ meta:
       params:
         DETAILED_EXITCODE: -detailed-exitcode
 
+    terraform-output:
+      task: terraform-output
+      .: (( inject meta.plan.terraform-common-config ))
+      config:
+        run:
+          path: sh
+          args:
+            - -exc
+            - |
+              cp ../terraform-config/terraform.tf .
+              terraform workspace show
+              terraform init
+              terraform output --json > ../terraform-output/outputs.json
+          dir: dataworks-aws-corporate-data-ingestion
+        inputs:
+          - name: dataworks-aws-corporate-data-ingestion
+          - name: terraform-config
+        outputs:
+          - name: terraform-output
+
     e2e-tests:
       task: e2e-tests
       config:
@@ -293,3 +313,29 @@ meta:
               python3 -m pytest -vs tests.py
         inputs:
           - name: dataworks-aws-corporate-data-ingestion
+
+    start-corporate-data-ingestion-manually:
+      task: start-corporate-data-ingestion-manually
+      .: (( inject meta.plan.terraform-common-config ))
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: ((dataworks.docker_awscli_repository))
+            version: ((dataworks.docker_awscli_version))
+            tag: ((dataworks.docker_awscli_version))
+        run:
+          path: sh
+          args:
+            - -exc
+            - |
+              source /assume-role
+
+              FUNCTION_ARN=$(jq -r ".start_corporate_data_ingestion_manually_arn.value" < ../terraform-output/outputs.json)
+              aws lambda invoke --function-name $FUNCTION_ARN --invocation-type Event --cli-connect-timeout 900 --cli-read-timeout 900 output.json
+
+          dir: dataworks-aws-corporate-data-ingestion
+        inputs:
+          - name: dataworks-aws-corporate-data-ingestion
+          - name: terraform-output

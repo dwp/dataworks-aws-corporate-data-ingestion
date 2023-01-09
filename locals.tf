@@ -1,4 +1,6 @@
 locals {
+  region = "eu-west-2"
+
   persistence_tag_value = {
     development = "Ignore"
     qa          = "Ignore"
@@ -257,5 +259,11 @@ locals {
     integration = false
     preprod     = false
     production  = false
+  }
+
+  start_corporate_data_ingestion_manually = {
+    export_date_or_range = "2021-03-03;2021-03-06",
+    source_s3_prefix = "corporate_storage/ucfs_audit",
+    destination_s3_prefix = "corporate_data_ingestion/audit_logs_transition/tooling",
   }
 }
