@@ -19,8 +19,11 @@ groups:
     jobs:
       - apply-and-test-with-ami
 
-  - name: rotate-mysql-passwords
+  - name: utility
     jobs:
+      - start-corporate-data-ingestion-manually-development
+      - start-corporate-data-ingestion-manually-qa
+      - start-corporate-data-ingestion-manually-integration
       - rotate-mysql-password-corporate-data-ingestion-writer-development
       - rotate-mysql-password-corporate-data-ingestion-writer-qa
       - rotate-mysql-password-corporate-data-ingestion-writer-integration

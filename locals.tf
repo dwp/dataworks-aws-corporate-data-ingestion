@@ -1,4 +1,6 @@
 locals {
+  region = "eu-west-2"
+
   persistence_tag_value = {
     development = "Ignore"
     qa          = "Ignore"
@@ -257,5 +259,9 @@ locals {
     integration = false
     preprod     = false
     production  = false
+  }
+
+  start_corporate_data_ingestion_manually = {
+    export_date = "2021-03-03;2021-03-06"
   }
 }

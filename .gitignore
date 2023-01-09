@@ -10,3 +10,4 @@ aviator_pipeline.yml
 __pycache__
 .DS_Store
 emr-launchers
+*.zip
