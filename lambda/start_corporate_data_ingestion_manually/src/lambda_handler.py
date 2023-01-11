@@ -5,7 +5,7 @@ import logging
 import sys
 import uuid
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict
 from botocore.exceptions import ClientError
 
@@ -21,7 +21,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(module)s "
     "%(process)s[%(thread)s] %(message)s",
 )
-logger.info("Logging at {} level".format(log_level))
+logger.info(f"Logging at {log_level} level")
 
 
 @dataclass

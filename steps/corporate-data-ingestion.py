@@ -179,11 +179,7 @@ def get_parameters() -> argparse.Namespace:
     args, unrecognized_args = parser.parse_known_args()
 
     if len(unrecognized_args) > 0:
-        logger.warning(
-            "Unrecognized args %s found for the correlation id %s",
-            unrecognized_args,
-            args.correlation_id,
-        )
+        logger.warning(f"Unrecognized args {unrecognized_args} found for the correlation id {args.correlation_id}")
 
     return args
 
@@ -213,7 +209,7 @@ def main():
 
         logger.info("Spark session: initialising")
         spark_session = get_spark_session()
-        logger.info(configuration_file.extra_python_files)
+        logger.info(str(configuration_file.extra_python_files))
         for filename in configuration_file.extra_python_files:
             spark_session.sparkContext.addPyFile(path.join("/opt/emr/steps", filename))
         logger.info("Spark session: initialised")
@@ -321,7 +317,7 @@ def main():
                 interpolation_dict=interpolation_dict)
 
     except Exception as err:
-        logger.error(err)
+        logger.error(repr(err))
         sys.exit(-1)
 
 

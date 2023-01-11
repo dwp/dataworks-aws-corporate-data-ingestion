@@ -19,11 +19,7 @@ class HiveService:
     def execute_queries(self, queries):
         for query in queries:
             if query and not query.isspace():
-                logger.info(
-                    f"Executing query : {query} for correlation id : {self._correlation_id}",
-                    query,
-                    self._correlation_id,
-                )
+                logger.info(f"Executing query : {query} for correlation id : {self._correlation_id}")
                 self._spark_session.sql(query)
             else:
                 logger.info(f"Empty query received. Not executing. Correlation id : {self._correlation_id}")
@@ -32,10 +28,7 @@ class HiveService:
         create_db_query = f"CREATE DATABASE IF NOT EXISTS {db_name}"
         self._spark_session.sql(create_db_query)
         logger.info(
-            "Creating audit database named : %s using sql : '%s' for correlation id : %s",
-            db_name,
-            create_db_query,
-            self._correlation_id,
+            f"Creating audit database named : {db_name} using sql : '{create_db_query}' for correlation id : {self._correlation_id}"
         )
 
     def execute_sql_statement_with_interpolation(self, file=None, sql_statement=None, interpolation_dict=None):
@@ -46,7 +39,7 @@ class HiveService:
         else:
             content = sql_statement
 
-        logger.info(interpolation_dict)
+        logger.info(str(interpolation_dict))
         if interpolation_dict:
             for k, v in interpolation_dict.items():
                 content = content.replace(k, v)
