@@ -1,7 +1,7 @@
 resource "aws_s3_bucket_object" "corporate_data_ingestion_script" {
   bucket = data.terraform_remote_state.common.outputs.config_bucket.id
-  key    = "component/${local.emr_cluster_name}/corporate-data-ingestion.py"
-  content = templatefile("${path.module}/steps/corporate-data-ingestion.py",
+  key    = "component/${local.emr_cluster_name}/corporate_data_ingestion.py"
+  content = templatefile("${path.module}/steps/corporate_data_ingestion.py",
     {
       url                = format("%s/datakey/actions/decrypt", data.terraform_remote_state.crypto.outputs.dks_endpoint[local.environment])
       aws_default_region = "eu-west-2"

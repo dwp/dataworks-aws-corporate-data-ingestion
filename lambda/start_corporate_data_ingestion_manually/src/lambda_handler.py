@@ -153,7 +153,7 @@ class EMRService:
 
         return step_id
 
-    def process_date_or_range_of_dates(self, export_date_or_range, source_s3_prefix, destination_s3_prefix):
+    def process_date_or_range_of_dates(self, export_date_or_range, source_s3_prefix, destination_s3_prefix, collection_name):
         if ";" in export_date_or_range:
             logger.info(f"Processing range of dates: {export_date_or_range}, "
                         f"source: {source_s3_prefix}, destination: {destination_s3_prefix}")
@@ -173,11 +173,12 @@ class EMRService:
                 source_s3_prefix=source_s3_prefix,
                 destination_s3_prefix=destination_s3_prefix,
                 export_date=date,
+                collection_name=collection_name
             )
             self._submit_single_step(step)
 
 
-def generate_step(source_s3_prefix, destination_s3_prefix, export_date) -> Dict:
+def generate_step(source_s3_prefix, destination_s3_prefix, export_date, collection_name) -> Dict:
     """ Generates the "step" dictionary to be submitted to an EMR cluster.  Specific to the data.businessAudit and the
      corporate-data-ingestion job. Export date of 05/12/22 will process all data from the previous day -
      within the prefix "{s3_prefix}/22/12/04" and place it in the hive partition "22-12-05"
@@ -186,6 +187,7 @@ def generate_step(source_s3_prefix, destination_s3_prefix, export_date) -> Dict:
     :param source_s3_prefix: containing multiple date-organised folders
     :param destination_s3_prefix: will contain the lzo-compressed output file. Existing content will be purged from the prefix
     :param export_date: the "export date" used by original pipeline
+    :param collection_name: name of the collection to process
     :return: step_dict: dictionary describing a step to be submitted to EMR cluster
     """
     export_dt = datetime.datetime.strptime(export_date, "%Y-%m-%d")
@@ -200,7 +202,7 @@ def generate_step(source_s3_prefix, destination_s3_prefix, export_date) -> Dict:
             "Jar": "command-runner.jar",
             "Args": [
                 "spark-submit",
-                "/opt/emr/steps/corporate-data-ingestion.py",
+                "/opt/emr/steps/corporate_data_ingestion.py",
                 "--correlation_id",
                 f"{uuid.uuid4()}_export_{export_date}",
                 "--export_date",
@@ -213,6 +215,8 @@ def generate_step(source_s3_prefix, destination_s3_prefix, export_date) -> Dict:
                 "dwx_audit_transition",
                 "--db_name",
                 "dwx_audit_transition",
+                "--collection_name",
+                collection_name,
             ],
         },
     }
@@ -248,6 +252,7 @@ def lambda_handler(event, context):
     export_date_or_range = os.environ.get("EXPORT_DATE_OR_RANGE")
     source_s3_prefix = os.environ.get("SOURCE_S3_PREFIX")
     destination_s3_prefix = os.environ.get("DESTINATION_S3_PREFIX")
+    collection_name = os.environ.get("COLLECTION_NAME")
 
     config = EMRConfig(
         aws_session=boto3.Session(),
@@ -256,7 +261,7 @@ def lambda_handler(event, context):
             {
                 "s3_overrides": None,
                 "overrides": {
-                    "Instances": {"KeepJobFlowAliveWhenNoSteps": False},
+                    "Instances": {"KeepJobFlowAliveWhenNoSteps": True},
                     "Steps": [],
                 },
                 "extend": None,
@@ -266,7 +271,7 @@ def lambda_handler(event, context):
     )
     service = EMRService(configuration=config)
     service.launch_cluster()
-    service.process_date_or_range_of_dates(export_date_or_range, source_s3_prefix, destination_s3_prefix)
+    service.process_date_or_range_of_dates(export_date_or_range, source_s3_prefix, destination_s3_prefix, collection_name)
 
 
 if __name__ == "__main__":
