@@ -13,7 +13,8 @@ def setup_logging(log_level, log_path):
     else:
         handler = logging.FileHandler(log_path)
 
-    formatter = logging.Formatter("{asctime} {name} {levelname:8s} {message}", style="{")
+    formatter = logging.Formatter(
+        "{asctime} {name} {levelname:8s} {message}", style="{"
+    )
     handler.setFormatter(formatter)
     root.addHandler(handler)
-

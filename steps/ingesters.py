@@ -9,10 +9,10 @@ from data import UCMessage
 
 from os import path
 
-logger = logging.getLogger("collections")
+logger = logging.getLogger("ingesters")
 
 
-class CorporateDataIngester:
+class BaseIngester:
     def __init__(self, configuration, spark_session, hive_session):
         self._configuration = configuration
         self._spark_session = spark_session
@@ -23,7 +23,9 @@ class CorporateDataIngester:
 
     @staticmethod
     def get_s3_client() -> BaseClient:
-        client_config = boto_config.Config(max_pool_connections=100, retries={"max_attempts": 10, "mode": "standard"})
+        client_config = boto_config.Config(
+            max_pool_connections=100, retries={"max_attempts": 10, "mode": "standard"}
+        )
         client = boto3.client("s3", config=client_config)
         return client
 
@@ -44,12 +46,11 @@ class CorporateDataIngester:
 
         # define source and destination s3 URIs
         s3_source_url = "s3://{bucket}/{prefix}".format(
-            bucket=corporate_bucket,
-            prefix=source_prefix.lstrip("/"),
+            bucket=corporate_bucket, prefix=source_prefix.lstrip("/"),
         )
         s3_destination_url = "s3://{bucket}/{prefix}".format(
             bucket=published_bucket,
-            prefix=path.join(destination_prefix.lstrip("/"), export_date)
+            prefix=path.join(destination_prefix.lstrip("/"), export_date),
         )
 
         # begin processing
@@ -65,18 +66,27 @@ class CorporateDataIngester:
             )
 
             logger.info(f"Emptying destination prefix")
-            self.empty_s3_prefix(published_bucket=published_bucket, prefix=destination_prefix)
+            self.empty_s3_prefix(
+                published_bucket=published_bucket, prefix=destination_prefix
+            )
 
             # Persist records to JSONL in S3
             logger.info("starting pyspark processing")
             (
                 self.read_binary(s3_source_url)
-                    .mapValues(lambda x: Utils.decompress(x, file_accumulator))
-                    .flatMapValues(Utils.to_records)
-                    .map(lambda x: UCMessage(x[1]))
-                    .map(lambda x: decryption_helper.decrypt_message_dbObject(x, correlation_id, record_accumulator))
-                    .map(lambda x: x.dbobject)
-                    .saveAsTextFile(s3_destination_url, compressionCodecClass="com.hadoop.compression.lzo.LzopCodec")
+                .mapValues(lambda x: Utils.decompress(x, file_accumulator))
+                .flatMapValues(Utils.to_records)
+                .map(lambda x: UCMessage(x[1]))
+                .map(
+                    lambda x: decryption_helper.decrypt_message_dbObject(
+                        x, correlation_id, record_accumulator
+                    )
+                )
+                .map(lambda x: x.dbobject)
+                .saveAsTextFile(
+                    s3_destination_url,
+                    compressionCodecClass="com.hadoop.compression.lzo.LzopCodec",
+                )
             )
 
             # stats for logging
@@ -113,7 +123,9 @@ class CorporateDataIngester:
         bucket.objects.filter(Prefix=prefix).delete()
 
     # Creates result file in S3 in S3 destination prefix
-    def create_result_file_in_s3_destination_prefix(self, record_ingested_count: int) -> None:
+    def create_result_file_in_s3_destination_prefix(
+        self, record_ingested_count: int
+    ) -> None:
         try:
             result_json = json.dumps(
                 {
@@ -134,17 +146,20 @@ class CorporateDataIngester:
             raise
 
 
-class BusinessAudit(CorporateDataIngester):
+class BusinessAuditIngester(BaseIngester):
     def run(self):
-        super(BusinessAudit, self).run()
+        super(BusinessAuditIngester, self).run()
         self.execute_hive_statements()
-   
+
     def execute_hive_statements(self):
         configuration = self._configuration
         hive_session = self._hive_session
         s3_destination_url = "s3://{bucket}/{prefix}".format(
             bucket=configuration.configuration_file.s3_published_bucket,
-            prefix=path.join(configuration.destination_s3_prefix.lstrip("/"), configuration.export_date)
+            prefix=path.join(
+                configuration.destination_s3_prefix.lstrip("/"),
+                configuration.export_date,
+            ),
         )
 
         hive_session.create_database_if_not_exist(configuration.transition_db_name)
@@ -155,80 +170,109 @@ class BusinessAudit(CorporateDataIngester):
         db_name = configuration.transition_db_name
         table_name = "auditlog"
         export_date = configuration.export_date
-    
+
         # Create raw managed table (two columns)
         sql_statement = f"""
                 CREATE TABLE IF NOT EXISTS {db_name}.auditlog_raw (val STRING)
                 PARTITIONED BY (date_str STRING) STORED
                 AS orc TBLPROPERTIES ('orc.compress'='ZLIB')
             """
-        hive_session.execute_sql_statement_with_interpolation(sql_statement=sql_statement)
-    
+        hive_session.execute_sql_statement_with_interpolation(
+            sql_statement=sql_statement
+        )
+
         # Create expanded managed table (multi-columns)
-        interpolation_dict = {"#{hivevar:auditlog_database}": configuration.transition_db_name}
-        hive_session.execute_sql_statement_with_interpolation(file=path.join(sql_file_base_location,
-                                                                             "auditlog_managed_table.sql"),
-                                                              interpolation_dict=interpolation_dict)
-    
+        interpolation_dict = {
+            "#{hivevar:auditlog_database}": configuration.transition_db_name
+        }
+        hive_session.execute_sql_statement_with_interpolation(
+            file=path.join(sql_file_base_location, "auditlog_managed_table.sql"),
+            interpolation_dict=interpolation_dict,
+        )
+
         # Create raw external table (two columns) and populate raw managed table
-        external_table_name = f"auditlog_raw_{configuration.export_date.replace('-', '_')}"
+        external_table_name = (
+            f"auditlog_raw_{configuration.export_date.replace('-', '_')}"
+        )
         sql_statement = f"""
                 CREATE EXTERNAL TABLE {db_name}.{external_table_name} (val STRING) PARTITIONED BY (date_str STRING) STORED AS TEXTFILE LOCATION '{s3_destination_url}';
                 ALTER TABLE {db_name}.{external_table_name} ADD IF NOT EXISTS PARTITION(date_str='{export_date}') LOCATION '{s3_destination_url}';
                 INSERT OVERWRITE TABLE {db_name}.{table_name}_raw SELECT * FROM {db_name}.{external_table_name};
                 DROP TABLE IF EXISTS {db_name}.{external_table_name}
             """
-        hive_session.execute_sql_statement_with_interpolation(sql_statement=sql_statement)
-    
+        hive_session.execute_sql_statement_with_interpolation(
+            sql_statement=sql_statement
+        )
+
         # Create raw expended table (multi-columns) and populate expended managed table
-        interpolation_dict = {"#{hivevar:auditlog_database}": configuration.transition_db_name,
-                              "#{hivevar:date_underscore}": export_date.replace("-", "_"),
-                              "#{hivevar:date_hyphen}": export_date,
-                              "#{hivevar:serde}": "org.openx.data.jsonserde.JsonSerDe",
-                              "#{hivevar:data_location}": s3_destination_url,
-                              }
-        hive_session.execute_sql_statement_with_interpolation(file=path.join(sql_file_base_location,
-                                                                             "auditlog_external_table.sql"),
-                                                              interpolation_dict=interpolation_dict)
-    
+        interpolation_dict = {
+            "#{hivevar:auditlog_database}": configuration.transition_db_name,
+            "#{hivevar:date_underscore}": export_date.replace("-", "_"),
+            "#{hivevar:date_hyphen}": export_date,
+            "#{hivevar:serde}": "org.openx.data.jsonserde.JsonSerDe",
+            "#{hivevar:data_location}": s3_destination_url,
+        }
+        hive_session.execute_sql_statement_with_interpolation(
+            file=path.join(sql_file_base_location, "auditlog_external_table.sql"),
+            interpolation_dict=interpolation_dict,
+        )
+
         # Create secured view-like table
         sec_v_location = f"s3://{configuration.configuration_file.s3_published_bucket}/data/uc/auditlog_sec_v/"
-        interpolation_dict = {"#{hivevar:uc_database}": configuration.db_name,
-                              "#{hivevar:location_str}": sec_v_location}
+        interpolation_dict = {
+            "#{hivevar:uc_database}": configuration.db_name,
+            "#{hivevar:location_str}": sec_v_location,
+        }
         hive_session.execute_sql_statement_with_interpolation(
             file=path.join(sql_file_base_location, "create_auditlog_sec_v.sql"),
-            interpolation_dict=interpolation_dict)
-    
+            interpolation_dict=interpolation_dict,
+        )
+
         # Alter secured view-like table
-        with open(path.join(sql_file_base_location, "auditlog_sec_v_columns.txt"), "r") as fd:
-            sec_v_columns = fd.read().strip('\n')
-            interpolation_dict = {"#{hivevar:uc_database}": configuration.db_name,
-                                  "#{hivevar:date_hyphen}": export_date,
-                                  "#{hivevar:uc_dw_auditlog_database}": configuration.transition_db_name,
-                                  "#{hivevar:auditlog_sec_v_columns}": sec_v_columns,
-                                  "#{hivevar:location_str}": sec_v_location,
-                                  }
+        with open(
+            path.join(sql_file_base_location, "auditlog_sec_v_columns.txt"), "r"
+        ) as fd:
+            sec_v_columns = fd.read().strip("\n")
+            interpolation_dict = {
+                "#{hivevar:uc_database}": configuration.db_name,
+                "#{hivevar:date_hyphen}": export_date,
+                "#{hivevar:uc_dw_auditlog_database}": configuration.transition_db_name,
+                "#{hivevar:auditlog_sec_v_columns}": sec_v_columns,
+                "#{hivevar:location_str}": sec_v_location,
+            }
             hive_session.execute_sql_statement_with_interpolation(
-                file=path.join(sql_file_base_location, "alter_add_part_auditlog_sec_v.sql"),
-                interpolation_dict=interpolation_dict)
-    
+                file=path.join(
+                    sql_file_base_location, "alter_add_part_auditlog_sec_v.sql"
+                ),
+                interpolation_dict=interpolation_dict,
+            )
+
         # Create redacted view-like table
         red_v_location = f"s3://{configuration.configuration_file.s3_published_bucket}/data/uc/auditlog_red_v/"
-        interpolation_dict = {"#{hivevar:uc_database}": configuration.db_name,
-                              "#{hivevar:location_str}": red_v_location}
+        interpolation_dict = {
+            "#{hivevar:uc_database}": configuration.db_name,
+            "#{hivevar:location_str}": red_v_location,
+        }
         hive_session.execute_sql_statement_with_interpolation(
             file=path.join(sql_file_base_location, "create_auditlog_red_v.sql"),
-            interpolation_dict=interpolation_dict)
-    
+            interpolation_dict=interpolation_dict,
+        )
+
         # Alter redacted view-like table
-        with open(path.join(sql_file_base_location, "auditlog_red_v_columns.txt"), "r") as fd:
-            red_v_columns = fd.read().strip('\n')
-            interpolation_dict = {"#{hivevar:uc_database}": configuration.db_name,
-                                  "#{hivevar:date_hyphen}": export_date,
-                                  "#{hivevar:uc_dw_auditlog_database}": configuration.transition_db_name,
-                                  "#{hivevar:auditlog_red_v_columns}": red_v_columns,
-                                  "#{hivevar:location_str}": red_v_location,
-                                  }
+        with open(
+            path.join(sql_file_base_location, "auditlog_red_v_columns.txt"), "r"
+        ) as fd:
+            red_v_columns = fd.read().strip("\n")
+            interpolation_dict = {
+                "#{hivevar:uc_database}": configuration.db_name,
+                "#{hivevar:date_hyphen}": export_date,
+                "#{hivevar:uc_dw_auditlog_database}": configuration.transition_db_name,
+                "#{hivevar:auditlog_red_v_columns}": red_v_columns,
+                "#{hivevar:location_str}": red_v_location,
+            }
             hive_session.execute_sql_statement_with_interpolation(
-                file=path.join(sql_file_base_location, "alter_add_part_auditlog_red_v.sql"),
-                interpolation_dict=interpolation_dict)
+                file=path.join(
+                    sql_file_base_location, "alter_add_part_auditlog_red_v.sql"
+                ),
+                interpolation_dict=interpolation_dict,
+            )

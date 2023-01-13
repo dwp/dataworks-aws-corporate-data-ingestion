@@ -138,7 +138,7 @@ locals {
     production  = 10
   }
 
-  extra_python_files = toset(["data.py", "dks.py", "utils.py", "hive.py", "collections.py"])
+  extra_python_files = toset(["data.py", "dks.py", "utils.py", "hive.py", "ingesters.py"])
 
   cw_agent_namespace                   = "/app/${local.emr_cluster_name}"
   cw_agent_log_group_name              = "/app/${local.emr_cluster_name}"
@@ -262,9 +262,9 @@ locals {
   }
 
   start_corporate_data_ingestion_manually = {
-    export_date_or_range = "2021-03-03;2021-03-06",
-    source_s3_prefix = "corporate_storage/ucfs_audit",
+    export_date_or_range  = "2021-03-03;2021-03-06",
+    source_s3_prefix      = "corporate_storage/ucfs_audit",
     destination_s3_prefix = "corporate_data_ingestion/audit_logs_transition/tooling",
-    collection_name = "data.businessAudit"
+    collection_name       = "data.businessAudit"
   }
 }

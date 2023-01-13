@@ -12,15 +12,14 @@ from data import ConfigurationFile, Configuration
 
 from hive import HiveService
 from logger import setup_logging
-from collections import CorporateDataIngester, BusinessAudit
+from ingesters import BaseIngester, BusinessAuditIngester
 from logging import getLogger
 
 DEFAULT_AWS_REGION = "eu-west-2"
 
 # Interpolated by terraform
 setup_logging(
-    log_level="${log_level}",
-    log_path="${log_path}",
+    log_level="${log_level}", log_path="${log_path}",
 )
 
 logger = getLogger("corporate-data-ingestion")
@@ -29,38 +28,56 @@ logger = getLogger("corporate-data-ingestion")
 def get_spark_session() -> SparkSession:
     spark = (
         SparkSession.builder.master("yarn")
-            .config("spark.executor.heartbeatInterval", "300000")
-            .config("spark.storage.blockManagerSlaveTimeoutMs", "500000")
-            .config("spark.network.timeout", "500000")
-            .config("spark.executor.instances", "1")
-            .config("spark.executor.cores", "1")
-            .config("spark.hadoop.fs.s3.maxRetries", "20")
-            .config("spark.rpc.numRetries", "10")
-            .config("spark.task.maxFailures", "10")
-            .config("spark.scheduler.mode", "FAIR")
-            .config("spark.hadoop.mapreduce.fileoutputcommitter.algorithm.version", "2")
-            .appName("corporate-data-ingestion-spike")
-            .enableHiveSupport()
-            .getOrCreate()
+        .config("spark.executor.heartbeatInterval", "300000")
+        .config("spark.storage.blockManagerSlaveTimeoutMs", "500000")
+        .config("spark.network.timeout", "500000")
+        .config("spark.executor.instances", "1")
+        .config("spark.executor.cores", "1")
+        .config("spark.hadoop.fs.s3.maxRetries", "20")
+        .config("spark.rpc.numRetries", "10")
+        .config("spark.task.maxFailures", "10")
+        .config("spark.scheduler.mode", "FAIR")
+        .config("spark.hadoop.mapreduce.fileoutputcommitter.algorithm.version", "2")
+        .appName("corporate-data-ingestion-spike")
+        .enableHiveSupport()
+        .getOrCreate()
     )
     return spark
 
 
 def get_parameters() -> argparse.Namespace:
     """Define and parse command line args."""
-    parser = argparse.ArgumentParser(description="Receive args provided to spark submit job")
+    parser = argparse.ArgumentParser(
+        description="Receive args provided to spark submit job"
+    )
     # Parse command line inputs and set defaults
     parser.add_argument("--correlation_id", default=str(uuid.uuid4()))
     parser.add_argument("--source_s3_prefix", required=True)
     parser.add_argument("--destination_s3_prefix", required=True)
-    parser.add_argument("--export_date", required=False, help="format %Y-%m-%d, uses today if not provided")
-    parser.add_argument("--transition_db_name", required=True, help="name of the transition Hive database")
-    parser.add_argument("--db_name", required=True, help="name of the Hive database exposed to the end-users")
-    parser.add_argument("--collection_name", required=True, help="name of the collection to process")
+    parser.add_argument(
+        "--export_date",
+        required=False,
+        help="format %Y-%m-%d, uses today if not provided",
+    )
+    parser.add_argument(
+        "--transition_db_name",
+        required=True,
+        help="name of the transition Hive database",
+    )
+    parser.add_argument(
+        "--db_name",
+        required=True,
+        help="name of the Hive database exposed to the end-users",
+    )
+    parser.add_argument(
+        "--collection_name", required=True, help="name of the collection to process"
+    )
     args, unrecognized_args = parser.parse_known_args()
 
     if len(unrecognized_args) > 0:
-        logger.warning(f"Unrecognized args {unrecognized_args} found for the correlation id {args.correlation_id}")
+        logger.warning(
+            f"Unrecognized args {unrecognized_args} found for the correlation id {args.correlation_id}"
+        )
 
     return args
 
@@ -79,7 +96,9 @@ def main():
         configuration = Configuration(
             correlation_id=args.correlation_id,
             run_timestamp=job_start_time.strftime("%Y-%m-%d_%H-%M-%S"),
-            export_date=args.export_date if args.export_date else job_start_time.strftime("%Y-%m-%d"),
+            export_date=args.export_date
+            if args.export_date
+            else job_start_time.strftime("%Y-%m-%d"),
             collection_name=args.collection_name,
             source_s3_prefix=args.source_s3_prefix,
             destination_s3_prefix=args.destination_s3_prefix,
@@ -97,17 +116,22 @@ def main():
 
         # Instantiate Hive service
         logger.info("Hive session: initialising")
-        hive_session = HiveService(transition_db_name=configuration.transition_db_name,
-                                   db_name=configuration.db_name,
-                                   correlation_id=configuration.correlation_id,
-                                   spark_session=spark_session)
+        hive_session = HiveService(
+            transition_db_name=configuration.transition_db_name,
+            db_name=configuration.db_name,
+            correlation_id=configuration.correlation_id,
+            spark_session=spark_session,
+        )
         logger.info("Hive session: initialised")
 
-        logger.info(f"Initialising ingester for collection: {configuration.collection_name}")
-        ingester = {"data.businessAudit": BusinessAudit,
-                    "foo": CorporateDataIngester,
-                    "bar": CorporateDataIngester
-                    }.get(configuration.collection_name)(configuration, spark_session, hive_session)
+        logger.info(
+            f"Initialising ingester for collection: {configuration.collection_name}"
+        )
+        ingester = {
+            "data.businessAudit": BusinessAuditIngester,
+            "foo": BaseIngester,
+            "bar": BaseIngester,
+        }.get(configuration.collection_name)(configuration, spark_session, hive_session)
         logger.info(f"{ingester.__class__.__name__} ingester initialised")
 
         logger.info(f"Processing spark job for correlation_id: {args.correlation_id}")

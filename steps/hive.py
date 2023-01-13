@@ -5,11 +5,7 @@ logger = getLogger("hive")
 
 class HiveService:
     def __init__(
-            self,
-            transition_db_name: str,
-            db_name: str,
-            correlation_id: str,
-            spark_session,
+        self, transition_db_name: str, db_name: str, correlation_id: str, spark_session,
     ):
         self._transition_db_name = transition_db_name
         self._db_name = db_name
@@ -19,10 +15,14 @@ class HiveService:
     def execute_queries(self, queries):
         for query in queries:
             if query and not query.isspace():
-                logger.info(f"Executing query : {query} for correlation id : {self._correlation_id}")
+                logger.info(
+                    f"Executing query : {query} for correlation id : {self._correlation_id}"
+                )
                 self._spark_session.sql(query)
             else:
-                logger.info(f"Empty query received. Not executing. Correlation id : {self._correlation_id}")
+                logger.info(
+                    f"Empty query received. Not executing. Correlation id : {self._correlation_id}"
+                )
 
     def create_database_if_not_exist(self, db_name):
         create_db_query = f"CREATE DATABASE IF NOT EXISTS {db_name}"
@@ -31,10 +31,12 @@ class HiveService:
             f"Creating audit database named : {db_name} using sql : '{create_db_query}' for correlation id : {self._correlation_id}"
         )
 
-    def execute_sql_statement_with_interpolation(self, file=None, sql_statement=None, interpolation_dict=None):
+    def execute_sql_statement_with_interpolation(
+        self, file=None, sql_statement=None, interpolation_dict=None
+    ):
         content = None
         if file:
-            with open(file, 'r') as fd:
+            with open(file, "r") as fd:
                 content = fd.read()
         else:
             content = sql_statement
@@ -46,7 +48,7 @@ class HiveService:
 
         logger.info(f"Run SQL statement: {content}")
 
-        if content.count(';') > 1:
-            self.execute_queries(content.split(';'))
+        if content.count(";") > 1:
+            self.execute_queries(content.split(";"))
         else:
             self._spark_session.sql(content)

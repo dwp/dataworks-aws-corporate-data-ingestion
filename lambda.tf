@@ -10,11 +10,11 @@ resource "aws_lambda_function" "start_corporate_data_ingestion_manually" {
 
   environment {
     variables = {
-      AWS_ACCOUNT = local.account[local.environment],
-      EXPORT_DATE_OR_RANGE = local.start_corporate_data_ingestion_manually["export_date_or_range"],
-      SOURCE_S3_PREFIX = local.start_corporate_data_ingestion_manually["source_s3_prefix"],
+      AWS_ACCOUNT           = local.account[local.environment],
+      EXPORT_DATE_OR_RANGE  = local.start_corporate_data_ingestion_manually["export_date_or_range"],
+      SOURCE_S3_PREFIX      = local.start_corporate_data_ingestion_manually["source_s3_prefix"],
       DESTINATION_S3_PREFIX = local.start_corporate_data_ingestion_manually["destination_s3_prefix"],
-      COLLECTION_NAME = local.start_corporate_data_ingestion_manually["collection_name"],
+      COLLECTION_NAME       = local.start_corporate_data_ingestion_manually["collection_name"],
     }
   }
 }

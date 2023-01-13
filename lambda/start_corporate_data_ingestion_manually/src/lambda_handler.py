@@ -153,10 +153,18 @@ class EMRService:
 
         return step_id
 
-    def process_date_or_range_of_dates(self, export_date_or_range, source_s3_prefix, destination_s3_prefix, collection_name):
+    def process_date_or_range_of_dates(
+        self,
+        export_date_or_range,
+        source_s3_prefix,
+        destination_s3_prefix,
+        collection_name,
+    ):
         if ";" in export_date_or_range:
-            logger.info(f"Processing range of dates: {export_date_or_range}, "
-                        f"source: {source_s3_prefix}, destination: {destination_s3_prefix}")
+            logger.info(
+                f"Processing range of dates: {export_date_or_range}, "
+                f"source: {source_s3_prefix}, destination: {destination_s3_prefix}"
+            )
             export_date_or_range = export_date_or_range.split(";")
             start = datetime.datetime.strptime(export_date_or_range[0], "%Y-%m-%d")
             end = datetime.datetime.strptime(export_date_or_range[1], "%Y-%m-%d")
@@ -173,12 +181,14 @@ class EMRService:
                 source_s3_prefix=source_s3_prefix,
                 destination_s3_prefix=destination_s3_prefix,
                 export_date=date,
-                collection_name=collection_name
+                collection_name=collection_name,
             )
             self._submit_single_step(step)
 
 
-def generate_step(source_s3_prefix, destination_s3_prefix, export_date, collection_name) -> Dict:
+def generate_step(
+    source_s3_prefix, destination_s3_prefix, export_date, collection_name
+) -> Dict:
     """ Generates the "step" dictionary to be submitted to an EMR cluster.  Specific to the data.businessAudit and the
      corporate-data-ingestion job. Export date of 05/12/22 will process all data from the previous day -
      within the prefix "{s3_prefix}/22/12/04" and place it in the hive partition "22-12-05"
@@ -197,7 +207,7 @@ def generate_step(source_s3_prefix, destination_s3_prefix, export_date, collecti
     )
     return {
         "Name": f"corporate-data-ingest::export-date::{export_date}",
-        "ActionOnFailure": "TERMINATE_CLUSTER",
+        "ActionOnFailure": "CANCEL_AND_WAIT",
         "HadoopJarStep": {
             "Jar": "command-runner.jar",
             "Args": [
@@ -271,7 +281,9 @@ def lambda_handler(event, context):
     )
     service = EMRService(configuration=config)
     service.launch_cluster()
-    service.process_date_or_range_of_dates(export_date_or_range, source_s3_prefix, destination_s3_prefix, collection_name)
+    service.process_date_or_range_of_dates(
+        export_date_or_range, source_s3_prefix, destination_s3_prefix, collection_name
+    )
 
 
 if __name__ == "__main__":
