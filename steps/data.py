@@ -22,7 +22,7 @@ class Configuration:
 
     correlation_id: str
     run_timestamp: str  # format: "%Y-%m-%d_%H-%M-%S"
-    export_date: str    # format: "%Y-%m-%d"
+    export_date: str  # format: "%Y-%m-%d"
     collection_name: str
     source_s3_prefix: str
     destination_s3_prefix: str
@@ -81,10 +81,18 @@ class UCMessage:
 
         epoch = "1980-01-01T00:00:00.000+0000"  # As defined in kafka-to-hbase, =315532800000
         kafka_timestamp = self.message_json.get("timestamp", "")
-        last_modified_timestamp = self.message_json.get("message", {}).get("_lastModifiedDateTime", "")
-        created_timestamp = self.message_json.get("message", {}).get("createdDateTime", "")
+        last_modified_timestamp = self.message_json.get("message", {}).get(
+            "_lastModifiedDateTime", ""
+        )
+        created_timestamp = self.message_json.get("message", {}).get(
+            "createdDateTime", ""
+        )
 
-        if record_type == "MONGO_DELETE" and kafka_timestamp != "" and isinstance(kafka_timestamp, str):
+        if (
+            record_type == "MONGO_DELETE"
+            and kafka_timestamp != ""
+            and isinstance(kafka_timestamp, str)
+        ):
             return kafka_timestamp, "kafkaMessageDateTime"
 
         if last_modified_timestamp != "":
@@ -97,7 +105,12 @@ class UCMessage:
 
     def _get_timestamp(self) -> str:
         last_modified: str = self.last_modified[0]
-        return str(round(1000 * dt.datetime.strptime(last_modified, self._py_date_format).timestamp()))
+        return str(
+            round(
+                1000
+                * dt.datetime.strptime(last_modified, self._py_date_format).timestamp()
+            )
+        )
 
     def get_decrypted_uc_message(self, decrypted_dbobject: str):
         """Returns new UCMessage object, replacing encrypted dbObject attribute with the decrypted

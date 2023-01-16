@@ -34,11 +34,14 @@ class TestUtils:
         ciphertext_ascii = base64.b64encode(ciphertext).decode("ascii")
         iv_ascii = base64.b64encode(iv_bytes).decode("ascii")
 
-        return ciphertext_ascii, EncryptionMaterials(
-            encryptionKeyId="not_encrypted",
-            encryptedEncryptionKey=datakey_ascii,
-            initialisationVector=iv_ascii,
-            keyEncryptionKeyId="",
+        return (
+            ciphertext_ascii,
+            EncryptionMaterials(
+                encryptionKeyId="not_encrypted",
+                encryptedEncryptionKey=datakey_ascii,
+                initialisationVector=iv_ascii,
+                keyEncryptionKeyId="",
+            ),
         )
 
     @classmethod
@@ -52,7 +55,9 @@ class TestUtils:
             verify="",
         )
 
-        dks_service._get_decrypted_key_from_dks = MagicMock(side_effect=cls.mock_decrypt)
+        dks_service._get_decrypted_key_from_dks = MagicMock(
+            side_effect=cls.mock_decrypt
+        )
         return dks_service
 
     @staticmethod
@@ -65,16 +70,21 @@ class TestUtils:
             verify="",
             retry_config=RetryConfig(),
         )
-        dks_service._get_decrypted_key_from_dks = MagicMock(side_effect=lambda *args: args[0])
+        dks_service._get_decrypted_key_from_dks = MagicMock(
+            side_effect=lambda *args: args[0]
+        )
         return dks_service
 
     @staticmethod
     def generate_test_encryption_material(index: int) -> (int, EncryptionMaterials):
-        return index, EncryptionMaterials(
-            keyEncryptionKeyId=f"KeyEncryptionKeyId-{index}",
-            initialisationVector=f"initialisationVector-{index}",
-            encryptedEncryptionKey=f"encryptedEncryptionKey-{index}",
-            encryptionKeyId="",
+        return (
+            index,
+            EncryptionMaterials(
+                keyEncryptionKeyId=f"KeyEncryptionKeyId-{index}",
+                initialisationVector=f"initialisationVector-{index}",
+                encryptedEncryptionKey=f"encryptedEncryptionKey-{index}",
+                encryptionKeyId="",
+            ),
         )
 
     @classmethod
@@ -95,7 +105,10 @@ class TestDKSCache(TestCase):
         """LRU Cache works as intended and reduces requests to decrypt data keys"""
         unique_requests = 50
 
-        test_encryption_materials = [TestUtils.generate_test_encryption_material(i) for i in range(unique_requests)]
+        test_encryption_materials = [
+            TestUtils.generate_test_encryption_material(i)
+            for i in range(unique_requests)
+        ]
 
         requests = [
             (index, materials, TestUtils.mock_decrypt(materials.encryptedEncryptionKey))
@@ -107,30 +120,52 @@ class TestDKSCache(TestCase):
         for index, materials, expected_result in requests:
             # For each request, assert the result, cache hits, misses, size and requests to decrypt
             self.assertEqual(
-                dks_service.decrypt_data_key(encryption_materials=materials, correlation_id=""),
+                dks_service.decrypt_data_key(
+                    encryption_materials=materials, correlation_id=""
+                ),
                 expected_result,
             )
             self.assertEqual(dks_service.decrypt_data_key.cache_info().hits, 0)
-            self.assertEqual(dks_service.decrypt_data_key.cache_info().misses, index + 1)
-            self.assertEqual(dks_service.decrypt_data_key.cache_info().currsize, index + 1)
-            self.assertEqual(dks_service._get_decrypted_key_from_dks.call_count, index + 1)
+            self.assertEqual(
+                dks_service.decrypt_data_key.cache_info().misses, index + 1
+            )
+            self.assertEqual(
+                dks_service.decrypt_data_key.cache_info().currsize, index + 1
+            )
+            self.assertEqual(
+                dks_service._get_decrypted_key_from_dks.call_count, index + 1
+            )
 
         for index, materials, expected_result in requests:
             # Repeat the same requests again
             # For each request, assert the result, cache hits, misses, size and requests to decrypt
             self.assertEqual(
-                dks_service.decrypt_data_key(encryption_materials=materials, correlation_id=""),
+                dks_service.decrypt_data_key(
+                    encryption_materials=materials, correlation_id=""
+                ),
                 expected_result,
             )
             self.assertEqual(dks_service.decrypt_data_key.cache_info().hits, index + 1)
-            self.assertEqual(dks_service.decrypt_data_key.cache_info().misses, unique_requests)
-            self.assertEqual(dks_service.decrypt_data_key.cache_info().currsize, unique_requests)
-            self.assertEqual(dks_service._get_decrypted_key_from_dks.call_count, unique_requests)
+            self.assertEqual(
+                dks_service.decrypt_data_key.cache_info().misses, unique_requests
+            )
+            self.assertEqual(
+                dks_service.decrypt_data_key.cache_info().currsize, unique_requests
+            )
+            self.assertEqual(
+                dks_service._get_decrypted_key_from_dks.call_count, unique_requests
+            )
 
         # Assert the total expected hits/misses, cache size before+after clearing
-        self.assertEqual(dks_service.decrypt_data_key.cache_info().hits, unique_requests)
-        self.assertEqual(dks_service.decrypt_data_key.cache_info().misses, unique_requests)
-        self.assertEqual(dks_service.decrypt_data_key.cache_info().currsize, unique_requests)
+        self.assertEqual(
+            dks_service.decrypt_data_key.cache_info().hits, unique_requests
+        )
+        self.assertEqual(
+            dks_service.decrypt_data_key.cache_info().misses, unique_requests
+        )
+        self.assertEqual(
+            dks_service.decrypt_data_key.cache_info().currsize, unique_requests
+        )
         dks_service.decrypt_data_key.cache_clear()
         self.assertEqual(dks_service.decrypt_data_key.cache_info().hits, 0)
         self.assertEqual(dks_service.decrypt_data_key.cache_info().misses, 0)
@@ -191,15 +226,23 @@ class TestMessageDecryptionHelper(TestCase):
                 side_effect=lambda *args: args[0].encryptedEncryptionKey
             )
 
-            (message, encryption_material, db_object) = TestUtils.generate_test_uc_message(index)
-            decrypted_uc_message = decryption_helper.decrypt_message_dbObject(message=message, correlation_id="")
+            (
+                message,
+                encryption_material,
+                db_object,
+            ) = TestUtils.generate_test_uc_message(index)
+            decrypted_uc_message = decryption_helper.decrypt_message_dbObject(
+                message=message, correlation_id=""
+            )
 
             self.assertIn("message", decrypted_uc_message.message_json)
             self.assertIn("dbObject", decrypted_uc_message.message_json["message"])
             self.assertNotIn("encryption", decrypted_uc_message.message_json["message"])
             self.assertEqual(db_object + "-decrypted", decrypted_uc_message.dbobject)
 
-            decryption_helper.data_key_service.decrypt_data_key.assert_called_once_with(encryption_material, "")
+            decryption_helper.data_key_service.decrypt_data_key.assert_called_once_with(
+                encryption_material, ""
+            )
             decryption_helper.decrypt_string.assert_called_once_with(
                 ciphertext=db_object,
                 data_key=encryption_material.encryptedEncryptionKey,
@@ -209,7 +252,12 @@ class TestMessageDecryptionHelper(TestCase):
 
 class TestUCMessage(TestCase):
     @staticmethod
-    def get_event(lastModifiedDateTime=None, createdDateTime=None, kafkaTimestamp=None, message_type=None):
+    def get_event(
+        lastModifiedDateTime=None,
+        createdDateTime=None,
+        kafkaTimestamp=None,
+        message_type=None,
+    ):
         message = {"message": {}}
         if message_type is not None:
             message["message"].update({"@type": message_type})
@@ -311,16 +359,26 @@ class TestUCMessage(TestCase):
         standard_test = json.dumps(
             {
                 "message": {
-                    "encryption": {"encryptiona": "a", "encryptionb": "b", "encryptionc": "c"},
+                    "encryption": {
+                        "encryptiona": "a",
+                        "encryptionb": "b",
+                        "encryptionc": "c",
+                    },
                     "dbObject": "'encrypted dbobject'",
                 }
             }
         )
-        encryption_missing_test = json.dumps({"message": {"dbObject": "'encrypted dbobject'"}})
+        encryption_missing_test = json.dumps(
+            {"message": {"dbObject": "'encrypted dbobject'"}}
+        )
         dbobject_missing_test = json.dumps(
             {
                 "message": {
-                    "encryption": {"encryptiona": "a", "encryptionb": "b", "encryptionc": "c"},
+                    "encryption": {
+                        "encryptiona": "a",
+                        "encryptionb": "b",
+                        "encryptionc": "c",
+                    },
                 }
             }
         )
@@ -333,7 +391,9 @@ class TestUCMessage(TestCase):
         for result in results:
             self.assertNotIn("encryption", result.message_json)
             self.assertIn("dbObject", result.message_json["message"])
-            self.assertEqual("'decrypted dbObject'", result.message_json["message"]["dbObject"])
+            self.assertEqual(
+                "'decrypted dbObject'", result.message_json["message"]["dbObject"]
+            )
 
     def test_get_timestamp(self):
         # test successes (input_timestamp, expected ms_since_epoch)
@@ -344,7 +404,14 @@ class TestUCMessage(TestCase):
         ]
 
         for test_kafka_timestamp, result in test_valid_timestamps:
-            message = json.dumps({"message": {"encryption": {}, "_lastModifiedDateTime": test_kafka_timestamp}})
+            message = json.dumps(
+                {
+                    "message": {
+                        "encryption": {},
+                        "_lastModifiedDateTime": test_kafka_timestamp,
+                    }
+                }
+            )
             self.assertEqual(result, UCMessage(message).timestamp)
 
         # test failures (input_timestamp, expected Exception)
@@ -358,6 +425,13 @@ class TestUCMessage(TestCase):
         ]
 
         for test_kafka_timestamp, error in test_invalid_timestamps:
-            message = json.dumps({"message": {"encryption": {}, "_lastModifiedDateTime": test_kafka_timestamp}})
+            message = json.dumps(
+                {
+                    "message": {
+                        "encryption": {},
+                        "_lastModifiedDateTime": test_kafka_timestamp,
+                    }
+                }
+            )
             with self.assertRaises(error):
                 _ = UCMessage(message).timestamp

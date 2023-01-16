@@ -71,10 +71,7 @@ class DKSService:
             return content
 
     def _get_decrypted_key_from_dks(
-        self,
-        encrypted_data_key: str,
-        key_encryption_key_id: str,
-        correlation_id: str,
+        self, encrypted_data_key: str, key_encryption_key_id: str, correlation_id: str,
     ) -> str:
         with self._retry_session() as session:
             response = session.post(
@@ -100,9 +97,7 @@ class DKSService:
 
     @lru_cache(maxsize=int(os.getenv("DKS_CACHE_SIZE", "128")))
     def decrypt_data_key(
-        self,
-        encryption_materials: EncryptionMaterials,
-        correlation_id: str,
+        self, encryption_materials: EncryptionMaterials, correlation_id: str,
     ) -> str:
         return self._get_decrypted_key_from_dks(
             encryption_materials.encryptedEncryptionKey,
@@ -134,7 +129,9 @@ class MessageCryptoHelper(object):
         record_accumulator: pyspark.Accumulator = None,
     ) -> UCMessage:
         encryption_materials = message.encryption_materials
-        data_key = self.data_key_service.decrypt_data_key(encryption_materials, correlation_id)
+        data_key = self.data_key_service.decrypt_data_key(
+            encryption_materials, correlation_id
+        )
         decrypted_dbobject: str = self.decrypt_string(
             ciphertext=message.dbobject,
             data_key=data_key,

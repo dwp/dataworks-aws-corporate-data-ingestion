@@ -18,8 +18,8 @@ class Utils(object):
 
     @staticmethod
     def get_decryption_helper(
-            decrypt_endpoint: str,
-            dks_call_accumulator: Optional[pyspark.Accumulator] = None,
+        decrypt_endpoint: str,
+        dks_call_accumulator: Optional[pyspark.Accumulator] = None,
     ) -> MessageCryptoHelper:
         certificates = (
             "/etc/pki/tls/certs/private_key.crt",
@@ -36,4 +36,3 @@ class Utils(object):
                 dks_call_accumulator=dks_call_accumulator,
             )
         )
-
