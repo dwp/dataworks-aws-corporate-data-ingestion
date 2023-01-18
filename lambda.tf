@@ -42,6 +42,9 @@ data "aws_iam_policy_document" "assume_role_lambda" {
 resource "aws_iam_role" "start_corporate_data_ingestion" {
   name               = "start_corporate_data_ingestion"
   assume_role_policy = data.aws_iam_policy_document.assume_role_lambda.json
+  tags = {
+    "Name" = "start_corporate_data_ingestion"
+  }
 }
 
 resource "aws_iam_role_policy" "start_corporate_data_ingestion" {
