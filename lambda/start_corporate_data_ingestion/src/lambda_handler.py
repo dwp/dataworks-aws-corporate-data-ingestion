@@ -291,7 +291,7 @@ def lambda_handler(event, context):
 
 
 def launch_scheduled(message, source_s3_prefix, destination_s3_prefix, collection_name):
-    current_date = dt.datetime.now()
+    current_date = dt.datetime.now().strftime("%Y-%m-%d")
     cluster_config = EMRConfig(
         aws_session=boto3.Session(),
         emr_launcher_name="corporate_data_ingestion_emr_launcher",
@@ -307,7 +307,7 @@ def launch_scheduled(message, source_s3_prefix, destination_s3_prefix, collectio
         ),
     )
     emr_cluster = EMRService(configuration=cluster_config)
-    emr_cluster.launch_cluster()
+    emr_cluster.launch_cluster(wait=False)
     emr_cluster.process_date_or_range_of_dates(current_date, current_date,
                                                source_s3_prefix, destination_s3_prefix, collection_name)
 
@@ -331,7 +331,7 @@ def launch_manual(message, source_s3_prefix, destination_s3_prefix, collection_n
         ),
     )
     emr_cluster = EMRService(configuration=cluster_config)
-    emr_cluster.launch_cluster()
+    emr_cluster.launch_cluster(wait=False)
     emr_cluster.process_date_or_range_of_dates(export_start_date, export_end_date,
                                                source_s3_prefix, destination_s3_prefix, collection_name)
 
