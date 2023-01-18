@@ -21,9 +21,9 @@ groups:
 
   - name: utility
     jobs:
-      - start-corporate-data-ingestion-manually-development
-      - start-corporate-data-ingestion-manually-qa
-      - start-corporate-data-ingestion-manually-integration
+      - start-corporate-data-ingestion-development
+      - start-corporate-data-ingestion-qa
+      - start-corporate-data-ingestion-integration
       - rotate-mysql-password-corporate-data-ingestion-writer-development
       - rotate-mysql-password-corporate-data-ingestion-writer-qa
       - rotate-mysql-password-corporate-data-ingestion-writer-integration

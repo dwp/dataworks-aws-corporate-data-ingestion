@@ -1,4 +1,4 @@
-import datetime
+import datetime as dt
 import json
 import time
 import logging
@@ -37,7 +37,7 @@ class EMRService:
         "TERMINATED",
         "TERMINATED_WITH_ERRORS",
     )
-    EMR_WAITING = ("WAITING",)
+    EMR_RUNNING = ("RUNNING",)
 
     def __init__(self, configuration: EMRConfig):
         self._session = configuration.aws_session
@@ -50,8 +50,8 @@ class EMRService:
     def poll_cluster(
         self,
         cluster_id,
-        timeout=600,
-        expected_statuses=EMR_WAITING,
+        timeout=900,
+        expected_statuses=EMR_RUNNING,
         unexpected_statuses=EMR_TERMINATING,
     ):
         emr_client = self._emr_client
@@ -123,7 +123,7 @@ class EMRService:
 
         logger.info(f"Launching Cluster: {cluster_id}")
         if wait:
-            self.poll_cluster(cluster_id)
+            self.poll_cluster(cluster_id, timeout)
 
         self._cluster_id = cluster_id
         return self._cluster_id
@@ -155,33 +155,28 @@ class EMRService:
 
     def process_date_or_range_of_dates(
         self,
-        export_date_or_range,
+        export_start_date,
+        export_end_date,
         source_s3_prefix,
         destination_s3_prefix,
         collection_name,
     ):
-        if ";" in export_date_or_range:
-            logger.info(
-                f"Processing range of dates: {export_date_or_range}, "
-                f"source: {source_s3_prefix}, destination: {destination_s3_prefix}"
-            )
-            export_date_or_range = export_date_or_range.split(";")
-            start = datetime.datetime.strptime(export_date_or_range[0], "%Y-%m-%d")
-            end = datetime.datetime.strptime(export_date_or_range[1], "%Y-%m-%d")
-            export_date_or_range = [
-                (start + datetime.timedelta(days=x)).strftime("%Y-%m-%d")
-                for x in range(0, (end - start).days + 1)
-            ]
-        else:
-            logger.info(f"Processing single date: {export_date_or_range}")
-            export_date_or_range = [export_date_or_range]
+        logger.info(f"Processing date range: {export_start_date} -> {export_end_date}, "
+                    f"source: {source_s3_prefix}, destination: {destination_s3_prefix}")
+        start = dt.datetime.strptime(export_start_date, "%Y-%m-%d")
+        end = dt.datetime.strptime(export_end_date, "%Y-%m-%d")
 
-        for date in export_date_or_range:
+        export_dates = [
+            (start + dt.timedelta(days=x)).strftime("%Y-%m-%d")
+            for x in range(0, (end - start).days + 1)
+        ]
+
+        for date in export_dates:
             step = generate_step(
                 source_s3_prefix=source_s3_prefix,
                 destination_s3_prefix=destination_s3_prefix,
                 export_date=date,
-                collection_name=collection_name,
+                collection_name=collection_name
             )
             self._submit_single_step(step)
 
@@ -200,8 +195,8 @@ def generate_step(
     :param collection_name: name of the collection to process
     :return: step_dict: dictionary describing a step to be submitted to EMR cluster
     """
-    export_dt = datetime.datetime.strptime(export_date, "%Y-%m-%d")
-    ingest_dt = export_dt - datetime.timedelta(days=1)
+    export_dt = dt.datetime.strptime(export_date, "%Y-%m-%d")
+    ingest_dt = export_dt - dt.timedelta(days=1)
     source_s3_prefix = (
         f"{source_s3_prefix}/{ingest_dt.strftime('%Y/%m/%d')}/data/businessAudit"
     )
@@ -259,34 +254,89 @@ def exponential_backoff(
 
 
 def lambda_handler(event, context):
-    export_date_or_range = os.environ.get("EXPORT_DATE_OR_RANGE")
+    logger.info(f"event: {event}")
     source_s3_prefix = os.environ.get("SOURCE_S3_PREFIX")
     destination_s3_prefix = os.environ.get("DESTINATION_S3_PREFIX")
     collection_name = os.environ.get("COLLECTION_NAME")
 
-    config = EMRConfig(
+    # validate event
+    message = "_UNDEFINED_"
+    if "launch_type" not in event:
+        try:
+            message = event["Records"][0]["Sns"]["Message"]
+        except KeyError:
+            logger.error(f"Key $.Records.Sns.Message not found in event: {event}")
+            raise
+    else:
+        message = event
+
+    if isinstance(message, str):
+        try:
+            message = json.loads(message)
+        except json.JSONDecodeError:
+            logger.error(f"Message in event is not valid json: \"{message}\"")
+            raise
+
+    if "launch_type" not in message:
+        raise ValueError(f"$.launch_type key not found in message: {message}")
+
+    # launch emr cluster depending on launch_type
+    launch_type = message["launch_type"]
+    if launch_type == "scheduled":
+        launch_scheduled(message, source_s3_prefix, destination_s3_prefix, collection_name)
+    elif launch_type == "manual":
+        launch_manual(message, source_s3_prefix, destination_s3_prefix, collection_name)
+    else:
+        raise ValueError(f"launch_type not recognised: {message['launch_type']}")
+
+
+def launch_scheduled(message, source_s3_prefix, destination_s3_prefix, collection_name):
+    current_date = dt.datetime.now()
+    cluster_config = EMRConfig(
         aws_session=boto3.Session(),
         emr_launcher_name="corporate_data_ingestion_emr_launcher",
         emr_launcher_payload=json.dumps(
             {
                 "s3_overrides": None,
                 "overrides": {
-                    "Instances": {"KeepJobFlowAliveWhenNoSteps": True},
-                    "Steps": [],
+                    "Instances": {"KeepJobFlowAliveWhenNoSteps": False},
                 },
                 "extend": None,
                 "additional_step_args": None,
             }
         ),
     )
-    service = EMRService(configuration=config)
-    service.launch_cluster()
-    service.process_date_or_range_of_dates(
-        export_date_or_range, source_s3_prefix, destination_s3_prefix, collection_name
+    emr_cluster = EMRService(configuration=cluster_config)
+    emr_cluster.launch_cluster()
+    emr_cluster.process_date_or_range_of_dates(current_date, current_date,
+                                               source_s3_prefix, destination_s3_prefix, collection_name)
+
+
+def launch_manual(message, source_s3_prefix, destination_s3_prefix, collection_name):
+    export_start_date = os.environ.get("START_DATE")
+    export_end_date = os.environ.get("END_DATE")
+
+    cluster_config = EMRConfig(
+        aws_session=boto3.Session(),
+        emr_launcher_name="corporate_data_ingestion_emr_launcher",
+        emr_launcher_payload=json.dumps(
+            {
+                "s3_overrides": None,
+                "overrides": {
+                    "Instances": {"KeepJobFlowAliveWhenNoSteps": False},
+                },
+                "extend": None,
+                "additional_step_args": None
+            }
+        ),
     )
+    emr_cluster = EMRService(configuration=cluster_config)
+    emr_cluster.launch_cluster()
+    emr_cluster.process_date_or_range_of_dates(export_start_date, export_end_date,
+                                               source_s3_prefix, destination_s3_prefix, collection_name)
 
 
 if __name__ == "__main__":
-    logger.info("Lambda start_corporate_data_ingestion_manually started")
+    logger.info("Lambda start_corporate_data_ingestion started")
     json_content = json.loads(open("event.json", "r").read())
     lambda_handler(json_content, None)

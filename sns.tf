@@ -72,13 +72,13 @@ data "aws_iam_policy_document" "corporate_data_ingestion_sns_topic_policy_docume
 resource "aws_sns_topic_subscription" "corporate_data_ingestion" {
   topic_arn = aws_sns_topic.corporate_data_ingestion.arn
   protocol  = "lambda"
-  endpoint  = aws_lambda_function.dataworks_aws_corporate_data_ingestion_emr_launcher.arn
+  endpoint  = aws_lambda_function.start_corporate_data_ingestion.arn
 }
 
 resource "aws_lambda_permission" "corporate_data_ingestion_sns_lambda_permission" {
   statement_id  = "CorporateDataIngestionAllowExecutionFromSNS"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.dataworks_aws_corporate_data_ingestion_emr_launcher.function_name
+  function_name = aws_lambda_function.start_corporate_data_ingestion.function_name
   principal     = "sns.amazonaws.com"
   source_arn    = aws_sns_topic.corporate_data_ingestion.arn
 }

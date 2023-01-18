@@ -8,8 +8,8 @@ output "dataworks_aws_corporate_data_ingestion_emr_launcher_lambda" {
   value = aws_lambda_function.dataworks_aws_corporate_data_ingestion_emr_launcher
 }
 
-output "start_corporate_data_ingestion_manually_arn" {
-  value = aws_lambda_function.start_corporate_data_ingestion_manually.arn
+output "start_corporate_data_ingestion_arn" {
+  value = aws_lambda_function.start_corporate_data_ingestion.arn
 }
 
 output "private_dns" {
