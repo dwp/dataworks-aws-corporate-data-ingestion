@@ -11,10 +11,10 @@ resource "aws_s3_bucket_object" "corporate_data_ingestion_script" {
   )
 }
 
-resource "aws_s3_bucket_object" "logger" {
+resource "aws_s3_bucket_object" "pause_for_30_seconds" {
   bucket  = data.terraform_remote_state.common.outputs.config_bucket.id
-  key     = "component/${local.emr_cluster_name}/logger.py"
-  content = file("${path.module}/steps/logger.py")
+  key     = "component/${local.emr_cluster_name}/pause_for_30_seconds.py"
+  content = file("${path.module}/steps/pause_for_30_seconds.py")
 }
 
 resource "aws_s3_bucket_object" "python_configuration_file" {

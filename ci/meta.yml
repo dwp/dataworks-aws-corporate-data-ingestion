@@ -314,8 +314,8 @@ meta:
         inputs:
           - name: dataworks-aws-corporate-data-ingestion
 
-    start-corporate-data-ingestion-manually:
-      task: start-corporate-data-ingestion-manually
+    start-corporate-data-ingestion:
+      task: start-corporate-data-ingestion
       .: (( inject meta.plan.terraform-common-config ))
       config:
         platform: linux
@@ -332,8 +332,8 @@ meta:
             - |
               source /assume-role
 
-              FUNCTION_ARN=$(jq -r ".start_corporate_data_ingestion_manually_arn.value" < ../terraform-output/outputs.json)
-              aws lambda invoke --function-name $FUNCTION_ARN --invocation-type Event --cli-connect-timeout 900 --cli-read-timeout 900 output.json
+              FUNCTION_ARN=$(jq -r ".start_corporate_data_ingestion_arn.value" < ../terraform-output/outputs.json)
+              aws lambda invoke --function-name $FUNCTION_ARN --payload "{\"launch_type\": \"manual\"}" --invocation-type Event --cli-connect-timeout 900 --cli-read-timeout 900 output.json
 
           dir: dataworks-aws-corporate-data-ingestion
         inputs:

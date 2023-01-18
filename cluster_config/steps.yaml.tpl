@@ -19,22 +19,10 @@ BootstrapActions:
   ScriptBootstrapAction:
     Path: "file:/var/ci/metrics-setup.sh"
 Steps:
-- Name: "submit-job"
-  HadoopJarStep:
-    Args:
-    - "spark-submit"
-    - "--master"
-    - "yarn"
-    - "--conf"
-    - "spark.yarn.submit.waitAppCompletion=true"
-    - "/opt/emr/steps/corporate_data_ingestion.py"
-    Jar: "command-runner.jar"
-  ActionOnFailure: "${action_on_failure}"
-- Name: "send_notification"
+- Name: "pause_for_30_seconds"
   HadoopJarStep:
     Args:
     - "python3"
-    - "/opt/emr/steps/send_notification.py"
+    - "/opt/emr/steps/pause_for_30_seconds.py"
     Jar: "command-runner.jar"
   ActionOnFailure: "${action_on_failure}"
-

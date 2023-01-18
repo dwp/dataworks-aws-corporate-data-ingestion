@@ -1,28 +1,29 @@
 # Call manually from Concourse to ingest the audit logs from a specific day or range of days
-resource "aws_lambda_function" "start_corporate_data_ingestion_manually" {
-  filename         = data.archive_file.start_corporate_data_ingestion_manually.output_path
-  function_name    = "start_corporate_data_ingestion_manually"
-  role             = aws_iam_role.start_corporate_data_ingestion_manually.arn
+resource "aws_lambda_function" "start_corporate_data_ingestion" {
+  filename         = data.archive_file.start_corporate_data_ingestion.output_path
+  function_name    = "start_corporate_data_ingestion"
+  role             = aws_iam_role.start_corporate_data_ingestion.arn
   handler          = "lambda_handler.lambda_handler"
   runtime          = "python3.8"
-  source_code_hash = data.archive_file.start_corporate_data_ingestion_manually.output_base64sha256
+  source_code_hash = data.archive_file.start_corporate_data_ingestion.output_base64sha256
   timeout          = 900
 
   environment {
     variables = {
       AWS_ACCOUNT           = local.account[local.environment],
-      EXPORT_DATE_OR_RANGE  = local.start_corporate_data_ingestion_manually["export_date_or_range"],
-      SOURCE_S3_PREFIX      = local.start_corporate_data_ingestion_manually["source_s3_prefix"],
-      DESTINATION_S3_PREFIX = local.start_corporate_data_ingestion_manually["destination_s3_prefix"],
-      COLLECTION_NAME       = local.start_corporate_data_ingestion_manually["collection_name"],
+      START_DATE            = local.start_corporate_data_ingestion.start_date,
+      END_DATE              = local.start_corporate_data_ingestion.end_date,
+      SOURCE_S3_PREFIX      = local.start_corporate_data_ingestion.source_s3_prefix,
+      DESTINATION_S3_PREFIX = local.start_corporate_data_ingestion.destination_s3_prefix,
+      COLLECTION_NAME       = local.start_corporate_data_ingestion.collection_name
     }
   }
 }
 
-data "archive_file" "start_corporate_data_ingestion_manually" {
+data "archive_file" "start_corporate_data_ingestion" {
   type        = "zip"
-  source_dir  = "${path.module}/lambda/start_corporate_data_ingestion_manually/src"
-  output_path = "${path.module}/lambda/start_corporate_data_ingestion_manually.zip"
+  source_dir  = "${path.module}/lambda/start_corporate_data_ingestion/src"
+  output_path = "${path.module}/lambda/start_corporate_data_ingestion.zip"
 }
 
 data "aws_iam_policy_document" "assume_role_lambda" {
@@ -37,18 +38,18 @@ data "aws_iam_policy_document" "assume_role_lambda" {
   }
 }
 
-# LAMBDA: start_corporate_data_ingestion_manually
-resource "aws_iam_role" "start_corporate_data_ingestion_manually" {
-  name               = "start_corporate_data_ingestion_manually"
+# LAMBDA: start_corporate_data_ingestion
+resource "aws_iam_role" "start_corporate_data_ingestion" {
+  name               = "start_corporate_data_ingestion"
   assume_role_policy = data.aws_iam_policy_document.assume_role_lambda.json
 }
 
-resource "aws_iam_role_policy" "start_corporate_data_ingestion_manually" {
-  role   = aws_iam_role.start_corporate_data_ingestion_manually.name
-  policy = data.aws_iam_policy_document.start_corporate_data_ingestion_manually.json
+resource "aws_iam_role_policy" "start_corporate_data_ingestion" {
+  role   = aws_iam_role.start_corporate_data_ingestion.name
+  policy = data.aws_iam_policy_document.start_corporate_data_ingestion.json
 }
 
-data "aws_iam_policy_document" "start_corporate_data_ingestion_manually" {
+data "aws_iam_policy_document" "start_corporate_data_ingestion" {
   statement {
     sid = "AllowEMROperation"
     actions = [
