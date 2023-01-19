@@ -128,6 +128,10 @@ class MessageCryptoHelper(object):
         correlation_id: str,
         record_accumulator: pyspark.Accumulator = None,
     ) -> UCMessage:
+
+        if not message.dbobject:
+            raise ValueError("dbObject empty or missing")
+
         encryption_materials = message.encryption_materials
         data_key = self.data_key_service.decrypt_data_key(
             encryption_materials, correlation_id
