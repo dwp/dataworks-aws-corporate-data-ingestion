@@ -1,6 +1,5 @@
 import logging
 import boto3
-import json
 from botocore import config as boto_config
 from botocore.client import BaseClient
 from py4j.protocol import Py4JJavaError
@@ -94,7 +93,6 @@ class BaseIngester:
             record_count = record_accumulator.value
             dks_call_count = dks_call_accumulator.value
 
-            self.create_result_file_in_s3_destination_prefix(record_count)
             logger.info(f"Number files in RDD: {file_count}")
             logger.info(f"Number of records in RDD: {record_count}")
             logger.info(f"Number of call to DKS: {dks_call_count}")
@@ -121,29 +119,6 @@ class BaseIngester:
         s3_resource = boto3.resource("s3")
         bucket = s3_resource.Bucket(published_bucket)
         bucket.objects.filter(Prefix=prefix).delete()
-
-    # Creates result file in S3 in S3 destination prefix
-    def create_result_file_in_s3_destination_prefix(
-        self, record_ingested_count: int
-    ) -> None:
-        try:
-            result_json = json.dumps(
-                {
-                    "correlation_id": self._configuration.correlation_id,
-                    "record_ingested_count": record_ingested_count,
-                }
-            )
-
-            _ = self._s3_client.put_object(
-                Body=result_json,
-                Bucket=self._configuration.configuration_file.s3_published_bucket,
-                Key=f"corporate_data_ingestion/audit_logs_transition/results/{self._configuration.correlation_id}/result.json",
-            )
-        except Exception as ex:
-            logger.error(
-                f"""Unable to create result file for correlation id: {self._configuration.correlation_id} {repr(ex)}"""
-            )
-            raise
 
 
 class BusinessAuditIngester(BaseIngester):

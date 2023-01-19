@@ -18,11 +18,3 @@ BootstrapActions:
 - Name: "metrics-setup"
   ScriptBootstrapAction:
     Path: "file:/var/ci/metrics-setup.sh"
-Steps:
-- Name: "pause_for_30_seconds"
-  HadoopJarStep:
-    Args:
-    - "python3"
-    - "/opt/emr/steps/pause_for_30_seconds.py"
-    Jar: "command-runner.jar"
-  ActionOnFailure: "${action_on_failure}"
