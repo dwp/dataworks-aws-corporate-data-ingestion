@@ -140,18 +140,10 @@ class EMRService:
                 unexpected_statuses=[],
             )
 
-    def _submit_single_step(self, step, wait=False, timeout=500):
-        logger.info(f"Submitting step: {step['Name']}")
-
-        response = self._emr_client.add_job_flow_steps(
-            JobFlowId=self._cluster_id, Steps=[step]
-        )
-        step_id = response["StepIds"][0]
-
-        if wait:
-            self.poll_step(step_id=step_id, cluster_id=self._cluster_id)
-
-        return step_id
+    def tag_cluster(self, tags_dict, cluster_id=None):
+        tags_dict = [{"Key": key, "Value": value} for key, value in tags_dict.items()]
+        cluster_id = cluster_id if cluster_id else self._cluster_id
+        _ = self._emr_client.add_tags(ResourceId=cluster_id, Tags=tags_dict)
 
     def process_date_or_range_of_dates(
         self,
@@ -179,6 +171,19 @@ class EMRService:
                 collection_name=collection_name
             )
             self._submit_single_step(step)
+
+    def _submit_single_step(self, step, wait=False, timeout=500):
+        logger.info(f"Submitting step: {step['Name']}")
+
+        response = self._emr_client.add_job_flow_steps(
+            JobFlowId=self._cluster_id, Steps=[step]
+        )
+        step_id = response["StepIds"][0]
+
+        if wait:
+            self.poll_step(step_id=step_id, cluster_id=self._cluster_id)
+
+        return step_id
 
 
 def generate_step(
@@ -308,6 +313,7 @@ def launch_scheduled(message, source_s3_prefix, destination_s3_prefix, collectio
     )
     emr_cluster = EMRService(configuration=cluster_config)
     emr_cluster.launch_cluster(wait=False)
+    emr_cluster.tag_cluster(tags_dict={"launch_type": "scheduled"})
     emr_cluster.process_date_or_range_of_dates(current_date, current_date,
                                                source_s3_prefix, destination_s3_prefix, collection_name)
 
@@ -332,6 +338,7 @@ def launch_manual(message, source_s3_prefix, destination_s3_prefix, collection_n
     )
     emr_cluster = EMRService(configuration=cluster_config)
     emr_cluster.launch_cluster(wait=False)
+    emr_cluster.tag_cluster(tags_dict={"launch_type": "manual"})
     emr_cluster.process_date_or_range_of_dates(export_start_date, export_end_date,
                                                source_s3_prefix, destination_s3_prefix, collection_name)
 
