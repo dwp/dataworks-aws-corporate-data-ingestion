@@ -65,14 +65,14 @@ data "aws_iam_policy_document" "start_corporate_data_ingestion" {
   }
 
   statement {
-      sid = "AllowTaggingEMR"
-      effect = "Allow"
-      actions = [
-        "elasticmapreduce:RemoveTags",
-        "elasticmapreduce:AddTags"
-      ]
-      resources = ["arn:aws:elasticmapreduce:${local.region}:${local.account[local.environment]}:cluster/*"]
-    }
+    sid    = "AllowTaggingEMR"
+    effect = "Allow"
+    actions = [
+      "elasticmapreduce:RemoveTags",
+      "elasticmapreduce:AddTags"
+    ]
+    resources = ["arn:aws:elasticmapreduce:${local.region}:${local.account[local.environment]}:cluster/*"]
+  }
 
   statement {
     sid = "AllowInvokeEMRLauncher"
