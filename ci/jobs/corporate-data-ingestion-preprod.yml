@@ -1,21 +1,21 @@
 jobs:
-  - name: dataworks-aws-corporate-data-ingestion-integration
+  - name: dataworks-aws-corporate-data-ingestion-preprod
     max_in_flight: 1
     plan:
       - in_parallel:
           - put: meta
-            resource: meta-integration
+            resource: meta-preprod
           - get: dataworks-aws-corporate-data-ingestion
             trigger: true
             passed:
               - dataworks-aws-corporate-data-ingestion-qa
           - get: emr-launcher-release
-            version: { tag: ((emr-launcher-version.integration)) }
+            version: { tag: ((emr-launcher-version.preprod)) }
             trigger: true
             passed:
               - dataworks-aws-corporate-data-ingestion-qa
           - get: emr-relauncher-release
-            version: { tag: ((emr-relauncher-version.integration)) }
+            version: { tag: ((emr-relauncher-version.preprod)) }
             trigger: true
             passed:
               - dataworks-aws-corporate-data-ingestion-qa
@@ -26,15 +26,15 @@ jobs:
       - .: (( inject meta.plan.terraform-bootstrap ))
         config:
           params:
-            AWS_ACC: ((aws_account.integration))
+            AWS_ACC: ((aws_account.preprod))
       - .: (( inject meta.plan.terraform-apply ))
         params:
-          TF_WORKSPACE: integration
+          TF_WORKSPACE: preprod
       - .: (( inject meta.plan.terraform-plan ))
         params:
-          TF_WORKSPACE: integration
+          TF_WORKSPACE: preprod
       - .: (( inject meta.plan.rotate-corporate-data-ingestion-writer-password ))
         config:
           params:
-            AWS_ACC: ((aws_account.integration))
-            AWS_ROLE_ARN: arn:aws:iam::((aws_account.integration)):role/ci
+            AWS_ACC: ((aws_account.preprod))
+            AWS_ROLE_ARN: arn:aws:iam::((aws_account.preprod)):role/ci

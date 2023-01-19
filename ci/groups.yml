@@ -3,8 +3,8 @@ groups:
     jobs:
       - dataworks-aws-corporate-data-ingestion-dev
       - dataworks-aws-corporate-data-ingestion-qa
-      - dataworks-aws-corporate-data-ingestion-int
-#      - dataworks-aws-corporate-data-ingestion-preprod
+      - dataworks-aws-corporate-data-ingestion-integration
+      - dataworks-aws-corporate-data-ingestion-preprod
 #      - dataworks-aws-corporate-data-ingestion-prod
 
   - name: pull-request
@@ -24,6 +24,8 @@ groups:
       - start-corporate-data-ingestion-development
       - start-corporate-data-ingestion-qa
       - start-corporate-data-ingestion-integration
+      - start-corporate-data-ingestion-preprod
       - rotate-mysql-password-corporate-data-ingestion-writer-development
       - rotate-mysql-password-corporate-data-ingestion-writer-qa
       - rotate-mysql-password-corporate-data-ingestion-writer-integration
+      - rotate-mysql-password-corporate-data-ingestion-writer-preprod

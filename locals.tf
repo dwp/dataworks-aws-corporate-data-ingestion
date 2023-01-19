@@ -254,7 +254,7 @@ locals {
   hive_metastore_location = "data/dataworks-aws-corporate-data-ingestion"
 
   run_daily_export_on_schedule = {
-    development = true
+    development = false
     qa          = false
     integration = false
     preprod     = false
@@ -262,10 +262,10 @@ locals {
   }
 
   start_corporate_data_ingestion = {
-    start_date            = "2021-03-03",
-    end_date              = "2021-03-06",
+    start_date            = "2023-01-16",
+    end_date              = "2023-01-16",
     source_s3_prefix      = "corporate_storage/ucfs_audit",
-    destination_s3_prefix = "corporate_data_ingestion/audit_logs_transition/tooling",
+    destination_s3_prefix = "corporate_data_ingestion/audit_logs_transition/manual",
     collection_name       = "data.businessAudit"
   }
 }
