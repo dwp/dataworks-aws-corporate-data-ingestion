@@ -43,7 +43,6 @@ chmod u+x /opt/emr/logging.sh
 
     log_wrapper_message "Moving python steps files to steps folder"
     aws s3 cp "${corporate_data_ingestion_script}" /opt/emr/steps/.
-    aws s3 cp "${python_pause_script}" /opt/emr/steps/.
     aws s3 cp "${python_configuration_file}" /opt/emr/steps/.
 %{ for python_util_file in python_utils ~}
     filename=$(echo "${python_util_file}" | rev | cut -d'/' -f 1 | rev)

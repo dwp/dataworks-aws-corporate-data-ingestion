@@ -20,7 +20,6 @@ resource "aws_s3_bucket_object" "download_scripts_sh" {
       dataworks_aws_corporate_data_ingestion_log_level = local.dataworks_aws_corporate_data_ingestion_log_level[local.environment]
       dataworks_aws_corporate_data_ingestion_log_path  = "/var/log/dataworks-aws-corporate-data-ingestion/sns_notification.log"
       scripts_location                                 = format("s3://%s/%s", data.terraform_remote_state.common.outputs.config_bucket.id, "component/${local.emr_cluster_name}")
-      python_pause_script                              = format("s3://%s/%s", data.terraform_remote_state.common.outputs.config_bucket.id, aws_s3_bucket_object.pause_for_30_seconds.key)
       python_configuration_file                        = format("s3://%s/%s", data.terraform_remote_state.common.outputs.config_bucket.id, aws_s3_bucket_object.python_configuration_file.key)
       corporate_data_ingestion_script                  = format("s3://%s/%s", data.terraform_remote_state.common.outputs.config_bucket.id, aws_s3_bucket_object.corporate_data_ingestion_script.key)
       python_utils = [
