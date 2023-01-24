@@ -14,7 +14,7 @@ class Utils(object):
     @staticmethod
     def to_records(multi_record_bytes: bytes) -> List[str]:
         """Decodes, removes empty line from end of each file, and splits by line"""
-        return multi_record_bytes.decode().rstrip("\n").split("\n")
+        return multi_record_bytes.decode().rstrip("\n").split(r"\n")
 
     @staticmethod
     def get_decryption_helper(
