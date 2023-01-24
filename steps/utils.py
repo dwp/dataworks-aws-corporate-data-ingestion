@@ -1,4 +1,4 @@
-import zlib
+import gzip
 from typing import Optional, List
 import pyspark
 from dks import MessageCryptoHelper, DKSService
@@ -9,12 +9,12 @@ class Utils(object):
     def decompress(compressed_text: bytes, accumulator: pyspark.Accumulator) -> bytes:
         """Decompresses jsonl.gz"""
         accumulator += 1
-        return zlib.decompress(compressed_text, 16 + zlib.MAX_WBITS)
+        return gzip.decompress(compressed_text)
 
     @staticmethod
     def to_records(multi_record_bytes: bytes) -> List[str]:
         """Decodes, removes empty line from end of each file, and splits by line"""
-        return multi_record_bytes.decode().rstrip("\n").split(r"\n")
+        return multi_record_bytes.decode().rstrip("\n").split("\n")
 
     @staticmethod
     def get_decryption_helper(
