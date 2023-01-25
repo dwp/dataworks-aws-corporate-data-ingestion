@@ -1,6 +1,6 @@
-from logging import getLogger
+import logging
 
-logger = getLogger("hive")
+logger = logging.getLogger("hive")
 
 
 class HiveService:
@@ -26,15 +26,15 @@ class HiveService:
 
     def create_database_if_not_exist(self, db_name):
         create_db_query = f"CREATE DATABASE IF NOT EXISTS {db_name}"
-        self._spark_session.sql(create_db_query)
         logger.info(
             f"Creating audit database named : {db_name} using sql : '{create_db_query}' for correlation id : {self._correlation_id}"
         )
+        self._spark_session.sql(create_db_query)
+        logger.info(f"Database created if not present: {db_name}")
 
     def execute_sql_statement_with_interpolation(
         self, file=None, sql_statement=None, interpolation_dict=None
     ):
-        content = None
         if file:
             with open(file, "r") as fd:
                 content = fd.read()

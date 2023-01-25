@@ -69,13 +69,15 @@ class BaseIngester:
                 published_bucket=published_bucket, prefix=destination_prefix
             )
 
+            logger.info(f"PARTITIONS: {self.read_binary(s3_source_url).getNumPartitions()}")
+
             # Persist records to JSONL in S3
             logger.info("starting pyspark processing")
             (
                 self.read_binary(s3_source_url)
                 .mapValues(lambda x: Utils.decompress(x, file_accumulator))
-                .flatMapValues(Utils.to_records)
-                .map(lambda x: UCMessage(x[1]))
+                .flatMap(Utils.to_records)
+                .map(UCMessage)
                 .map(
                     lambda x: decryption_helper.decrypt_message_dbObject(
                         x, correlation_id, record_accumulator
@@ -87,15 +89,16 @@ class BaseIngester:
                     compressionCodecClass="com.hadoop.compression.lzo.LzopCodec",
                 )
             )
+            logger.info("Initial pyspark ingestion completed")
 
             # stats for logging
             file_count = file_accumulator.value
             record_count = record_accumulator.value
             dks_call_count = dks_call_accumulator.value
 
-            logger.info(f"Number files in RDD: {file_count}")
-            logger.info(f"Number of records in RDD: {record_count}")
-            logger.info(f"Number of call to DKS: {dks_call_count}")
+            logger.info(f"Count of files processed: {file_count}")
+            logger.info(f"Count of records processed: {record_count}")
+            logger.info(f"Count of calls to DKS: {dks_call_count}")
 
         except Py4JJavaError as err:
             logger.error(
@@ -127,6 +130,7 @@ class BusinessAuditIngester(BaseIngester):
         self.execute_hive_statements()
 
     def execute_hive_statements(self):
+        logger.info("Starting post-processing for businessAudit")
         configuration = self._configuration
         hive_session = self._hive_session
         s3_destination_url = "s3://{bucket}/{prefix}".format(
