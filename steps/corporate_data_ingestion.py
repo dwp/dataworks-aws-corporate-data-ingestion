@@ -37,6 +37,7 @@ def get_spark_session() -> SparkSession:
         .config("spark.rpc.numRetries", "10")
         .config("spark.task.maxFailures", "10")
         .config("spark.scheduler.mode", "FAIR")
+        .config("spark.files.maxPartitionBytes", 128*2**20)  # 128MB
         .config("spark.hadoop.mapreduce.fileoutputcommitter.algorithm.version", "2")
         .appName("corporate-data-ingestion-spike")
         .enableHiveSupport()
