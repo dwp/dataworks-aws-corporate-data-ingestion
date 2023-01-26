@@ -28,8 +28,8 @@ class BaseIngester:
         client = boto3.client("s3", config=client_config)
         return client
 
-    def read_binary(self, file_path):
-        return self._spark_session.sparkContext.binaryFiles(file_path)
+    def read_dir(self, file_path):
+        return self._spark_session.sparkContext.textFile(file_path)
 
     # Processes and publishes data
     def run(self):
@@ -69,14 +69,10 @@ class BaseIngester:
                 published_bucket=published_bucket, prefix=destination_prefix
             )
 
-            logger.info(f"PARTITIONS: {self.read_binary(s3_source_url).getNumPartitions()}")
-
             # Persist records to JSONL in S3
             logger.info("starting pyspark processing")
             (
-                self.read_binary(s3_source_url)
-                .mapValues(lambda x: Utils.decompress(x, file_accumulator))
-                .flatMap(Utils.to_records)
+                self.read_dir(s3_source_url)
                 .map(UCMessage)
                 .map(
                     lambda x: decryption_helper.decrypt_message_dbObject(
