@@ -1,6 +1,6 @@
 # dataworks-aws-corporate-data-ingestion
 
-The corporate data ingestion pipeline is built to regularly ingest data form the corporate storage bucket.
+The corporate data ingestion pipeline is built to regularly ingest data from the corporate storage bucket.
 The *.json.gz files are read, decompressed, decrypted and stored in the published bucket.  The cluster performs
 similar steps to the HTME and ADG infrastructure.
 
