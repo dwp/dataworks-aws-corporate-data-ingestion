@@ -9,7 +9,7 @@ Configurations:
 
 - Classification: "spark"
   Properties:
-    "maximizeResourceAllocation": "false"
+    "maximizeResourceAllocation": "true"
 
 - Classification: "spark-defaults"
   Properties:
@@ -23,15 +23,7 @@ Configurations:
     "spark.sql.warehouse.dir": "s3://${s3_published_bucket}/corporate-data-ingestion/hive/external"
     "spark.serializer": "org.apache.spark.serializer.KryoSerializer"
     "spark.kryoserializer.buffer.max": "${spark_kyro_buffer}"
-    "spark.driver.maxResultSize": "0"
-    "spark.dynamicAllocation.enabled": "false"
-    "spark.executor.cores": "${spark_executor_cores}"
-    "spark.executor.memory": "${spark_executor_memory}G"
-    "spark.executor.memoryOverhead": "${spark_yarn_executor_memory_overhead}G"
-    "spark.driver.memory": "${spark_driver_memory}G"
-    "spark.driver.cores": "${spark_driver_cores}"
-    "spark.executor.instances": "${spark_executor_instances}"
-    "spark.default.parallelism": "${spark_default_parallelism}"
+    "spark.default.parallelism": "2496"
     "spark.sql.warehouse.dir": "s3://${s3_published_bucket}/corporate_data_ingestion/hive/external"
 
 - Classification: "spark-hive-site"
