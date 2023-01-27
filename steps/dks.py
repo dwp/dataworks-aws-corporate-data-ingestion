@@ -1,10 +1,8 @@
 import base64
 import binascii
-import os
 from dataclasses import dataclass
-from functools import lru_cache
 from logging import getLogger
-from typing import Tuple
+from typing import Tuple, Dict, Optional
 
 import pyspark
 from Crypto.Cipher import AES
@@ -34,7 +32,8 @@ class DKSService:
         certificates: tuple,
         verify: str,
         retry_config: RetryConfig = RetryConfig(),
-        dks_call_accumulator: pyspark.Accumulator = None,
+        dks_hit_acc: Optional[pyspark.Accumulator] = None,
+        dks_miss_acc: Optional[pyspark.Accumulator] = None,
     ):
         self._dks_decrypt_endpoint = dks_decrypt_endpoint
         self._dks_datakey_endpoint = dks_datakey_endpoint
@@ -42,7 +41,8 @@ class DKSService:
         self._certificates = certificates
         self._verify = verify
         self._http_adapter = None
-        self.dks_call_count = dks_call_accumulator
+        self._dks_hit_acc = dks_hit_acc
+        self._dks_miss_acc = dks_miss_acc
 
     def _retry_session(self, http=False) -> Session:
         if not self._http_adapter:
@@ -91,19 +91,29 @@ class DKSService:
             # todo: check response code & provide detail in exception message
             raise Exception("Unable to retrieve datakey from DKS")
 
-        if self.dks_call_count is not None:
-            self.dks_call_count += 1
         return content["plaintextDataKey"]
 
-    @lru_cache(maxsize=int(os.getenv("DKS_CACHE_SIZE", "128")))
     def decrypt_data_key(
-        self, encryption_materials: EncryptionMaterials, correlation_id: str,
+        self,
+        encryption_materials: EncryptionMaterials,
+        correlation_id: str,
+        dks_key_cache: Dict,
     ) -> str:
-        return self._get_decrypted_key_from_dks(
-            encryption_materials.encryptedEncryptionKey,
-            encryption_materials.keyEncryptionKeyId,
-            correlation_id,
-        )
+        if encryption_materials.encryptedEncryptionKey in dks_key_cache:
+            if self._dks_hit_acc:
+                self._dks_hit_acc += 1
+            return dks_key_cache[encryption_materials.encryptedEncryptionKey]
+        else:
+            if self._dks_miss_acc:
+                self._dks_miss_acc += 1
+            plaintext_key = self._get_decrypted_key_from_dks(
+                encryption_materials.encryptedEncryptionKey,
+                encryption_materials.keyEncryptionKeyId,
+                correlation_id,
+            )
+
+            dks_key_cache[encryption_materials.encryptedEncryptionKey] = plaintext_key
+            return plaintext_key
 
 
 class MessageCryptoHelper(object):
@@ -123,10 +133,10 @@ class MessageCryptoHelper(object):
         decrypted_bytes: bytes = aes.decrypt(ciphertext_bytes)
         return decrypted_bytes.decode("utf8")
 
-    def decrypt_message_dbObject(
+    def decrypt_dbObject(
         self,
         message: UCMessage,
-        record_accumulator: pyspark.Accumulator = None,
+        dks_key_cache: Dict,
     ) -> UCMessage:
 
         if message.dbobject is None:
@@ -134,15 +144,14 @@ class MessageCryptoHelper(object):
 
         encryption_materials = message.encryption_materials
         data_key = self.data_key_service.decrypt_data_key(
-            encryption_materials, self.correlation_id
+            encryption_materials=encryption_materials,
+            correlation_id=self.correlation_id,
+            dks_key_cache=dks_key_cache,
         )
         decrypted_dbobject: str = self.decrypt_string(
             ciphertext=message.dbobject,
             data_key=data_key,
             iv=encryption_materials.initialisationVector,
         )
-
-        if record_accumulator:
-            record_accumulator += 1
 
         return message.get_decrypted_uc_message(decrypted_dbobject)

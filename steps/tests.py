@@ -6,6 +6,7 @@ from typing import Dict
 from unittest import TestCase
 from unittest.mock import MagicMock
 
+import pyspark.sql
 from Crypto import Random
 from Crypto.Cipher import AES
 from Crypto.Util import Counter
@@ -99,80 +100,43 @@ class TestUtils:
 
 
 class TestDKSCache(TestCase):
-    def test_dks_cache(self):
-        """LRU Cache works as intended and reduces requests to decrypt data keys"""
-        unique_requests = 50
+    def test_cache(self):
+        spark_session = pyspark.sql.SparkSession.builder.getOrCreate()
+        hits = spark_session.sparkContext.accumulator(0)
+        misses = spark_session.sparkContext.accumulator(0)
 
-        unique_request_parameters = [
-            (
-                index,
-                TestUtils.generate_test_encryption_material(index),
-            )
-            for index in range(unique_requests)
-        ]
+        unique_materials = 5
+        repeat_materials = 30
 
-        expected_responses = [
-            (index, TestUtils.mock_decrypt(materials_dict["encryptedEncryptionKey"]))
-            for index, materials_dict in unique_request_parameters
-        ]
+        expected_misses = unique_materials
+        expected_hits = (unique_materials * repeat_materials) - unique_materials
 
-        dks_service = TestUtils.dks_mock_datakey_decrypt()
+        # All records in 1 partition makes caching predictable
+        test_rdd = spark_session.sparkContext.parallelize(
+            repeat_materials * [
+                EncryptionMaterials(**TestUtils.generate_test_encryption_material(index))
+                for index in range(unique_materials)
+            ]
+        ).repartition(1)
 
-        for index, expected_result in expected_responses:
-            materials_dict = unique_request_parameters[index][1]
-            # For each request, assert the result, cache hits, misses, size and requests to decrypt
-            self.assertEqual(
-                dks_service.decrypt_data_key(
-                    encryption_materials=EncryptionMaterials(**materials_dict), correlation_id=""
-                ),
-                expected_result,
+        cache = {}
+        dks_service = TestUtils.dks_mock_no_datakey_encryption()
+        dks_service._dks_hit_acc = hits
+        dks_service._dks_miss_acc = misses
+        (
+            test_rdd
+            .map(
+                lambda x: dks_service.decrypt_data_key(
+                    encryption_materials=x,
+                    correlation_id="TEST",
+                    dks_key_cache=cache,
+                )
             )
-            self.assertEqual(dks_service.decrypt_data_key.cache_info().hits, 0)
-            self.assertEqual(
-                dks_service.decrypt_data_key.cache_info().misses, index + 1
-            )
-            self.assertEqual(
-                dks_service.decrypt_data_key.cache_info().currsize, index + 1
-            )
-            self.assertEqual(
-                dks_service._get_decrypted_key_from_dks.call_count, index + 1
-            )
-
-        for index, expected_result in expected_responses:
-            materials_dict = unique_request_parameters[index][1]
-            # Repeat the same requests again
-            # For each request, assert the result, cache hits, misses, size and requests to decrypt
-            self.assertEqual(
-                dks_service.decrypt_data_key(
-                    encryption_materials=EncryptionMaterials(**materials_dict), correlation_id=""
-                ),
-                expected_result,
-            )
-            self.assertEqual(dks_service.decrypt_data_key.cache_info().hits, index + 1)
-            self.assertEqual(
-                dks_service.decrypt_data_key.cache_info().misses, unique_requests
-            )
-            self.assertEqual(
-                dks_service.decrypt_data_key.cache_info().currsize, unique_requests
-            )
-            self.assertEqual(
-                dks_service._get_decrypted_key_from_dks.call_count, unique_requests
-            )
-
-        # Assert the total expected hits/misses, cache size before+after clearing
-        self.assertEqual(
-            dks_service.decrypt_data_key.cache_info().hits, unique_requests
+            .collect()
         )
-        self.assertEqual(
-            dks_service.decrypt_data_key.cache_info().misses, unique_requests
-        )
-        self.assertEqual(
-            dks_service.decrypt_data_key.cache_info().currsize, unique_requests
-        )
-        dks_service.decrypt_data_key.cache_clear()
-        self.assertEqual(dks_service.decrypt_data_key.cache_info().hits, 0)
-        self.assertEqual(dks_service.decrypt_data_key.cache_info().misses, 0)
-        self.assertEqual(dks_service.decrypt_data_key.cache_info().currsize, 0)
+
+        self.assertEqual(expected_misses, misses.value)
+        self.assertEqual(expected_hits, hits.value)
 
 
 class TestMessageDecryptionHelper(TestCase):
@@ -222,26 +186,27 @@ class TestMessageDecryptionHelper(TestCase):
 
         for index in range(unique_messages):
             # new mocks
-            decryption_helper.decrypt_string = MagicMock(
-                side_effect=lambda ciphertext, data_key, iv: ciphertext + "-decrypted"
-            )
-            decryption_helper.data_key_service.decrypt_data_key = MagicMock(
-                side_effect=lambda *args: args[0].encryptedEncryptionKey
-            )
-
+            decryption_helper.decrypt_string = \
+                MagicMock(side_effect=lambda ciphertext, data_key, iv: ciphertext + "-decrypted")
+            decryption_helper.data_key_service.decrypt_data_key = \
+                MagicMock(side_effect=lambda **kwargs: kwargs["encryption_materials"].encryptedEncryptionKey)
             (
                 message,
                 encryption_material,
                 db_object,
             ) = TestUtils.generate_test_uc_message(index)
-            decrypted_uc_message = decryption_helper.decrypt_message_dbObject(message=message)
+            decrypted_uc_message = decryption_helper.decrypt_dbObject(message=message, dks_key_cache={})
 
             self.assertIn("message", decrypted_uc_message.message_json)
             self.assertIn("dbObject", decrypted_uc_message.message_json["message"])
             self.assertNotIn("encryption", decrypted_uc_message.message_json["message"])
             self.assertEqual(db_object + "-decrypted", decrypted_uc_message.dbobject)
 
-            decryption_helper.data_key_service.decrypt_data_key.assert_called_once_with(encryption_material, "TEST")
+            decryption_helper.data_key_service.decrypt_data_key.assert_called_once_with(
+                encryption_materials=encryption_material,
+                correlation_id="TEST",
+                dks_key_cache={},
+            )
             decryption_helper.decrypt_string.assert_called_once_with(
                 ciphertext=db_object,
                 data_key=encryption_material.encryptedEncryptionKey,

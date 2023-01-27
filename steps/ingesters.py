@@ -55,14 +55,15 @@ class BaseIngester:
 
         # begin processing
         try:
-            file_accumulator = self._spark_session.sparkContext.accumulator(0)
-            record_accumulator = self._spark_session.sparkContext.accumulator(0)
-            dks_call_accumulator = self._spark_session.sparkContext.accumulator(0)
+            dks_hit_accumulator = self._spark_session.sparkContext.accumulator(0)
+            dks_miss_accumulator = self._spark_session.sparkContext.accumulator(0)
 
             logger.info(f"Instantiating decryption helper")
             decryption_helper = Utils.get_decryption_helper(
                 decrypt_endpoint=self._configuration.configuration_file.dks_decrypt_endpoint,
-                dks_call_accumulator=dks_call_accumulator,
+                correlation_id=correlation_id,
+                dks_hit_acc=dks_hit_accumulator,
+                dks_miss_acc=dks_miss_accumulator,
             )
 
             logger.info(f"Emptying destination prefix")
@@ -70,16 +71,15 @@ class BaseIngester:
                 published_bucket=published_bucket, prefix=destination_prefix
             )
 
+            # empty dict sent to each container for caching
+            dks_key_cache = {}
+
             # Persist records to JSONL in S3
             logger.info("starting pyspark processing")
             (
                 self.read_dir(s3_source_url)
                 .map(UCMessage)
-                .map(
-                    lambda x: decryption_helper.decrypt_message_dbObject(
-                        x, record_accumulator
-                    )
-                )
+                .map(lambda x: decryption_helper.decrypt_dbObject(x, dks_key_cache))
                 .map(lambda x: x.dbobject)
                 .saveAsTextFile(
                     s3_destination_url,
@@ -89,13 +89,11 @@ class BaseIngester:
             logger.info("Initial pyspark ingestion completed")
 
             # stats for logging
-            file_count = file_accumulator.value
-            record_count = record_accumulator.value
-            dks_call_count = dks_call_accumulator.value
+            dks_hits = dks_hit_accumulator.value
+            dks_misses = dks_miss_accumulator.value
 
-            logger.info(f"Count of files processed: {file_count}")
-            logger.info(f"Count of records processed: {record_count}")
-            logger.info(f"Count of calls to DKS: {dks_call_count}")
+            logger.info(f"DKS Hits: {dks_hits}")
+            logger.info(f"DKS Misses: {dks_misses}")
 
         except Py4JJavaError as err:
             logger.error(

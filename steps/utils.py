@@ -48,7 +48,8 @@ class Utils(object):
     def get_decryption_helper(
         decrypt_endpoint: str,
         correlation_id: str,
-        dks_call_accumulator: Optional[pyspark.Accumulator] = None,
+        dks_hit_acc: Optional[pyspark.Accumulator] = None,
+        dks_miss_acc: Optional[pyspark.Accumulator] = None,
     ) -> MessageCryptoHelper:
         certificates = (
             "/etc/pki/tls/certs/private_key.crt",
@@ -62,7 +63,8 @@ class Utils(object):
                 dks_datakey_endpoint="not_configured",
                 certificates=certificates,
                 verify=verify,
-                dks_call_accumulator=dks_call_accumulator,
+                dks_hit_acc=dks_hit_acc,
+                dks_miss_acc=dks_miss_acc,
             ),
             correlation_id=correlation_id
         )
