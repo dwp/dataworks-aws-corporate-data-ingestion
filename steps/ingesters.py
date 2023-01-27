@@ -1,12 +1,13 @@
 import logging
+from os import path
+
 import boto3
 from botocore import config as boto_config
 from botocore.client import BaseClient
 from py4j.protocol import Py4JJavaError
-from utils import Utils
-from data import UCMessage
 
-from os import path
+from data import UCMessage
+from utils import Utils
 
 logger = logging.getLogger("ingesters")
 

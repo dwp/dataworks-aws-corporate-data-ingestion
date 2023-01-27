@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 from logging import getLogger
-from typing import Tuple
+from typing import Tuple, Optional, Dict
 
 import pyspark
 from Crypto.Cipher import AES
