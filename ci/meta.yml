@@ -309,6 +309,7 @@ meta:
             - -exc
             - |
               set +x
+              apk add openjdk11-jre bash
               pip install pytest pyspark
               python3 -m pytest -vs tests.py
         inputs:
