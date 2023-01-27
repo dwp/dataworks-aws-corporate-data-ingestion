@@ -2,6 +2,7 @@ import base64
 import binascii
 from datetime import datetime, timezone
 import json
+from typing import Dict
 from unittest import TestCase
 from unittest.mock import MagicMock
 
@@ -76,28 +77,25 @@ class TestUtils:
         return dks_service
 
     @staticmethod
-    def generate_test_encryption_material(index: int) -> (int, EncryptionMaterials):
-        return (
-            index,
-            EncryptionMaterials(
-                keyEncryptionKeyId=f"KeyEncryptionKeyId-{index}",
-                initialisationVector=f"initialisationVector-{index}",
-                encryptedEncryptionKey=f"encryptedEncryptionKey-{index}",
-                encryptionKeyId="",
-            ),
-        )
+    def generate_test_encryption_material(index: int) -> Dict[str, str]:
+        return {
+            "keyEncryptionKeyId": f"KeyEncryptionKeyId-{index}",
+            "initialisationVector": f"initialisationVector-{index}",
+            "encryptedEncryptionKey": f"encryptedEncryptionKey-{index}",
+            "encryptionKeyId": "",
+        }
 
     @classmethod
     def generate_test_uc_message(cls, index: int) -> (UCMessage, EncryptionMaterials):
-        _, encryption_material = cls.generate_test_encryption_material(index)
+        encryption_material_dict = cls.generate_test_encryption_material(index)
         dbObject = f"__encrypted_db_object__{index}"
         message = {
             "message": {
-                "encryption": {**encryption_material.__dict__},
+                "encryption": encryption_material_dict,
                 "dbObject": dbObject,
             }
         }
-        return UCMessage(json.dumps(message)), encryption_material, dbObject
+        return UCMessage(json.dumps(message)), EncryptionMaterials(**encryption_material_dict), dbObject
 
 
 class TestDKSCache(TestCase):
@@ -105,23 +103,27 @@ class TestDKSCache(TestCase):
         """LRU Cache works as intended and reduces requests to decrypt data keys"""
         unique_requests = 50
 
-        test_encryption_materials = [
-            TestUtils.generate_test_encryption_material(i)
-            for i in range(unique_requests)
+        unique_request_parameters = [
+            (
+                index,
+                TestUtils.generate_test_encryption_material(index),
+            )
+            for index in range(unique_requests)
         ]
 
-        requests = [
-            (index, materials, TestUtils.mock_decrypt(materials.encryptedEncryptionKey))
-            for index, materials in test_encryption_materials
+        expected_responses = [
+            (index, TestUtils.mock_decrypt(materials_dict["encryptedEncryptionKey"]))
+            for index, materials_dict in unique_request_parameters
         ]
 
         dks_service = TestUtils.dks_mock_datakey_decrypt()
 
-        for index, materials, expected_result in requests:
+        for index, expected_result in expected_responses:
+            materials_dict = unique_request_parameters[index][1]
             # For each request, assert the result, cache hits, misses, size and requests to decrypt
             self.assertEqual(
                 dks_service.decrypt_data_key(
-                    encryption_materials=materials, correlation_id=""
+                    encryption_materials=EncryptionMaterials(**materials_dict), correlation_id=""
                 ),
                 expected_result,
             )
@@ -136,12 +138,13 @@ class TestDKSCache(TestCase):
                 dks_service._get_decrypted_key_from_dks.call_count, index + 1
             )
 
-        for index, materials, expected_result in requests:
+        for index, expected_result in expected_responses:
+            materials_dict = unique_request_parameters[index][1]
             # Repeat the same requests again
             # For each request, assert the result, cache hits, misses, size and requests to decrypt
             self.assertEqual(
                 dks_service.decrypt_data_key(
-                    encryption_materials=materials, correlation_id=""
+                    encryption_materials=EncryptionMaterials(**materials_dict), correlation_id=""
                 ),
                 expected_result,
             )
