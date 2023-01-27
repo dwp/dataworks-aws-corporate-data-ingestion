@@ -16,20 +16,20 @@ variable "truststore_aliases" {
 
 variable "emr_instance_type_master" {
   default = {
-    development = "m5.4xlarge"
+    development = "m5.2xlarge"
     qa          = "m5.4xlarge"
     integration = "m5.4xlarge"
-    preprod     = "m5.16xlarge"
+    preprod     = "m5.2xlarge"
     production  = "m5.16xlarge"
   }
 }
 
 variable "emr_instance_type_core_one" {
   default = {
-    development = "m5.xlarge"
+    development = "m5.4xlarge"
     qa          = "m5.xlarge"
     integration = "m5.xlarge"
-    preprod     = "m5.16xlarge"
+    preprod     = "m5.4xlarge"
     production  = "m5.16xlarge"
   }
 }
@@ -37,10 +37,10 @@ variable "emr_instance_type_core_one" {
 # Count of instances
 variable "emr_core_instance_count" {
   default = {
-    development = "2"
+    development = "10"
     qa          = "2"
     integration = "2"
-    preprod     = "39"
+    preprod     = "10"
     production  = "39"
   }
 }
