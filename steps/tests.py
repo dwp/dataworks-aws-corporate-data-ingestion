@@ -182,7 +182,7 @@ class TestMessageDecryptionHelper(TestCase):
         - Decrypted value compared to initial plaintext
         """
         dks_service = TestUtils.dks_mock_no_datakey_encryption()
-        decryption_helper = MessageCryptoHelper(dks_service)
+        decryption_helper = MessageCryptoHelper(data_key_service=dks_service, correlation_id="TEST")
 
         unique_messages = 50
 
@@ -217,7 +217,7 @@ class TestMessageDecryptionHelper(TestCase):
             certificates=(None, None),
             verify="",
         )
-        decryption_helper = MessageCryptoHelper(data_key_service=dks_service)
+        decryption_helper = MessageCryptoHelper(data_key_service=dks_service, correlation_id="TEST")
         unique_messages = 50
 
         for index in range(unique_messages):
@@ -234,18 +234,14 @@ class TestMessageDecryptionHelper(TestCase):
                 encryption_material,
                 db_object,
             ) = TestUtils.generate_test_uc_message(index)
-            decrypted_uc_message = decryption_helper.decrypt_message_dbObject(
-                message=message, correlation_id=""
-            )
+            decrypted_uc_message = decryption_helper.decrypt_message_dbObject(message=message)
 
             self.assertIn("message", decrypted_uc_message.message_json)
             self.assertIn("dbObject", decrypted_uc_message.message_json["message"])
             self.assertNotIn("encryption", decrypted_uc_message.message_json["message"])
             self.assertEqual(db_object + "-decrypted", decrypted_uc_message.dbobject)
 
-            decryption_helper.data_key_service.decrypt_data_key.assert_called_once_with(
-                encryption_material, ""
-            )
+            decryption_helper.data_key_service.decrypt_data_key.assert_called_once_with(encryption_material, "TEST")
             decryption_helper.decrypt_string.assert_called_once_with(
                 ciphertext=db_object,
                 data_key=encryption_material.encryptedEncryptionKey,

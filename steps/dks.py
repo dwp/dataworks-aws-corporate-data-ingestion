@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 from logging import getLogger
-from typing import Tuple, Optional, Dict
+from typing import Tuple
 
 import pyspark
 from Crypto.Cipher import AES
@@ -107,8 +107,9 @@ class DKSService:
 
 
 class MessageCryptoHelper(object):
-    def __init__(self, data_key_service: DKSService):
+    def __init__(self, data_key_service: DKSService, correlation_id: str):
         self.data_key_service = data_key_service
+        self.correlation_id = correlation_id
 
     @staticmethod
     def decrypt_string(ciphertext: str, data_key: str, iv: str) -> str:
@@ -125,7 +126,6 @@ class MessageCryptoHelper(object):
     def decrypt_message_dbObject(
         self,
         message: UCMessage,
-        correlation_id: str,
         record_accumulator: pyspark.Accumulator = None,
     ) -> UCMessage:
 
@@ -134,7 +134,7 @@ class MessageCryptoHelper(object):
 
         encryption_materials = message.encryption_materials
         data_key = self.data_key_service.decrypt_data_key(
-            encryption_materials, correlation_id
+            encryption_materials, self.correlation_id
         )
         decrypted_dbobject: str = self.decrypt_string(
             ciphertext=message.dbobject,

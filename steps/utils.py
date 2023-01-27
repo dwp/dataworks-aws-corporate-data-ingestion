@@ -47,6 +47,7 @@ class Utils(object):
     @staticmethod
     def get_decryption_helper(
         decrypt_endpoint: str,
+        correlation_id: str,
         dks_call_accumulator: Optional[pyspark.Accumulator] = None,
     ) -> MessageCryptoHelper:
         certificates = (
@@ -56,11 +57,12 @@ class Utils(object):
         verify = "/etc/pki/ca-trust/source/anchors/analytical_ca.pem"
 
         return MessageCryptoHelper(
-            DKSService(
+            data_key_service=DKSService(
                 dks_decrypt_endpoint=decrypt_endpoint,
                 dks_datakey_endpoint="not_configured",
                 certificates=certificates,
                 verify=verify,
                 dks_call_accumulator=dks_call_accumulator,
-            )
+            ),
+            correlation_id=correlation_id
         )

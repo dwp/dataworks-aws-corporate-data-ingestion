@@ -77,7 +77,7 @@ class BaseIngester:
                 .map(UCMessage)
                 .map(
                     lambda x: decryption_helper.decrypt_message_dbObject(
-                        x, correlation_id, record_accumulator
+                        x, record_accumulator
                     )
                 )
                 .map(lambda x: x.dbobject)
