@@ -27,7 +27,7 @@ Configurations:
     "spark.driver.memory": "${spark_driver_memory}G"
     "spark.driver.cores": "${spark_driver_cores}"
     "spark.executor.instances": "${spark_executor_instances}"
-    "spark.default.parallelism": "2496"
+    "spark.default.parallelism": "2457"
     "spark.sql.warehouse.dir": "s3://${s3_published_bucket}/corporate_data_ingestion/hive/external"
 
 - Classification: "spark-hive-site"
