@@ -262,8 +262,8 @@ locals {
   }
 
   start_corporate_data_ingestion = {
-    start_date            = "2022-11-28",
-    end_date              = "2022-11-28",
+    start_date            = "2022-10-25",
+    end_date              = "2022-11-01",
     source_s3_prefix      = "corporate_storage/ucfs_audit",
     destination_s3_prefix = "corporate_data_ingestion/audit_logs_transition/manual",
     collection_name       = "data.businessAudit"
