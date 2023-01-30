@@ -53,3 +53,17 @@ jobs:
           TF_WORKSPACE: 'preprod'
           AWS_ROLE_ARN: arn:aws:iam::((aws_account.preprod)):role/ci
           AWS_DEFAULT_REGION: ((dataworks.aws_region))
+
+  - name: start-corporate-data-ingestion-production
+    plan:
+      - get: dataworks-aws-corporate-data-ingestion
+        trigger: false
+      - .: (( inject meta.plan.terraform-bootstrap ))
+      - .: (( inject meta.plan.terraform-output ))
+        params:
+          TF_WORKSPACE: 'production'
+      - .: (( inject meta.plan.start-corporate-data-ingestion ))
+        params:
+          TF_WORKSPACE: 'production'
+          AWS_ROLE_ARN: arn:aws:iam::((aws_account.production)):role/ci
+          AWS_DEFAULT_REGION: ((dataworks.aws_region))
