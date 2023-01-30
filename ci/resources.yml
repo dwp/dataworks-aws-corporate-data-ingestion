@@ -89,5 +89,7 @@ resources:
     type: meta
   - name: meta-preprod
     type: meta
+  - name: meta-production
+    type: meta
 
 
