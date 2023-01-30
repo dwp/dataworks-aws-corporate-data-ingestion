@@ -1,7 +1,9 @@
-import re
 import gzip
-from typing import Optional, List, Tuple
+import re
+from typing import Optional, List, Tuple, Dict
+
 import pyspark
+
 from dks import MessageCryptoHelper, DKSService
 
 
@@ -45,7 +47,9 @@ class Utils(object):
     @staticmethod
     def get_decryption_helper(
         decrypt_endpoint: str,
-        dks_call_accumulator: Optional[pyspark.Accumulator] = None,
+        correlation_id: str,
+        dks_hit_acc: Optional[pyspark.Accumulator] = None,
+        dks_miss_acc: Optional[pyspark.Accumulator] = None,
     ) -> MessageCryptoHelper:
         certificates = (
             "/etc/pki/tls/certs/private_key.crt",
@@ -54,11 +58,13 @@ class Utils(object):
         verify = "/etc/pki/ca-trust/source/anchors/analytical_ca.pem"
 
         return MessageCryptoHelper(
-            DKSService(
+            data_key_service=DKSService(
                 dks_decrypt_endpoint=decrypt_endpoint,
                 dks_datakey_endpoint="not_configured",
                 certificates=certificates,
                 verify=verify,
-                dks_call_accumulator=dks_call_accumulator,
-            )
+                dks_hit_acc=dks_hit_acc,
+                dks_miss_acc=dks_miss_acc,
+            ),
+            correlation_id=correlation_id
         )
