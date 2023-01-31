@@ -248,7 +248,6 @@ locals {
     production  = 150 # More than possible as it won't create them if no core or memory available
   }
 
-  #  spark_default_parallelism = local.spark_executor_instances[local.environment] * local.spark_executor_cores[local.environment] * 2
 
   hive_metastore_location = "data/dataworks-aws-corporate-data-ingestion"
 
