@@ -295,7 +295,7 @@ def lambda_handler(event, context):
         raise ValueError(f"launch_type not recognised: {message['launch_type']}")
 
 
-def launch_scheduled(message, source_s3_prefix, destination_s3_prefix, collection_name):
+def launch_scheduled(_message, source_s3_prefix, destination_s3_prefix, collection_name):
     current_date = dt.datetime.now().strftime("%Y-%m-%d")
     cluster_config = EMRConfig(
         aws_session=boto3.Session(),
@@ -314,11 +314,17 @@ def launch_scheduled(message, source_s3_prefix, destination_s3_prefix, collectio
     emr_cluster = EMRService(configuration=cluster_config)
     emr_cluster.launch_cluster(wait=False)
     emr_cluster.tag_cluster(tags_dict={"launch_type": "scheduled"})
-    emr_cluster.process_date_or_range_of_dates(current_date, current_date,
-                                               source_s3_prefix, destination_s3_prefix, collection_name)
+
+    emr_cluster.process_date_or_range_of_dates(
+        export_start_date=current_date,
+        export_end_date=current_date,
+        source_s3_prefix=source_s3_prefix,
+        destination_s3_prefix=destination_s3_prefix,
+        collection_name=collection_name,
+    )
 
 
-def launch_manual(message, source_s3_prefix, destination_s3_prefix, collection_name):
+def launch_manual(_message, source_s3_prefix, destination_s3_prefix, collection_name):
     export_start_date = os.environ.get("START_DATE")
     export_end_date = os.environ.get("END_DATE")
 
@@ -339,8 +345,13 @@ def launch_manual(message, source_s3_prefix, destination_s3_prefix, collection_n
     emr_cluster = EMRService(configuration=cluster_config)
     emr_cluster.launch_cluster(wait=False)
     emr_cluster.tag_cluster(tags_dict={"launch_type": "manual"})
-    emr_cluster.process_date_or_range_of_dates(export_start_date, export_end_date,
-                                               source_s3_prefix, destination_s3_prefix, collection_name)
+    emr_cluster.process_date_or_range_of_dates(
+        export_start_date=export_start_date,
+        export_end_date=export_end_date,
+        source_s3_prefix=source_s3_prefix,
+        destination_s3_prefix=destination_s3_prefix,
+        collection_name=collection_name,
+    )
 
 
 if __name__ == "__main__":

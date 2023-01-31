@@ -248,7 +248,6 @@ locals {
     production  = 150 # More than possible as it won't create them if no core or memory available
   }
 
-  #  spark_default_parallelism = local.spark_executor_instances[local.environment] * local.spark_executor_cores[local.environment] * 2
 
   hive_metastore_location = "data/dataworks-aws-corporate-data-ingestion"
 
@@ -260,11 +259,41 @@ locals {
     production  = false
   }
 
-  start_corporate_data_ingestion = {
-    start_date            = "2022-10-13",
-    end_date              = "2022-10-13",
-    source_s3_prefix      = "corporate_storage/ucfs_audit",
-    destination_s3_prefix = "corporate_data_ingestion/audit_logs_transition/manual",
-    collection_name       = "data.businessAudit"
+  corporate_data_ingestion_audit_config = {
+    development = {
+      start_date            = "",
+      end_date              = "",
+      source_s3_prefix      = "corporate_storage/ucfs_audit",
+      destination_s3_prefix = "corporate_data_ingestion/audit_logs_transition/manual",
+      collection_name       = "data.businessAudit"
+    }
+    qa = {
+      start_date            = ""
+      end_date              = ""
+      source_s3_prefix      = "corporate_storage/ucfs_audit",
+      destination_s3_prefix = "corporate_data_ingestion/audit_logs_transition/manual",
+      collection_name       = "data.businessAudit"
+    }
+    integration = {
+      start_date            = ""
+      end_date              = ""
+      source_s3_prefix      = "corporate_storage/ucfs_audit",
+      destination_s3_prefix = "corporate_data_ingestion/audit_logs_transition/manual",
+      collection_name       = "data.businessAudit"
+    }
+    preprod = {
+      start_date            = ""
+      end_date              = ""
+      source_s3_prefix      = "corporate_storage/ucfs_audit",
+      destination_s3_prefix = "corporate_data_ingestion/audit_logs_transition/manual",
+      collection_name       = "data.businessAudit"
+    }
+    production = {
+      start_date            = ""
+      end_date              = ""
+      source_s3_prefix      = "corporate_storage/ucfs_audit"
+      destination_s3_prefix = "corporate_data_ingestion/audit_logs_transition/manual"
+      collection_name       = "data.businessAudit"
+    }
   }
 }
