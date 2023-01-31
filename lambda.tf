@@ -11,11 +11,11 @@ resource "aws_lambda_function" "start_corporate_data_ingestion" {
   environment {
     variables = {
       AWS_ACCOUNT           = local.account[local.environment],
-      START_DATE            = local.start_corporate_data_ingestion.start_date,
-      END_DATE              = local.start_corporate_data_ingestion.end_date,
-      SOURCE_S3_PREFIX      = local.start_corporate_data_ingestion.source_s3_prefix,
-      DESTINATION_S3_PREFIX = local.start_corporate_data_ingestion.destination_s3_prefix,
-      COLLECTION_NAME       = local.start_corporate_data_ingestion.collection_name
+      START_DATE            = local.corporate_data_ingestion_audit_config[local.environment]["start_date"],
+      END_DATE              = local.corporate_data_ingestion_audit_config[local.environment]["end_date"],
+      SOURCE_S3_PREFIX      = local.corporate_data_ingestion_audit_config[local.environment]["source_s3_prefix"],
+      DESTINATION_S3_PREFIX = local.corporate_data_ingestion_audit_config[local.environment]["destination_s3_prefix"],
+      COLLECTION_NAME       = local.corporate_data_ingestion_audit_config[local.environment]["collection_name"]
     }
   }
 }
