@@ -255,7 +255,7 @@ locals {
     development = false
     qa          = false
     integration = false
-    preprod     = false
+    preprod     = true
     production  = false
   }
 

@@ -95,12 +95,6 @@ class BaseIngester:
             logger.info(f"DKS Hits: {dks_hits}")
             logger.info(f"DKS Misses: {dks_misses}")
 
-        except Py4JJavaError as err:
-            logger.error(
-                f"""Spark error occurred processing collection named {correlation_id} """
-                f""" for correlation id: {correlation_id} {str(err)}" """
-            )
-            raise
         except Exception as err:
             logger.error(
                 f"""Unexpected error occurred processing collection named {self._configuration.collection_name} """
