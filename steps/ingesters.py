@@ -30,7 +30,7 @@ class BaseIngester:
         return client
 
     def read_dir(self, file_path):
-        return self._spark_session.sparkContext.textFile(file_path, minPartitions=2457)
+        return self._spark_session.sparkContext.textFile(file_path)
 
     # Processes and publishes data
     def run(self):
