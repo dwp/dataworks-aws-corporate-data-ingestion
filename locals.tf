@@ -203,8 +203,8 @@ locals {
     development = 10
     qa          = 10
     integration = 10
-    preprod     = 65
-    production  = 65 # At least 20 or more per executor core
+    preprod     = 30
+    production  = 30
   }
 
   spark_driver_memory = {
@@ -219,8 +219,8 @@ locals {
     development = 1
     qa          = 1
     integration = 1
-    preprod     = 5
-    production  = 5
+    preprod     = 10
+    production  = 10
   }
 
   spark_kyro_buffer = {
@@ -231,16 +231,15 @@ locals {
     production  = "2047m" # Max amount allowed
   }
 
-  # ~ 10% of executor memory
+  # >~ 10% of executor memory
   spark_yarn_executor_memory_overhead = {
     development = 2
     qa          = 2
     integration = 2
-    preprod     = 14
-    production  = 14
+    preprod     = 10
+    production  = 10
   }
 
-  # (Cores - 1) / cores per executor
   spark_executor_instances = {
     development = 3
     qa          = 3
