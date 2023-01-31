@@ -1,33 +1,9 @@
 # dataworks-aws-corporate-data-ingestion
 
-## A template repository for building EMR cluster in AWS
+The corporate data ingestion pipeline is built to regularly ingest data from the corporate storage bucket.
+The *.json.gz files are read, decompressed, decrypted and stored in the published bucket.  The cluster performs
+similar steps to the HTME and ADG infrastructure.
 
-This repo contains Makefile and base terraform folders and jinja2 files to fit the standard pattern.
-This repo is a base to create new Terraform repos, renaming the template files and adding the githooks submodule, making the repo ready for use.
-
-Running aviator will create the pipeline required on the AWS-Concourse instance, in order pass a mandatory CI ran status check.  this will likely require you to login to Concourse, if you haven't already.
-
-After cloning this repo, please generate `terraform.tf` and `terraform.tfvars` files:  
-`make bootstrap`
-
-In addition, you may want to do the following: 
-
-1. Create non-default Terraform workspaces as and if required:  
-    `make terraform-workspace-new workspace=<workspace_name>` e.g.  
-    ```make terraform-workspace-new workspace=qa```
-
-1. Configure Concourse CI pipeline:
-    1. Add/remove jobs in `./ci/jobs` as required 
-    1. Create CI pipeline:  
-`aviator`
-
-## Networking
-
-Before you are able to deploy your EMR cluster, the new service will need the networking for it configured.   
-
-[An example](https://git.ucd.gpn.gov.uk/dip/aws-internal-compute/blob/master/dataworks-aws-corporate-data-ingestion_network.tf) of this can be seen in the `internal-compute` VPC where a lot of our EMR clusters are deployed. 
-
-If you are creating the subnets in a different repository, remember to output the address as seen [here](https://git.ucd.gpn.gov.uk/dip/aws-internal-compute/blob/master/outputs.tf#L47-L53)
 
 ## Concourse pipeline
 
@@ -39,45 +15,11 @@ Any jobs that require the use of aviator, e.g. starting and stopping clusters ne
 
 #### Start cluster
 
-This job will start an dataworks-aws-corporate-data-ingestion cluster. In order to make the cluster do what you want it to do, you can alter the following environment variables in the pipeline config and then run `aviator` to update the pipeline before kicking it off:
-
-The parameters below come from an existing product called `aws-clive` and serve only as an example. They will need to be tailored to the needs of your data product.
-
-1. S3_PREFIX (required) -> the S3 output location for the HTME data to process, i.e. `analytical-dataset/2020-08-13_22-16-58/`
-1. EXPORT_DATE (required) -> the date the data was exported, i.e `2021-04-01`
-1. CORRELATION_ID (required) -> the correlation id for this run, i.e. `<some_unique_correlation_id>`
-1. SNAPSHOT_TYPE (required) -> `full`
-
+This job will start an dataworks-aws-corporate-data-ingestion cluster.
 
 #### Stop clusters
 
-For stopping clusters, you can run the `stop-cluster` job to terminate ALL current `dataworks-aws-corporate-data-ingestion` clusters in the environment.
-
-### Clear dynamo row (i.e. for a cluster restart)   
-
-Sometimes the dataworks-aws-corporate-data-ingestion cluster is required to restart from the beginning instead of restarting from the failure point.
-To be able to do a full cluster restart, delete the associated DynamoDB row if it exists. The keys to the row are `Correlation_Id` and `DataProduct` in the DynamoDB table storing cluster state information (see [Retries](#retries)).   
-The `clear-dynamodb-row` job is responsible for carrying out the row deletion.
-
-To do a full cluster restart
-
-* Manually enter CORRELATION_ID and DATA_PRODUCT of the row to delete to the `clear-dynamodb-row` job and run aviator.
-
-
-    jobs:
-      - name: dev-clear-dynamodb-row
-        plan:
-          - .: (( inject meta.plan.clear-dynamodb-row ))
-            config:
-              params:
-                AWS_ROLE_ARN: arn:aws:iam::((aws_account.development)):role/ci
-                AWS_ACC: ((aws_account.development))
-                CORRELATION_ID: <Correlation_Id of the row to delete>
-                DATA_PRODUCT: <DataProduct of the row to delete>
-
-* Run the admin job to `<env>-clear-dynamodb-row`
-
-* You can then run `start-cluster` job with the same `Correlation_Id` from fresh.
+For stopping clusters, you can run the `stop-cluster` job.  If no cluster ID is specified in the yaml, it will terminate ALL current `dataworks-aws-corporate-data-ingestion` clusters in the environment.  
 
 ## AMI tests  
 
@@ -104,8 +46,3 @@ Any resources needed for enabling the AMI-test require to have already been vett
       trigger: false
       passed:
         - dataworks-aws-corporate-data-ingestion-qa
- 
-
-## Optional Features
-
-`data.tf.OPTIONAL` can be used if your product requires writing data to the published S3 bucket.
