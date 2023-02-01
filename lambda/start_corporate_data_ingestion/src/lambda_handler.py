@@ -207,7 +207,7 @@ def generate_step(
     )
     return {
         "Name": f"corporate-data-ingest::export-date::{export_date}",
-        "ActionOnFailure": "CANCEL_AND_WAIT",
+        "ActionOnFailure": "CONTINUE",
         "HadoopJarStep": {
             "Jar": "command-runner.jar",
             "Args": [
