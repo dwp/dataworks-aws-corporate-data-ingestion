@@ -261,38 +261,38 @@ locals {
 
   corporate_data_ingestion_audit_config = {
     development = {
-      start_date            = "",
-      end_date              = "",
-      source_s3_prefix      = "corporate_storage/ucfs_audit",
-      destination_s3_prefix = "corporate_data_ingestion/audit_logs_transition/manual",
+      start_date            = ""
+      end_date              = ""
+      source_s3_prefix      = "corporate_storage/ucfs_audit"
+      destination_s3_prefix = "corporate_data_ingestion/json/daily"
       collection_name       = "data.businessAudit"
     }
     qa = {
       start_date            = ""
       end_date              = ""
-      source_s3_prefix      = "corporate_storage/ucfs_audit",
-      destination_s3_prefix = "corporate_data_ingestion/audit_logs_transition/manual",
+      source_s3_prefix      = "corporate_storage/ucfs_audit"
+      destination_s3_prefix = "corporate_data_ingestion/json/daily"
       collection_name       = "data.businessAudit"
     }
     integration = {
       start_date            = ""
       end_date              = ""
-      source_s3_prefix      = "corporate_storage/ucfs_audit",
-      destination_s3_prefix = "corporate_data_ingestion/audit_logs_transition/manual",
+      source_s3_prefix      = "corporate_storage/ucfs_audit"
+      destination_s3_prefix = "corporate_data_ingestion/json/daily"
       collection_name       = "data.businessAudit"
     }
     preprod = {
       start_date            = ""
       end_date              = ""
-      source_s3_prefix      = "corporate_storage/ucfs_audit",
-      destination_s3_prefix = "corporate_data_ingestion/audit_logs_transition/manual",
+      source_s3_prefix      = "corporate_storage/ucfs_audit"
+      destination_s3_prefix = "corporate_data_ingestion/json/daily"
       collection_name       = "data.businessAudit"
     }
     production = {
       start_date            = ""
       end_date              = ""
       source_s3_prefix      = "corporate_storage/ucfs_audit"
-      destination_s3_prefix = "corporate_data_ingestion/audit_logs_transition/manual"
+      destination_s3_prefix = "corporate_data_ingestion/json/daily"
       collection_name       = "data.businessAudit"
     }
   }

@@ -2,9 +2,6 @@ import logging
 from os import path
 
 import boto3
-from botocore import config as boto_config
-from botocore.client import BaseClient
-from py4j.protocol import Py4JJavaError
 
 from data import UCMessage
 from utils import Utils
@@ -26,21 +23,21 @@ class BaseIngester:
         logger.info("Reading configuration")
         correlation_id = self._configuration.correlation_id
         export_date = self._configuration.export_date
+        collection_name = self._configuration.collection_name.replace(".", "_")
 
         corporate_bucket = self._configuration.configuration_file.s3_corporate_bucket
         source_prefix = self._configuration.source_s3_prefix
 
         published_bucket = self._configuration.configuration_file.s3_published_bucket
-        destination_prefix = self._configuration.destination_s3_prefix
+        destination_prefix = path.join(
+            self._configuration.destination_s3_prefix.lstrip("/"),
+            export_date,
+            collection_name,
+        )
 
         # define source and destination s3 URIs
-        s3_source_url = "s3://{bucket}/{prefix}".format(
-            bucket=corporate_bucket, prefix=source_prefix.lstrip("/"),
-        )
-        s3_destination_url = "s3://{bucket}/{prefix}".format(
-            bucket=published_bucket,
-            prefix=path.join(destination_prefix.lstrip("/"), export_date),
-        )
+        s3_source_url = "s3://{bucket}/{prefix}".format(bucket=corporate_bucket, prefix=source_prefix.lstrip("/"))
+        s3_destination_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=destination_prefix)
 
         # begin processing
         try:
@@ -55,10 +52,8 @@ class BaseIngester:
                 dks_miss_acc=dks_miss_accumulator,
             )
 
-            logger.info(f"Emptying destination prefix")
-            self.empty_s3_prefix(
-                published_bucket=published_bucket, prefix=destination_prefix
-            )
+            logger.info(f"Emptying destination prefix: '{destination_prefix}'")
+            self.empty_s3_prefix(published_bucket=published_bucket, prefix=destination_prefix)
 
             # empty dict sent to each container for caching
             dks_key_cache = {}
@@ -108,16 +103,22 @@ class BusinessAuditIngester(BaseIngester):
         self.execute_hive_statements()
 
     def execute_hive_statements(self):
+        export_date = self._configuration.export_date
+        collection_name = self._configuration.collection_name.replace(".", "_")
+
+        published_bucket = self._configuration.configuration_file.s3_published_bucket
+        destination_prefix = path.join(
+            self._configuration.destination_s3_prefix.lstrip("/"),
+            export_date,
+            collection_name,
+        )
+
+        # define source and destination s3 URIs
+        s3_destination_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=destination_prefix)
+
         logger.info("Starting post-processing for businessAudit")
         configuration = self._configuration
         hive_session = self._hive_session
-        s3_destination_url = "s3://{bucket}/{prefix}".format(
-            bucket=configuration.configuration_file.s3_published_bucket,
-            prefix=path.join(
-                configuration.destination_s3_prefix.lstrip("/"),
-                configuration.export_date,
-            ),
-        )
 
         hive_session.create_database_if_not_exist(configuration.transition_db_name)
         hive_session.create_database_if_not_exist(configuration.db_name)
