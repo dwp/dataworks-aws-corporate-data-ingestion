@@ -5,7 +5,6 @@ import uuid
 from datetime import datetime
 from os import path
 
-
 from pyspark.sql import SparkSession
 
 from data import ConfigurationFile, Configuration
@@ -37,7 +36,7 @@ def get_spark_session() -> SparkSession:
         .config("spark.rpc.numRetries", "10")
         .config("spark.task.maxFailures", "10")
         .config("spark.scheduler.mode", "FAIR")
-        .config("spark.files.maxPartitionBytes", 128*2**20)  # 128MB
+        .config("spark.files.maxPartitionBytes", 128 * 2 ** 20)  # 128MB
         .config("spark.hadoop.mapreduce.fileoutputcommitter.algorithm.version", "2")
         .appName("corporate-data-ingestion-spike")
         .enableHiveSupport()
@@ -55,24 +54,10 @@ def get_parameters() -> argparse.Namespace:
     parser.add_argument("--correlation_id", default=str(uuid.uuid4()))
     parser.add_argument("--source_s3_prefix", required=True)
     parser.add_argument("--destination_s3_prefix", required=True)
-    parser.add_argument(
-        "--export_date",
-        required=False,
-        help="format %Y-%m-%d, uses today if not provided",
-    )
-    parser.add_argument(
-        "--transition_db_name",
-        required=True,
-        help="name of the transition Hive database",
-    )
-    parser.add_argument(
-        "--db_name",
-        required=True,
-        help="name of the Hive database exposed to the end-users",
-    )
-    parser.add_argument(
-        "--collection_name", required=True, help="name of the collection to process"
-    )
+    parser.add_argument("--export_date", required=False, help="format %Y-%m-%d, uses today if not provided", )
+    parser.add_argument("--intermediate_db_name", required=True, help="name of the intermediate Hive database", )
+    parser.add_argument("--user_db_name", required=True, help="name of the Hive database exposed to the end-users", )
+    parser.add_argument("--collection_name", required=True, help="name of the collection to process")
     args, unrecognized_args = parser.parse_known_args()
 
     if len(unrecognized_args) > 0:
@@ -103,8 +88,8 @@ def main():
             collection_name=args.collection_name,
             source_s3_prefix=args.source_s3_prefix,
             destination_s3_prefix=args.destination_s3_prefix,
-            transition_db_name=args.transition_db_name,
-            db_name=args.db_name,
+            intermediate_db_name=args.intermediate_db_name,
+            user_db_name=args.user_db_name,
             configuration_file=configuration_file,
         )
 
@@ -118,16 +103,14 @@ def main():
         # Instantiate Hive service
         logger.info("Hive session: initialising")
         hive_session = HiveService(
-            transition_db_name=configuration.transition_db_name,
-            db_name=configuration.db_name,
+            intermediate_db_name=configuration.intermediate_db_name,
+            user_db_name=configuration.user_db_name,
             correlation_id=configuration.correlation_id,
             spark_session=spark_session,
         )
         logger.info("Hive session: initialised")
 
-        logger.info(
-            f"Initialising ingester for collection: {configuration.collection_name}"
-        )
+        logger.info(f"Initialising ingester for collection: {configuration.collection_name}")
         ingester = {
             "data.businessAudit": BusinessAuditIngester,
             "foo": BaseIngester,

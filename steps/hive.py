@@ -5,10 +5,10 @@ logger = logging.getLogger("hive")
 
 class HiveService:
     def __init__(
-        self, transition_db_name: str, db_name: str, correlation_id: str, spark_session,
+        self, intermediate_db_name: str, user_db_name: str, correlation_id: str, spark_session,
     ):
-        self._transition_db_name = transition_db_name
-        self._db_name = db_name
+        self._intermediate_db_name = intermediate_db_name
+        self._user_db_name = user_db_name
         self._correlation_id = correlation_id
         self._spark_session = spark_session
 
@@ -41,7 +41,7 @@ class HiveService:
         else:
             content = sql_statement
 
-        logger.info(str(interpolation_dict))
+        logger.info(f"interpolation_dict: {str(interpolation_dict)}")
         if interpolation_dict:
             for k, v in interpolation_dict.items():
                 content = content.replace(k, v)
@@ -49,6 +49,6 @@ class HiveService:
         logger.info(f"Run SQL statement: {content}")
 
         if content.count(";") > 1:
-            self.execute_queries(content.split(";"))
+            self.execute_queries([statement for statement in content.split(";") if statement])
         else:
             self._spark_session.sql(content)

@@ -26,9 +26,9 @@ variable "emr_instance_type_master" {
 
 variable "emr_instance_type_core_one" {
   default = {
-    development = "m5.xlarge"
-    qa          = "m5.xlarge"
-    integration = "m5.xlarge"
+    development = "m5.4xlarge"
+    qa          = "m5.4xlarge"
+    integration = "m5.4xlarge"
     preprod     = "m5.16xlarge"
     production  = "m5.16xlarge"
   }
@@ -37,9 +37,9 @@ variable "emr_instance_type_core_one" {
 # Count of instances
 variable "emr_core_instance_count" {
   default = {
-    development = "2"
-    qa          = "2"
-    integration = "2"
+    development = "3"
+    qa          = "3"
+    integration = "3"
     preprod     = "19"
     production  = "19"
   }

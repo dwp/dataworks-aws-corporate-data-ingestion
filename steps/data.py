@@ -26,8 +26,8 @@ class Configuration:
     collection_name: str
     source_s3_prefix: str
     destination_s3_prefix: str
-    transition_db_name: str
-    db_name: str
+    intermediate_db_name: str
+    user_db_name: str
     configuration_file: ConfigurationFile
 
 

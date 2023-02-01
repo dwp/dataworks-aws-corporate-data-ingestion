@@ -2,9 +2,6 @@ import logging
 from os import path
 
 import boto3
-from botocore import config as boto_config
-from botocore.client import BaseClient
-from py4j.protocol import Py4JJavaError
 
 from data import UCMessage
 from utils import Utils
@@ -17,17 +14,6 @@ class BaseIngester:
         self._configuration = configuration
         self._spark_session = spark_session
         self._hive_session = hive_session
-        logger.info("S3 client: initialising")
-        self._s3_client = self.get_s3_client()
-        logger.info("S3 client: initialised")
-
-    @staticmethod
-    def get_s3_client() -> BaseClient:
-        client_config = boto_config.Config(
-            max_pool_connections=100, retries={"max_attempts": 10, "mode": "standard"}
-        )
-        client = boto3.client("s3", config=client_config)
-        return client
 
     def read_dir(self, file_path):
         return self._spark_session.sparkContext.textFile(file_path)
@@ -37,21 +23,21 @@ class BaseIngester:
         logger.info("Reading configuration")
         correlation_id = self._configuration.correlation_id
         export_date = self._configuration.export_date
+        collection_name = self._configuration.collection_name.replace(".", "_")
 
         corporate_bucket = self._configuration.configuration_file.s3_corporate_bucket
         source_prefix = self._configuration.source_s3_prefix
 
         published_bucket = self._configuration.configuration_file.s3_published_bucket
-        destination_prefix = self._configuration.destination_s3_prefix
+        destination_prefix = path.join(
+            self._configuration.destination_s3_prefix.lstrip("/"),
+            export_date,
+            collection_name,
+        )
 
         # define source and destination s3 URIs
-        s3_source_url = "s3://{bucket}/{prefix}".format(
-            bucket=corporate_bucket, prefix=source_prefix.lstrip("/"),
-        )
-        s3_destination_url = "s3://{bucket}/{prefix}".format(
-            bucket=published_bucket,
-            prefix=path.join(destination_prefix.lstrip("/"), export_date),
-        )
+        s3_source_url = "s3://{bucket}/{prefix}".format(bucket=corporate_bucket, prefix=source_prefix.lstrip("/"))
+        s3_destination_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=destination_prefix)
 
         # begin processing
         try:
@@ -66,10 +52,8 @@ class BaseIngester:
                 dks_miss_acc=dks_miss_accumulator,
             )
 
-            logger.info(f"Emptying destination prefix")
-            self.empty_s3_prefix(
-                published_bucket=published_bucket, prefix=destination_prefix
-            )
+            logger.info(f"Emptying destination prefix: '{destination_prefix}'")
+            self.empty_s3_prefix(published_bucket=published_bucket, prefix=destination_prefix)
 
             # empty dict sent to each container for caching
             dks_key_cache = {}
@@ -119,23 +103,29 @@ class BusinessAuditIngester(BaseIngester):
         self.execute_hive_statements()
 
     def execute_hive_statements(self):
+        export_date = self._configuration.export_date
+        collection_name = self._configuration.collection_name.replace(".", "_")
+
+        published_bucket = self._configuration.configuration_file.s3_published_bucket
+        destination_prefix = path.join(
+            self._configuration.destination_s3_prefix.lstrip("/"),
+            export_date,
+            collection_name,
+        )
+
+        # define source and destination s3 URIs
+        s3_destination_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=destination_prefix)
+
         logger.info("Starting post-processing for businessAudit")
         configuration = self._configuration
         hive_session = self._hive_session
-        s3_destination_url = "s3://{bucket}/{prefix}".format(
-            bucket=configuration.configuration_file.s3_published_bucket,
-            prefix=path.join(
-                configuration.destination_s3_prefix.lstrip("/"),
-                configuration.export_date,
-            ),
-        )
 
-        hive_session.create_database_if_not_exist(configuration.transition_db_name)
-        hive_session.create_database_if_not_exist(configuration.db_name)
+        hive_session.create_database_if_not_exist(configuration.intermediate_db_name)
+        hive_session.create_database_if_not_exist(configuration.user_db_name)
 
         # Declare parameters for audit logs processing
         sql_file_base_location = "/opt/emr/audit_sql/"
-        db_name = configuration.transition_db_name
+        db_name = configuration.intermediate_db_name
         table_name = "auditlog"
         export_date = configuration.export_date
 
@@ -151,7 +141,7 @@ class BusinessAuditIngester(BaseIngester):
 
         # Create expanded managed table (multi-columns)
         interpolation_dict = {
-            "#{hivevar:auditlog_database}": configuration.transition_db_name
+            "#{hivevar:auditlog_database}": configuration.intermediate_db_name
         }
         hive_session.execute_sql_statement_with_interpolation(
             file=path.join(sql_file_base_location, "auditlog_managed_table.sql"),
@@ -163,6 +153,7 @@ class BusinessAuditIngester(BaseIngester):
             f"auditlog_raw_{configuration.export_date.replace('-', '_')}"
         )
         sql_statement = f"""
+                DROP TABLE IF EXISTS {db_name}.{external_table_name};
                 CREATE EXTERNAL TABLE {db_name}.{external_table_name} (val STRING) PARTITIONED BY (date_str STRING) STORED AS TEXTFILE LOCATION '{s3_destination_url}';
                 ALTER TABLE {db_name}.{external_table_name} ADD IF NOT EXISTS PARTITION(date_str='{export_date}') LOCATION '{s3_destination_url}';
                 INSERT OVERWRITE TABLE {db_name}.{table_name}_raw SELECT * FROM {db_name}.{external_table_name};
@@ -174,7 +165,7 @@ class BusinessAuditIngester(BaseIngester):
 
         # Create raw expended table (multi-columns) and populate expended managed table
         interpolation_dict = {
-            "#{hivevar:auditlog_database}": configuration.transition_db_name,
+            "#{hivevar:auditlog_database}": configuration.intermediate_db_name,
             "#{hivevar:date_underscore}": export_date.replace("-", "_"),
             "#{hivevar:date_hyphen}": export_date,
             "#{hivevar:serde}": "org.openx.data.jsonserde.JsonSerDe",
@@ -188,7 +179,7 @@ class BusinessAuditIngester(BaseIngester):
         # Create secured view-like table
         sec_v_location = f"s3://{configuration.configuration_file.s3_published_bucket}/data/uc/auditlog_sec_v/"
         interpolation_dict = {
-            "#{hivevar:uc_database}": configuration.db_name,
+            "#{hivevar:uc_database}": configuration.user_db_name,
             "#{hivevar:location_str}": sec_v_location,
         }
         hive_session.execute_sql_statement_with_interpolation(
@@ -202,9 +193,9 @@ class BusinessAuditIngester(BaseIngester):
         ) as fd:
             sec_v_columns = fd.read().strip("\n")
             interpolation_dict = {
-                "#{hivevar:uc_database}": configuration.db_name,
+                "#{hivevar:uc_database}": configuration.user_db_name,
                 "#{hivevar:date_hyphen}": export_date,
-                "#{hivevar:uc_dw_auditlog_database}": configuration.transition_db_name,
+                "#{hivevar:uc_dw_auditlog_database}": configuration.intermediate_db_name,
                 "#{hivevar:auditlog_sec_v_columns}": sec_v_columns,
                 "#{hivevar:location_str}": sec_v_location,
             }
@@ -218,7 +209,7 @@ class BusinessAuditIngester(BaseIngester):
         # Create redacted view-like table
         red_v_location = f"s3://{configuration.configuration_file.s3_published_bucket}/data/uc/auditlog_red_v/"
         interpolation_dict = {
-            "#{hivevar:uc_database}": configuration.db_name,
+            "#{hivevar:uc_database}": configuration.user_db_name,
             "#{hivevar:location_str}": red_v_location,
         }
         hive_session.execute_sql_statement_with_interpolation(
@@ -232,9 +223,9 @@ class BusinessAuditIngester(BaseIngester):
         ) as fd:
             red_v_columns = fd.read().strip("\n")
             interpolation_dict = {
-                "#{hivevar:uc_database}": configuration.db_name,
+                "#{hivevar:uc_database}": configuration.user_db_name,
                 "#{hivevar:date_hyphen}": export_date,
-                "#{hivevar:uc_dw_auditlog_database}": configuration.transition_db_name,
+                "#{hivevar:uc_dw_auditlog_database}": configuration.intermediate_db_name,
                 "#{hivevar:auditlog_red_v_columns}": red_v_columns,
                 "#{hivevar:location_str}": red_v_location,
             }
