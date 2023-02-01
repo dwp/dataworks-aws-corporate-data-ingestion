@@ -41,7 +41,7 @@ class HiveService:
         else:
             content = sql_statement
 
-        logger.info(str(interpolation_dict))
+        logger.info(f"interpolation_dict: {str(interpolation_dict)}")
         if interpolation_dict:
             for k, v in interpolation_dict.items():
                 content = content.replace(k, v)
@@ -49,6 +49,6 @@ class HiveService:
         logger.info(f"Run SQL statement: {content}")
 
         if content.count(";") > 1:
-            self.execute_queries(content.split(";"))
+            self.execute_queries([statement for statement in content.split(";") if statement])
         else:
             self._spark_session.sql(content)
