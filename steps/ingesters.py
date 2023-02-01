@@ -17,17 +17,6 @@ class BaseIngester:
         self._configuration = configuration
         self._spark_session = spark_session
         self._hive_session = hive_session
-        logger.info("S3 client: initialising")
-        self._s3_client = self.get_s3_client()
-        logger.info("S3 client: initialised")
-
-    @staticmethod
-    def get_s3_client() -> BaseClient:
-        client_config = boto_config.Config(
-            max_pool_connections=100, retries={"max_attempts": 10, "mode": "standard"}
-        )
-        client = boto3.client("s3", config=client_config)
-        return client
 
     def read_dir(self, file_path):
         return self._spark_session.sparkContext.textFile(file_path)
