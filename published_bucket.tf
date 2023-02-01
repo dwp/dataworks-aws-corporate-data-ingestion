@@ -24,6 +24,7 @@ data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_read_writ
     resources = [
       "${data.terraform_remote_state.common.outputs.published_bucket.arn}/corporate_data_ingestion/*",
       "${data.terraform_remote_state.common.outputs.published_bucket.arn}/data/uc/*",
+      "${data.terraform_remote_state.common.outputs.published_bucket.arn}/analytical-dataset/hive/external/*",
     ]
   }
 

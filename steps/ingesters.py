@@ -120,12 +120,12 @@ class BusinessAuditIngester(BaseIngester):
         configuration = self._configuration
         hive_session = self._hive_session
 
-        hive_session.create_database_if_not_exist(configuration.transition_db_name)
-        hive_session.create_database_if_not_exist(configuration.db_name)
+        hive_session.create_database_if_not_exist(configuration.intermediate_db_name)
+        hive_session.create_database_if_not_exist(configuration.user_db_name)
 
         # Declare parameters for audit logs processing
         sql_file_base_location = "/opt/emr/audit_sql/"
-        db_name = configuration.transition_db_name
+        db_name = configuration.intermediate_db_name
         table_name = "auditlog"
         export_date = configuration.export_date
 
@@ -141,7 +141,7 @@ class BusinessAuditIngester(BaseIngester):
 
         # Create expanded managed table (multi-columns)
         interpolation_dict = {
-            "#{hivevar:auditlog_database}": configuration.transition_db_name
+            "#{hivevar:auditlog_database}": configuration.intermediate_db_name
         }
         hive_session.execute_sql_statement_with_interpolation(
             file=path.join(sql_file_base_location, "auditlog_managed_table.sql"),
@@ -153,6 +153,7 @@ class BusinessAuditIngester(BaseIngester):
             f"auditlog_raw_{configuration.export_date.replace('-', '_')}"
         )
         sql_statement = f"""
+                DROP TABLE IF EXISTS {db_name}.{external_table_name};
                 CREATE EXTERNAL TABLE {db_name}.{external_table_name} (val STRING) PARTITIONED BY (date_str STRING) STORED AS TEXTFILE LOCATION '{s3_destination_url}';
                 ALTER TABLE {db_name}.{external_table_name} ADD IF NOT EXISTS PARTITION(date_str='{export_date}') LOCATION '{s3_destination_url}';
                 INSERT OVERWRITE TABLE {db_name}.{table_name}_raw SELECT * FROM {db_name}.{external_table_name};
@@ -164,7 +165,7 @@ class BusinessAuditIngester(BaseIngester):
 
         # Create raw expended table (multi-columns) and populate expended managed table
         interpolation_dict = {
-            "#{hivevar:auditlog_database}": configuration.transition_db_name,
+            "#{hivevar:auditlog_database}": configuration.intermediate_db_name,
             "#{hivevar:date_underscore}": export_date.replace("-", "_"),
             "#{hivevar:date_hyphen}": export_date,
             "#{hivevar:serde}": "org.openx.data.jsonserde.JsonSerDe",
@@ -178,7 +179,7 @@ class BusinessAuditIngester(BaseIngester):
         # Create secured view-like table
         sec_v_location = f"s3://{configuration.configuration_file.s3_published_bucket}/data/uc/auditlog_sec_v/"
         interpolation_dict = {
-            "#{hivevar:uc_database}": configuration.db_name,
+            "#{hivevar:uc_database}": configuration.user_db_name,
             "#{hivevar:location_str}": sec_v_location,
         }
         hive_session.execute_sql_statement_with_interpolation(
@@ -192,9 +193,9 @@ class BusinessAuditIngester(BaseIngester):
         ) as fd:
             sec_v_columns = fd.read().strip("\n")
             interpolation_dict = {
-                "#{hivevar:uc_database}": configuration.db_name,
+                "#{hivevar:uc_database}": configuration.user_db_name,
                 "#{hivevar:date_hyphen}": export_date,
-                "#{hivevar:uc_dw_auditlog_database}": configuration.transition_db_name,
+                "#{hivevar:uc_dw_auditlog_database}": configuration.intermediate_db_name,
                 "#{hivevar:auditlog_sec_v_columns}": sec_v_columns,
                 "#{hivevar:location_str}": sec_v_location,
             }
@@ -208,7 +209,7 @@ class BusinessAuditIngester(BaseIngester):
         # Create redacted view-like table
         red_v_location = f"s3://{configuration.configuration_file.s3_published_bucket}/data/uc/auditlog_red_v/"
         interpolation_dict = {
-            "#{hivevar:uc_database}": configuration.db_name,
+            "#{hivevar:uc_database}": configuration.user_db_name,
             "#{hivevar:location_str}": red_v_location,
         }
         hive_session.execute_sql_statement_with_interpolation(
@@ -222,9 +223,9 @@ class BusinessAuditIngester(BaseIngester):
         ) as fd:
             red_v_columns = fd.read().strip("\n")
             interpolation_dict = {
-                "#{hivevar:uc_database}": configuration.db_name,
+                "#{hivevar:uc_database}": configuration.user_db_name,
                 "#{hivevar:date_hyphen}": export_date,
-                "#{hivevar:uc_dw_auditlog_database}": configuration.transition_db_name,
+                "#{hivevar:uc_dw_auditlog_database}": configuration.intermediate_db_name,
                 "#{hivevar:auditlog_red_v_columns}": red_v_columns,
                 "#{hivevar:location_str}": red_v_location,
             }
