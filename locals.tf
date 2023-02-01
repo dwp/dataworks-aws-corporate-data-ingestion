@@ -200,50 +200,50 @@ locals {
 
   # Memory per executor = available memory / num executors
   spark_executor_memory = {
-    development = 10
-    qa          = 10
-    integration = 10
+    development = 24
+    qa          = 24
+    integration = 24
     preprod     = 30
     production  = 30
   }
 
-  spark_driver_memory = {
+  # >~ 10% of executor memory
+  spark_yarn_executor_memory_overhead = {
     development = 5
     qa          = 5
     integration = 5
+    preprod     = 10
+    production  = 10
+  }
+
+  spark_driver_memory = {
+    development = 10
+    qa          = 10
+    integration = 10
     preprod     = 30
     production  = 30 # Doesn't need as much as executors
   }
 
   spark_driver_cores = {
-    development = 1
-    qa          = 1
-    integration = 1
+    development = 5
+    qa          = 5
+    integration = 5
     preprod     = 10
     production  = 10
   }
 
   spark_kyro_buffer = {
-    development = "128m"
-    qa          = "128m"
-    integration = "128m"
+    development = "256m"
+    qa          = "256m"
+    integration = "256m"
     preprod     = "2047m"
     production  = "2047m" # Max amount allowed
   }
 
-  # >~ 10% of executor memory
-  spark_yarn_executor_memory_overhead = {
-    development = 2
-    qa          = 2
-    integration = 2
-    preprod     = 10
-    production  = 10
-  }
-
   spark_executor_instances = {
-    development = 3
-    qa          = 3
-    integration = 3
+    development = 150
+    qa          = 150
+    integration = 150
     preprod     = 150
     production  = 150 # More than possible as it won't create them if no core or memory available
   }
