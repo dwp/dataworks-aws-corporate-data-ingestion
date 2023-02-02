@@ -46,8 +46,6 @@ class HiveService:
             for k, v in interpolation_dict.items():
                 content = content.replace(k, v)
 
-        logger.info(f"Run SQL statement: {content}")
-
         if content.count(";") > 1:
             self.execute_queries([statement for statement in content.split(";") if statement])
         else:
