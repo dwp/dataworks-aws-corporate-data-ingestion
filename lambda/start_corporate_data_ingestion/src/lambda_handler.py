@@ -224,7 +224,7 @@ def generate_step(
                 "--intermediate_db_name",
                 "uc_dw_auditlog",
                 "--user_db_name",
-                "uc_auditlog",
+                "uc",
                 "--collection_name",
                 collection_name,
             ],
