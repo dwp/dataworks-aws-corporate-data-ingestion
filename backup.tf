@@ -1,8 +1,50 @@
+data "aws_iam_policy_document" "backup_bucket_key" {
+  statement {
+    sid     = "BackupBucketKey"
+    effect  = "Allow"
+    actions = ["kms:GenerateDataKey"]
+
+    resources = [
+      "*",
+    ]
+
+    principals {
+      type        = "Service"
+      identifiers = ["s3.amazonaws.com"]
+    }
+
+    condition {
+      test     = "ArnLike"
+      values   = [data.terraform_remote_state.common.outputs.published_bucket.arn]
+      variable = "aws:SourceArn"
+    }
+
+    condition {
+      test     = "StringEquals"
+      values   = [local.account[local.environment]]
+      variable = "aws:SourceAccount"
+    }
+  }
+
+  statement {
+    sid       = "EnableIAMUserPermissions"
+    effect    = "Allow"
+    actions   = ["kms:*"]
+    resources = ["*"]
+
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${local.account[local.environment]}:root"]
+    }
+  }
+}
+
 resource "aws_kms_key" "backup_bucket_cmk" {
   description             = "UCFS Processed Bucket Master Key"
   deletion_window_in_days = 7
   is_enabled              = true
   enable_key_rotation     = true
+  policy                  = data.aws_iam_policy_document.backup_bucket_key.json
 
   tags = {
     Name                  = "backup_bucket_cmk"
@@ -59,9 +101,9 @@ resource "aws_s3_bucket" "backup_bucket" {
   }
 }
 
-data "aws_iam_policy_document" "backup_bucket" {
+data "aws_iam_policy_document" "backup_bucket_policy" {
   statement {
-    sid     = "InventoryAndAnalyticsPolicy"
+    sid     = "BackupBucketPolicy"
     effect  = "Allow"
     actions = ["s3:PutObject"]
 
@@ -96,9 +138,9 @@ data "aws_iam_policy_document" "backup_bucket" {
 
 }
 
-resource "aws_s3_bucket_policy" "backup_bucket" {
+resource "aws_s3_bucket_policy" "backup_bucket_policy" {
   bucket = aws_s3_bucket.backup_bucket.id
-  policy = data.aws_iam_policy_document.backup_bucket.json
+  policy = data.aws_iam_policy_document.backup_bucket_policy.json
 }
 
 resource "aws_s3_bucket_analytics_configuration" "backup_bucket_analytics_entire_bucket" {
