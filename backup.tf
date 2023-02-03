@@ -252,3 +252,52 @@ resource "aws_s3_bucket_inventory" "backup_user_table_secure" {
     }
   }
 }
+
+resource "aws_iam_role" "batch_operation_role" {
+  name               = "batch_operation_role"
+  assume_role_policy = data.aws_iam_policy_document.batch_operation_trust_policy.json
+}
+
+data "aws_iam_policy_document" "batch_operation_trust_policy" {
+  statement {
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["batchoperations.s3.amazonaws.com"]
+    }
+  }
+}
+
+data "aws_iam_policy_document" "batch_operation_policy_document" {
+  statement {
+    sid    = "AllowBatchOperationsDestinationObjectCOPY"
+    effect = "Allow"
+    actions = [
+      "s3:ListBucket",
+      "s3:PutObject",
+      "s3:PutObjectVersionAcl",
+      "s3:PutObjectAcl",
+      "s3:PutObjectVersionTagging",
+      "s3:PutObjectTagging",
+      "s3:GetObject",
+      "s3:GetObjectVersion",
+      "s3:GetObjectAcl",
+      "s3:GetObjectTagging",
+      "s3:GetObjectVersionAcl",
+      "s3:GetObjectVersionTagging"
+    ]
+    resources = [
+      "${data.terraform_remote_state.common.outputs.published_bucket.arn}/*",
+      data.terraform_remote_state.common.outputs.published_bucket.arn,
+      "${aws_s3_bucket.backup_bucket.arn}/*",
+      aws_s3_bucket.backup_bucket.arn,
+    ]
+
+  }
+}
+
+resource "aws_iam_role_policy" "batch_operation_policy_policy_attachment" {
+  role   = aws_iam_role.batch_operation_role.name
+  policy = data.aws_iam_policy_document.batch_operation_policy_document.json
+}
