@@ -312,7 +312,7 @@ data "aws_iam_policy_document" "batch_operation_policy_document" {
   }
 
   statement {
-    sid    = "BackupBucketKey"
+    sid    = "KMSOnDestinationBucket"
     effect = "Allow"
     actions = [
       "kms:Decrypt",
@@ -321,6 +321,16 @@ data "aws_iam_policy_document" "batch_operation_policy_document" {
     ]
 
     resources = [aws_kms_key.backup_bucket_cmk.arn]
+  }
+
+  statement {
+    sid    = "KMSOnSourceBucket"
+    effect = "Allow"
+    actions = [
+      "kms:Decrypt"
+    ]
+
+    resources = [data.terraform_remote_state.common.outputs.published_bucket_cmk.arn]
   }
 }
 
