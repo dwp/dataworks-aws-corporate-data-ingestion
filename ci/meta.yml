@@ -340,3 +340,79 @@ meta:
         inputs:
           - name: dataworks-aws-corporate-data-ingestion
           - name: terraform-output
+
+    start-backup:
+      task: start-backup
+      .: (( inject meta.plan.terraform-common-config ))
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: ((dataworks.docker_awscli_repository))
+            version: ((dataworks.docker_awscli_version))
+            tag: ((dataworks.docker_awscli_version))
+        run:
+          path: sh
+          args:
+            - -exc
+            - |
+              source /assume-role
+
+              cat <<EOF | tee manifest_configuration.json
+              {
+                "Spec": {
+                  "Format": "S3InventoryReport_CSV_20161130"
+                },
+                "Location": {
+                  "ObjectArn": "arn:aws:s3:::$S3_BACKUP_BUCKET_ID/$MANIFEST_PREFIX",
+                  "ETag": "$MANIFEST_ETAG"
+                }
+              }
+              EOF
+
+              cat <<EOF | tee report_configuration.json
+              {
+                "Bucket": "arn:aws:s3:::$S3_BACKUP_BUCKET_ID",
+                "Format": "Report_CSV_20180820",
+                "Enabled": true,
+                "Prefix": "completion_report/backup_raw_table",
+                "ReportScope": "AllTasks"
+              }
+              EOF
+
+              cat <<EOF | tee batch_operation.json
+              {
+                "S3PutObjectCopy": {
+                  "TargetResource": "arn:aws:s3:::$S3_BACKUP_BUCKET_ID",
+                  "AccessControlGrants": [
+                    {
+                      "Grantee": {
+                        "TypeIdentifier": "id",
+                        "Identifier": "$ACL_OBJECT_OWNER_ID"
+                      },
+                      "Permission": "FULL_CONTROL"
+                    }
+                  ],
+                  "MetadataDirective": "COPY",
+                  "NewObjectMetadata": {
+                    "RequesterCharged": false,
+                    "SSEAlgorithm": "KMS"
+                  },
+                  "RequesterPays": false,
+                  "StorageClass": "STANDARD",
+                  "SSEAwsKmsKeyId": "arn:aws:kms:eu-west-2:$AWS_ACC:key/$KMS_KEY_ID",
+                  "TargetKeyPrefix": "$TARGET_KEY_PREFIX"
+                }
+              }
+              EOF
+
+              aws s3control create-job \
+              --account-id "$AWS_ACC" \
+              --no-confirmation-required \
+              --operation file://batch_operation.json \
+              --report file://report_configuration.json \
+              --manifest file://manifest_configuration.json \
+              --priority 10 \
+              --role-arn "arn:aws:iam::$AWS_ACC:role/batch_operation_role" \
+              --debug

@@ -31,3 +31,8 @@ groups:
       - rotate-mysql-password-corporate-data-ingestion-writer-integration
       - rotate-mysql-password-corporate-data-ingestion-writer-preprod
       - rotate-mysql-password-corporate-data-ingestion-writer-production
+      - start-backup-development
+      - start-backup-qa
+      - start-backup-integration
+      - start-backup-preprod
+      - start-backup-production

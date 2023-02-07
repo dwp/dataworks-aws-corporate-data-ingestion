@@ -1,0 +1,75 @@
+jobs:
+  - name: start-backup-development
+    plan:
+      - .: (( inject meta.plan.start-backup ))
+        config:
+          params:
+            AWS_ACC: ((aws_account.development))
+            AWS_ROLE_ARN: arn:aws:iam::((aws_account.development)):role/ci
+            AWS_DEFAULT_REGION: ((dataworks.aws_region))
+            S3_BACKUP_BUCKET_ID: ""
+            KMS_KEY_ID: ""
+            ACL_OBJECT_OWNER_ID: ""
+            MANIFEST_PREFIX: ""
+            MANIFEST_ETAG: ""
+            TARGET_KEY_PREFIX: ""
+
+  - name: start-backup-qa
+    plan:
+      - .: (( inject meta.plan.start-backup ))
+        config:
+          params:
+            AWS_ACC: ((aws_account.qa))
+            AWS_ROLE_ARN: arn:aws:iam::((aws_account.qa)):role/ci
+            AWS_DEFAULT_REGION: ((dataworks.aws_region))
+            S3_BACKUP_BUCKET_ID: ""
+            KMS_KEY_ID: ""
+            ACL_OBJECT_OWNER_ID: ""
+            MANIFEST_PREFIX: ""
+            MANIFEST_ETAG: ""
+            TARGET_KEY_PREFIX: ""
+
+  - name: start-backup-integration
+    plan:
+      - .: (( inject meta.plan.start-backup ))
+        config:
+          params:
+            AWS_ACC: ((aws_account.integration))
+            AWS_ROLE_ARN: arn:aws:iam::((aws_account.integration)):role/ci
+            AWS_DEFAULT_REGION: ((dataworks.aws_region))
+            S3_BACKUP_BUCKET_ID: ""
+            KMS_KEY_ID: ""
+            ACL_OBJECT_OWNER_ID: ""
+            MANIFEST_PREFIX: ""
+            MANIFEST_ETAG: ""
+            TARGET_KEY_PREFIX: ""
+
+  - name: start-backup-preprod
+    plan:
+      - .: (( inject meta.plan.start-backup ))
+        config:
+          params:
+            AWS_ACC: ((aws_account.preprod))
+            AWS_ROLE_ARN: arn:aws:iam::((aws_account.preprod)):role/ci
+            AWS_DEFAULT_REGION: ((dataworks.aws_region))
+            S3_BACKUP_BUCKET_ID: ""
+            KMS_KEY_ID: ""
+            ACL_OBJECT_OWNER_ID: ""
+            MANIFEST_PREFIX: ""
+            MANIFEST_ETAG: ""
+            TARGET_KEY_PREFIX: ""
+
+  - name: start-backup-production
+    plan:
+      - .: (( inject meta.plan.start-backup ))
+        config:
+          params:
+            AWS_ACC: ((aws_account.production))
+            AWS_ROLE_ARN: arn:aws:iam::((aws_account.production)):role/ci
+            AWS_DEFAULT_REGION: ((dataworks.aws_region))
+            S3_BACKUP_BUCKET_ID: ""
+            KMS_KEY_ID: ""
+            ACL_OBJECT_OWNER_ID: ""
+            MANIFEST_PREFIX: ""
+            MANIFEST_ETAG: ""
+            TARGET_KEY_PREFIX: ""
