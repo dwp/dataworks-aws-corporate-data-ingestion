@@ -4,9 +4,7 @@ data "aws_iam_policy_document" "backup_bucket_key" {
     effect  = "Allow"
     actions = ["kms:GenerateDataKey"]
 
-    resources = [
-      "*",
-    ]
+    resources = ["arn:aws:kms:${local.region}:${local.account[local.environment]}:key/*"]
 
     principals {
       type        = "Service"
@@ -40,7 +38,7 @@ data "aws_iam_policy_document" "backup_bucket_key" {
 }
 
 resource "aws_kms_key" "backup_bucket_cmk" {
-  description             = "UCFS Processed Bucket Master Key"
+  description             = "UCFS Backup Bucket Master Key"
   deletion_window_in_days = 7
   is_enabled              = true
   enable_key_rotation     = true
@@ -271,7 +269,7 @@ data "aws_iam_policy_document" "batch_operation_trust_policy" {
 
 data "aws_iam_policy_document" "batch_operation_policy_document" {
   statement {
-    sid    = "AllowBatchOperationsDestinationObjectCOPY"
+    sid    = "AllowBatchOperationReadWriteOnDestinationBucket"
     effect = "Allow"
     actions = [
       "s3:ListBucket",
@@ -288,12 +286,41 @@ data "aws_iam_policy_document" "batch_operation_policy_document" {
       "s3:GetObjectVersionTagging"
     ]
     resources = [
-      "${data.terraform_remote_state.common.outputs.published_bucket.arn}/*",
-      data.terraform_remote_state.common.outputs.published_bucket.arn,
       "${aws_s3_bucket.backup_bucket.arn}/*",
       aws_s3_bucket.backup_bucket.arn,
     ]
 
+  }
+
+  statement {
+    sid    = "AllowBatchOperationReadOnSourceBucket"
+    effect = "Allow"
+    actions = [
+      "s3:ListBucket",
+      "s3:GetObject",
+      "s3:GetObjectVersion",
+      "s3:GetObjectAcl",
+      "s3:GetObjectTagging",
+      "s3:GetObjectVersionAcl",
+      "s3:GetObjectVersionTagging"
+    ]
+    resources = [
+      "${data.terraform_remote_state.common.outputs.published_bucket.arn}/*",
+      data.terraform_remote_state.common.outputs.published_bucket.arn,
+    ]
+
+  }
+
+  statement {
+    sid    = "BackupBucketKey"
+    effect = "Allow"
+    actions = [
+      "kms:Decrypt",
+      "kms:GenerateDataKey",
+      "kms:Encrypt"
+    ]
+
+    resources = [aws_kms_key.backup_bucket_cmk.arn]
   }
 }
 
