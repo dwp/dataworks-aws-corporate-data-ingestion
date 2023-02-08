@@ -36,8 +36,8 @@ data "aws_iam_policy_document" "s3_batch_copy_lambda" {
   }
 
   statement {
-    sid     = "AllowReadWriteOnDestinationBucket"
-    effect  = "Allow"
+    sid    = "AllowReadWriteOnDestinationBucket"
+    effect = "Allow"
     actions = [
       "s3:ListBucket",
       "s3:PutObject",

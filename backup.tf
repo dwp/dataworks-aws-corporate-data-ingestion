@@ -305,7 +305,7 @@ data "aws_iam_policy_document" "batch_operation_policy_document" {
   }
 
   statement {
-    sid = "AllowInvokeBatchLambda"
+    sid    = "AllowInvokeBatchLambda"
     effect = "Allow"
     actions = [
       "lambda:InvokeFunction"
