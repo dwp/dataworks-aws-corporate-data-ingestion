@@ -1,6 +1,10 @@
 jobs:
   - name: start-backup-development
     plan:
+      - get: dataworks-aws-corporate-data-ingestion
+        trigger: false
+      - .: (( inject meta.plan.terraform-bootstrap ))
+      - .: (( inject meta.plan.terraform-output ))
       - .: (( inject meta.plan.start-backup ))
         config:
           params:
@@ -12,10 +16,13 @@ jobs:
             ACL_OBJECT_OWNER_ID: ""
             MANIFEST_PREFIX: ""
             MANIFEST_ETAG: ""
-            TARGET_KEY_PREFIX: ""
 
   - name: start-backup-qa
     plan:
+      - get: dataworks-aws-corporate-data-ingestion
+        trigger: false
+      - .: (( inject meta.plan.terraform-bootstrap ))
+      - .: (( inject meta.plan.terraform-output ))
       - .: (( inject meta.plan.start-backup ))
         config:
           params:
@@ -31,6 +38,10 @@ jobs:
 
   - name: start-backup-integration
     plan:
+      - get: dataworks-aws-corporate-data-ingestion
+        trigger: false
+      - .: (( inject meta.plan.terraform-bootstrap ))
+      - .: (( inject meta.plan.terraform-output ))
       - .: (( inject meta.plan.start-backup ))
         config:
           params:
@@ -46,6 +57,10 @@ jobs:
 
   - name: start-backup-preprod
     plan:
+      - get: dataworks-aws-corporate-data-ingestion
+        trigger: false
+      - .: (( inject meta.plan.terraform-bootstrap ))
+      - .: (( inject meta.plan.terraform-output ))
       - .: (( inject meta.plan.start-backup ))
         config:
           params:
@@ -61,6 +76,10 @@ jobs:
 
   - name: start-backup-production
     plan:
+      - get: dataworks-aws-corporate-data-ingestion
+        trigger: false
+      - .: (( inject meta.plan.terraform-bootstrap ))
+      - .: (( inject meta.plan.terraform-output ))
       - .: (( inject meta.plan.start-backup ))
         config:
           params:

@@ -20,3 +20,7 @@ output "private_dns" {
 
   sensitive = true
 }
+
+output "start_backup_arn" {
+  value = module.s3_batch_copy_lambda.start_backup_arn
+}

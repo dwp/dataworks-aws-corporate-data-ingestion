@@ -53,7 +53,7 @@ data "aws_iam_policy_document" "s3_batch_copy_lambda" {
       "s3:GetObjectVersionTagging"
     ]
     resources = [
-      "${var.destination_s3_bucket_arn}/${var.destination_s3_prefix}",
+      "${var.destination_s3_bucket_arn}/*",
       var.destination_s3_bucket_arn,
     ]
   }
@@ -76,7 +76,6 @@ data "aws_iam_policy_document" "s3_batch_copy_lambda" {
     sid    = "AllowReadOnSourceBucket"
     effect = "Allow"
     actions = [
-      "s3:ListBucket",
       "s3:GetObject",
       "s3:GetObjectVersion",
       "s3:GetObjectAcl",
@@ -84,8 +83,17 @@ data "aws_iam_policy_document" "s3_batch_copy_lambda" {
       "s3:GetObjectVersionAcl",
       "s3:GetObjectVersionTagging"
     ]
+    resources = [for s in var.source_s3_bucket_prefix : join("/", [var.source_s3_bucket_arn, s, "*"])]
+
+  }
+
+  statement {
+    sid    = "AllowListOnSourceBucket"
+    effect = "Allow"
+    actions = [
+      "s3:ListBucket",
+    ]
     resources = [
-      "${var.source_s3_bucket_arn}/${var.source_s3_bucket_prefix}",
       var.source_s3_bucket_arn
     ]
 

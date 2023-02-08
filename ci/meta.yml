@@ -359,6 +359,8 @@ meta:
             - |
               source /assume-role
 
+              FUNCTION_ARN=$(jq -r ".start_backup_arn.value" < ../terraform-output/outputs.json)
+
               cat <<EOF | tee manifest_configuration.json
               {
                 "Spec": {
@@ -383,26 +385,8 @@ meta:
 
               cat <<EOF | tee batch_operation.json
               {
-                "S3PutObjectCopy": {
-                  "TargetResource": "arn:aws:s3:::$S3_BACKUP_BUCKET_ID",
-                  "AccessControlGrants": [
-                    {
-                      "Grantee": {
-                        "TypeIdentifier": "id",
-                        "Identifier": "$ACL_OBJECT_OWNER_ID"
-                      },
-                      "Permission": "FULL_CONTROL"
-                    }
-                  ],
-                  "MetadataDirective": "COPY",
-                  "NewObjectMetadata": {
-                    "RequesterCharged": false,
-                    "SSEAlgorithm": "KMS"
-                  },
-                  "RequesterPays": false,
-                  "StorageClass": "STANDARD",
-                  "SSEAwsKmsKeyId": "arn:aws:kms:eu-west-2:$AWS_ACC:key/$KMS_KEY_ID",
-                  "TargetKeyPrefix": "$TARGET_KEY_PREFIX"
+                "LambdaInvoke": {
+                  "FunctionArn": "$FUNCTION_ARN"
                 }
               }
               EOF
@@ -416,3 +400,7 @@ meta:
               --priority 10 \
               --role-arn "arn:aws:iam::$AWS_ACC:role/batch_operation_role" \
               --debug
+          dir: dataworks-aws-corporate-data-ingestion
+        inputs:
+          - name: dataworks-aws-corporate-data-ingestion
+          - name: terraform-output

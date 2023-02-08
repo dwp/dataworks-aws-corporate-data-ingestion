@@ -311,7 +311,7 @@ data "aws_iam_policy_document" "batch_operation_policy_document" {
       "lambda:InvokeFunction"
     ]
 
-    resources = ["${module.s3_batch_copy_lambda.lambda_arn}*"]
+    resources = ["${module.s3_batch_copy_lambda.start_backup_arn}*"]
   }
 }
 
