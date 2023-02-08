@@ -293,25 +293,6 @@ data "aws_iam_policy_document" "batch_operation_policy_document" {
   }
 
   statement {
-    sid    = "AllowBatchOperationReadOnSourceBucket"
-    effect = "Allow"
-    actions = [
-      "s3:ListBucket",
-      "s3:GetObject",
-      "s3:GetObjectVersion",
-      "s3:GetObjectAcl",
-      "s3:GetObjectTagging",
-      "s3:GetObjectVersionAcl",
-      "s3:GetObjectVersionTagging"
-    ]
-    resources = [
-      "${data.terraform_remote_state.common.outputs.published_bucket.arn}/*",
-      data.terraform_remote_state.common.outputs.published_bucket.arn,
-    ]
-
-  }
-
-  statement {
     sid    = "KMSOnDestinationBucket"
     effect = "Allow"
     actions = [
@@ -324,13 +305,13 @@ data "aws_iam_policy_document" "batch_operation_policy_document" {
   }
 
   statement {
-    sid    = "KMSOnSourceBucket"
+    sid    = "AllowInvokeBatchLambda"
     effect = "Allow"
     actions = [
-      "kms:Decrypt"
+      "lambda:InvokeFunction"
     ]
 
-    resources = [data.terraform_remote_state.common.outputs.published_bucket_cmk.arn]
+    resources = ["${module.s3_batch_copy_lambda.start_backup_arn}*"]
   }
 }
 
