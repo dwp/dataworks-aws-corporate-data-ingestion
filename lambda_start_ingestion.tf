@@ -26,7 +26,7 @@ data "archive_file" "start_corporate_data_ingestion" {
   output_path = "${path.module}/lambda/start_corporate_data_ingestion.zip"
 }
 
-data "aws_iam_policy_document" "assume_role_lambda" {
+data "aws_iam_policy_document" "assume_role_ingestion_lambda" {
   statement {
     sid     = "APLambdaAuthAssumeRole"
     actions = ["sts:AssumeRole"]
@@ -41,7 +41,7 @@ data "aws_iam_policy_document" "assume_role_lambda" {
 # LAMBDA: start_corporate_data_ingestion
 resource "aws_iam_role" "start_corporate_data_ingestion" {
   name               = "start_corporate_data_ingestion"
-  assume_role_policy = data.aws_iam_policy_document.assume_role_lambda.json
+  assume_role_policy = data.aws_iam_policy_document.assume_role_ingestion_lambda.json
   tags = {
     "Name" = "start_corporate_data_ingestion"
   }
