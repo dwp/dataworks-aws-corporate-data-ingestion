@@ -319,3 +319,57 @@ resource "aws_iam_role_policy" "batch_operation_policy_policy_attachment" {
   role   = aws_iam_role.batch_operation_role.name
   policy = data.aws_iam_policy_document.batch_operation_policy_document.json
 }
+
+
+resource "aws_iam_policy" "hive_user_readwrite" {
+  name   = "BatchBackupReadWrite"
+  policy = data.aws_iam_policy_document.admin_readwrite_document.json
+
+  tags = {
+    Name = "BatchBackupReadWrite"
+  }
+}
+
+data "aws_iam_policy_document" "admin_readwrite_document" {
+  statement {
+    effect = "Allow"
+    sid    = "ReadWriteAccessToBatchBackupData"
+    actions = [
+      "s3:GetObject*",
+      "s3:DeleteObject*",
+      "s3:PutObject*"
+    ]
+    resources = [
+      "${aws_s3_bucket.backup_bucket.arn}/*",
+      aws_s3_bucket.backup_bucket.arn,
+    ]
+
+  }
+
+  statement {
+    effect = "Allow"
+    sid    = "PublishedAndProcessedS3KmsRead"
+    actions = [
+      "kms:Decrypt",
+      "kms:Encrypt",
+      "kms:ReEncrypt*",
+      "kms:GenerateDataKey*",
+      "kms:DescribeKey"
+    ]
+    resources = [
+      aws_kms_key.backup_bucket_cmk.arn,
+    ]
+  }
+
+  statement {
+    effect = "Allow"
+    sid    = "FindPublishedAndProcessedS3"
+    actions = [
+      "s3:ListBucket",
+      "s3:GetBucketLocation"
+    ]
+    resources = [
+      aws_s3_bucket.backup_bucket.arn,
+    ]
+  }
+}
