@@ -28,7 +28,6 @@ my_max_attempts = int(os.environ["MAX_ATTEMPTS"])
 metadata_copy = str(os.environ["COPY_METADATA"])
 tagging_copy = str(os.environ["COPY_TAGGING"])
 obj_copy_storage_class = str(os.environ["COPY_STORAGE_CLASS"])
-new_prefix = str(os.environ.get("DESTINATION_BUCKET_PREFIX", None))
 destination_kms_key_id = str(os.environ["DESTINATION_KMS_KEY_ARN"]).split(":")[-1]
 
 # # Set up logging
@@ -104,13 +103,6 @@ def lambda_handler(event, context):
             if tagging_copy == "Enable":
                 get_obj_tag = s3Client.get_object_tagging(Bucket=s3Bucket, Key=s3Key)
 
-        # Construct New Path
-        # Construct New Key
-        if new_prefix and len(new_prefix) > 0:
-            newKey = "{0}/{1}".format(new_prefix, s3Key)
-        else:
-            newKey = s3Key
-
         newBucket = target_bucket
 
         # Toggle Metadata or Tagging Copy Based on Environmental Variables
@@ -164,7 +156,7 @@ def lambda_handler(event, context):
             f"starting copy of object {s3Key} with versionID {s3VersionId} between SOURCEBUCKET: {s3Bucket} and DESTINATIONBUCKET: {newBucket}"
         )
         response = s3Client.copy(
-            copy_source, newBucket, newKey, Config=transfer_config, ExtraArgs=myargs
+            copy_source, newBucket, s3Key, Config=transfer_config, ExtraArgs=myargs
         )
         # Confirm copy was successful
         logger.info("Successfully completed the copy process!")
