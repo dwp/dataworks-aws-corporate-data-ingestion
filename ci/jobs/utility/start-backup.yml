@@ -12,8 +12,6 @@ jobs:
             AWS_ROLE_ARN: arn:aws:iam::((aws_account.development)):role/ci
             AWS_DEFAULT_REGION: ((dataworks.aws_region))
             S3_BACKUP_BUCKET_ID: ""
-            KMS_KEY_ID: ""
-            ACL_OBJECT_OWNER_ID: ""
             MANIFEST_PREFIX: ""
             MANIFEST_ETAG: ""
 
@@ -23,15 +21,17 @@ jobs:
         trigger: false
       - .: (( inject meta.plan.terraform-bootstrap ))
       - .: (( inject meta.plan.terraform-output ))
+        params:
+          TF_WORKSPACE: 'qa'
       - .: (( inject meta.plan.start-backup ))
+        params:
+          TF_WORKSPACE: 'qa'
         config:
           params:
             AWS_ACC: ((aws_account.qa))
             AWS_ROLE_ARN: arn:aws:iam::((aws_account.qa)):role/ci
             AWS_DEFAULT_REGION: ((dataworks.aws_region))
             S3_BACKUP_BUCKET_ID: ""
-            KMS_KEY_ID: ""
-            ACL_OBJECT_OWNER_ID: ""
             MANIFEST_PREFIX: ""
             MANIFEST_ETAG: ""
             TARGET_KEY_PREFIX: ""
@@ -42,15 +42,17 @@ jobs:
         trigger: false
       - .: (( inject meta.plan.terraform-bootstrap ))
       - .: (( inject meta.plan.terraform-output ))
+        params:
+          TF_WORKSPACE: 'integration'
       - .: (( inject meta.plan.start-backup ))
+        params:
+          TF_WORKSPACE: 'integration'
         config:
           params:
             AWS_ACC: ((aws_account.integration))
             AWS_ROLE_ARN: arn:aws:iam::((aws_account.integration)):role/ci
             AWS_DEFAULT_REGION: ((dataworks.aws_region))
             S3_BACKUP_BUCKET_ID: ""
-            KMS_KEY_ID: ""
-            ACL_OBJECT_OWNER_ID: ""
             MANIFEST_PREFIX: ""
             MANIFEST_ETAG: ""
             TARGET_KEY_PREFIX: ""
@@ -61,15 +63,17 @@ jobs:
         trigger: false
       - .: (( inject meta.plan.terraform-bootstrap ))
       - .: (( inject meta.plan.terraform-output ))
+        params:
+          TF_WORKSPACE: 'preprod'
       - .: (( inject meta.plan.start-backup ))
+        params:
+          TF_WORKSPACE: 'preprod'
         config:
           params:
             AWS_ACC: ((aws_account.preprod))
             AWS_ROLE_ARN: arn:aws:iam::((aws_account.preprod)):role/ci
             AWS_DEFAULT_REGION: ((dataworks.aws_region))
             S3_BACKUP_BUCKET_ID: ""
-            KMS_KEY_ID: ""
-            ACL_OBJECT_OWNER_ID: ""
             MANIFEST_PREFIX: ""
             MANIFEST_ETAG: ""
             TARGET_KEY_PREFIX: ""
@@ -80,15 +84,17 @@ jobs:
         trigger: false
       - .: (( inject meta.plan.terraform-bootstrap ))
       - .: (( inject meta.plan.terraform-output ))
+        params:
+          TF_WORKSPACE: 'production'
       - .: (( inject meta.plan.start-backup ))
+        params:
+          TF_WORKSPACE: 'production'
         config:
           params:
             AWS_ACC: ((aws_account.production))
             AWS_ROLE_ARN: arn:aws:iam::((aws_account.production)):role/ci
             AWS_DEFAULT_REGION: ((dataworks.aws_region))
             S3_BACKUP_BUCKET_ID: ""
-            KMS_KEY_ID: ""
-            ACL_OBJECT_OWNER_ID: ""
             MANIFEST_PREFIX: ""
             MANIFEST_ETAG: ""
             TARGET_KEY_PREFIX: ""

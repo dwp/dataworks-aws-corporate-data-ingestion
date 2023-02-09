@@ -10,15 +10,14 @@ resource "aws_lambda_function" "s3_batch_copy" {
 
   environment {
     variables = {
-      DESTINATION_BUCKET_ARN  = var.destination_s3_bucket_arn,
-      MAX_POOL_CONNECTIONS    = var.max_pool_connections,
-      MAX_CONCURRENCY         = var.max_concurrency,
-      MULTIPART_CHUNKSIZE     = var.multipart_chunksize,
-      MAX_ATTEMPTS            = var.max_attempts,
-      COPY_METADATA           = var.copy_metadata,
-      COPY_TAGGING            = var.copy_tagging,
-      COPY_STORAGE_CLASS      = var.copy_storage_class,
-      DESTINATION_KMS_KEY_ARN = var.destination_bucket_kms_arn
+      DESTINATION_BUCKET_ARN = var.destination_s3_bucket_arn,
+      MAX_POOL_CONNECTIONS   = var.max_pool_connections,
+      MAX_CONCURRENCY        = var.max_concurrency,
+      MULTIPART_CHUNKSIZE    = var.multipart_chunksize,
+      MAX_ATTEMPTS           = var.max_attempts,
+      COPY_METADATA          = var.copy_metadata,
+      COPY_TAGGING           = var.copy_tagging,
+      COPY_STORAGE_CLASS     = var.copy_storage_class
     }
   }
 }
