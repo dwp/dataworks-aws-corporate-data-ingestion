@@ -322,7 +322,7 @@ resource "aws_iam_role_policy" "batch_operation_policy_policy_attachment" {
 
 
 resource "aws_iam_policy" "hive_user_readwrite" {
-  name = "BatchBackupReadWrite"
+  name   = "BatchBackupReadWrite"
   policy = data.aws_iam_policy_document.admin_readwrite_document.json
 
   tags = {
