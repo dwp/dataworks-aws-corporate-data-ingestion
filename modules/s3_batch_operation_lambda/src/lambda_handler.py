@@ -80,6 +80,7 @@ def lambda_handler(event, context):
         mycompat = {9: None, 10: None, 13: None}
         # Construct Copy Object
         copy_source = {"Bucket": s3Bucket, "Key": s3Key}
+        copy_dest = {"Bucket": target_bucket, "Key": f"{jobId}/{s3Key}"}
         # If source key has VersionID, then construct request with VersionID
         if s3VersionId is not None:
             copy_source["VersionId"] = s3VersionId
@@ -100,8 +101,6 @@ def lambda_handler(event, context):
             # Construct/Retrieve get source key tagging
             if tagging_copy == "Enable":
                 get_obj_tag = s3Client.get_object_tagging(Bucket=s3Bucket, Key=s3Key)
-
-        newBucket = target_bucket
 
         # Toggle Metadata or Tagging Copy Based on Environmental Variables
         # Construct Request Parameters with metadata and tagging from sourceKey
@@ -151,10 +150,10 @@ def lambda_handler(event, context):
 
         # Initiate the Actual Copy Operation and include transfer config option
         logger.info(
-            f"starting copy of object {s3Key} with versionID {s3VersionId} between SOURCEBUCKET: {s3Bucket} and DESTINATIONBUCKET: {newBucket}"
+            f"starting copy of object {s3Key} with versionID {s3VersionId} between SOURCEBUCKET: {s3Bucket} and DESTINATIONBUCKET: {target_bucket}"
         )
         response = s3Client.copy(
-            copy_source, newBucket, s3Key, Config=transfer_config, ExtraArgs=myargs
+            copy_source, copy_dest["Bucket"], copy_dest["Key"], Config=transfer_config, ExtraArgs=myargs
         )
         # Confirm copy was successful
         logger.info("Successfully completed the copy process!")
