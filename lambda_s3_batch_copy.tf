@@ -9,8 +9,8 @@ module "s3_batch_copy_lambda" {
   max_concurrency            = 940
   multipart_chunksize        = 16777216
   max_attempts               = 100
-  copy_metadata              = true
-  copy_tagging               = true
+  copy_metadata              = "Enable"
+  copy_tagging               = "Enable"
   copy_storage_class         = "STANDARD"
   source_s3_bucket_prefix = [
     "analytical-dataset/hive/external/uc_dw_auditlog.db",
