@@ -34,7 +34,6 @@ jobs:
             S3_BACKUP_BUCKET_ID: ""
             MANIFEST_PREFIX: ""
             MANIFEST_ETAG: ""
-            TARGET_KEY_PREFIX: ""
 
   - name: start-backup-integration
     plan:
@@ -55,7 +54,6 @@ jobs:
             S3_BACKUP_BUCKET_ID: ""
             MANIFEST_PREFIX: ""
             MANIFEST_ETAG: ""
-            TARGET_KEY_PREFIX: ""
 
   - name: start-backup-preprod
     plan:
@@ -76,7 +74,6 @@ jobs:
             S3_BACKUP_BUCKET_ID: ""
             MANIFEST_PREFIX: ""
             MANIFEST_ETAG: ""
-            TARGET_KEY_PREFIX: ""
 
   - name: start-backup-production
     plan:
@@ -97,4 +94,3 @@ jobs:
             S3_BACKUP_BUCKET_ID: ""
             MANIFEST_PREFIX: ""
             MANIFEST_ETAG: ""
-            TARGET_KEY_PREFIX: ""
