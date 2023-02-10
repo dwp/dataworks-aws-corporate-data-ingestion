@@ -44,12 +44,14 @@ variable "max_attempts" {
 }
 
 variable "copy_metadata" {
-  type        = bool
+  type        = string
+  default     = "Enable"
   description = "set to true to copy file metadata"
 }
 
 variable "copy_tagging" {
-  type        = bool
+  type        = string
+  default     = "Enable"
   description = "set to true to copy file tags"
 }
 
