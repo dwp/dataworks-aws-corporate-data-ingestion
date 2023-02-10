@@ -337,7 +337,8 @@ data "aws_iam_policy_document" "admin_readwrite_document" {
     actions = [
       "s3:GetObject*",
       "s3:DeleteObject*",
-      "s3:PutObject*"
+      "s3:PutObject*",
+      "s3:GetObjectTagging"
     ]
     resources = [
       "${aws_s3_bucket.backup_bucket.arn}/*",
