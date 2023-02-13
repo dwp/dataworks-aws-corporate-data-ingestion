@@ -282,15 +282,15 @@ locals {
       collection_name       = "data.businessAudit"
     }
     preprod = {
-      start_date            = ""
-      end_date              = ""
+      start_date            = "2023-02-12"
+      end_date              = "2023-02-12"
       source_s3_prefix      = "corporate_storage/ucfs_audit"
       destination_s3_prefix = "corporate_data_ingestion/json/daily"
       collection_name       = "data.businessAudit"
     }
     production = {
-      start_date            = ""
-      end_date              = ""
+      start_date            = "2022-10-07"
+      end_date              = "2022-10-13"
       source_s3_prefix      = "corporate_storage/ucfs_audit"
       destination_s3_prefix = "corporate_data_ingestion/json/daily"
       collection_name       = "data.businessAudit"
