@@ -2,7 +2,7 @@ import datetime as dt
 import json
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, List
 
 
 @dataclass
@@ -22,13 +22,16 @@ class Configuration:
 
     correlation_id: str
     run_timestamp: str  # format: "%Y-%m-%d_%H-%M-%S"
-    export_date: str  # format: "%Y-%m-%d"
-    collection_name: str
+    start_date: str  # format: "%Y-%m-%d"
+    end_date: str  # format: "%Y-%m-%d"
+    collection_names: List[str]
     source_s3_prefix: str
     destination_s3_prefix: str
-    intermediate_db_name: str
-    user_db_name: str
+    concurrency: int
+    # intermediate_db_name: str
+    # user_db_name: str
     configuration_file: ConfigurationFile
+    export_date: str = ""  # format: "%Y-%m-%d"
 
 
 @dataclass(eq=True, frozen=True)
