@@ -289,8 +289,8 @@ locals {
       collection_name       = "data.businessAudit"
     }
     production = {
-      start_date            = "2022-10-14"
-      end_date              = "2022-11-14"
+      start_date            = "2022-11-15"
+      end_date              = "2022-12-15"
       source_s3_prefix      = "corporate_storage/ucfs_audit"
       destination_s3_prefix = "corporate_data_ingestion/json/daily"
       collection_name       = "data.businessAudit"
