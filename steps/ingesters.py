@@ -104,8 +104,8 @@ class BaseIngester:
 
 
 class BusinessAuditIngester(BaseIngester):
-    def __init__(self):
-        super(BaseIngester, self).__init__()
+    def __init__(self, configuration, collection_name, spark_session, hive_session):
+        super().__init__(configuration, collection_name, spark_session, hive_session)
         self.intermediate_db_name = "uc_dw_auditlog"
         self.user_db_name = "uc"
 
@@ -114,9 +114,6 @@ class BusinessAuditIngester(BaseIngester):
         self.execute_hive_statements()
 
     def execute_hive_statements(self):
-        export_date = self._configuration.export_date
-        collection_name = self._collection_name.replace(".", "_")
-
         published_bucket = self._configuration.configuration_file.s3_published_bucket
         destination_prefix = self.destination_prefix
 
