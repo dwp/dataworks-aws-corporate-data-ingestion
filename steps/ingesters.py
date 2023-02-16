@@ -15,6 +15,7 @@ class BaseIngester:
         self._collection_name = collection_name
         self._spark_session = spark_session
         self._hive_session = hive_session
+        self.destination_prefix = None
 
     def read_dir(self, file_path):
         return self._spark_session.sparkContext.textFile(file_path)
@@ -23,21 +24,22 @@ class BaseIngester:
     def run(self):
         correlation_id = self._configuration.correlation_id
         export_date = self._configuration.export_date
-        collection_name = self._collection_name.replace(".", "_")
+        collection_name = self._collection_name
 
         corporate_bucket = self._configuration.configuration_file.s3_corporate_bucket
         source_prefix = path.join(
             self._configuration.source_s3_prefix,
             *export_date.split("-"),
-            collection_name.replace(":", "/"),
+            *collection_name.split(":"),
         )
 
         published_bucket = self._configuration.configuration_file.s3_published_bucket
         destination_prefix = path.join(
             self._configuration.destination_s3_prefix.lstrip("/"),
             export_date,
-            collection_name.replace(":", "/"),
+            *collection_name.split(":"),
         )
+        self.destination_prefix = destination_prefix
 
         # define source and destination s3 URIs
         s3_source_url = "s3://{bucket}/{prefix}".format(bucket=corporate_bucket, prefix=source_prefix.lstrip("/"))
@@ -116,11 +118,7 @@ class BusinessAuditIngester(BaseIngester):
         collection_name = self._collection_name.replace(".", "_")
 
         published_bucket = self._configuration.configuration_file.s3_published_bucket
-        destination_prefix = path.join(
-            self._configuration.destination_s3_prefix.lstrip("/"),
-            export_date,
-            collection_name,
-        )
+        destination_prefix = self.destination_prefix
 
         # define source and destination s3 URIs
         s3_destination_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=destination_prefix)
