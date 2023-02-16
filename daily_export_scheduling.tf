@@ -6,7 +6,7 @@ resource "aws_cloudwatch_event_rule" "utc_06_00_daily" {
 }
 
 resource "aws_cloudwatch_event_target" "run_daily_export" {
-  for_each  = local.collections_configuration
+  for_each  = local.run_daily_export_on_schedule[local.environment] == true ? local.collections_configuration : tomap({})
   rule      = aws_cloudwatch_event_rule.utc_06_00_daily[0].name
   target_id = aws_sns_topic.corporate_data_ingestion.name
   arn       = aws_sns_topic.corporate_data_ingestion.arn
