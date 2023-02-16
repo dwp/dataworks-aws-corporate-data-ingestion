@@ -10,8 +10,9 @@ logger = logging.getLogger("ingesters")
 
 
 class BaseIngester:
-    def __init__(self, configuration, spark_session, hive_session):
+    def __init__(self, configuration, collection_name, spark_session, hive_session):
         self._configuration = configuration
+        self._collection_name = collection_name
         self._spark_session = spark_session
         self._hive_session = hive_session
 
@@ -20,13 +21,16 @@ class BaseIngester:
 
     # Processes and publishes data
     def run(self):
-        logger.info("Reading configuration")
         correlation_id = self._configuration.correlation_id
         export_date = self._configuration.export_date
-        collection_name = self._configuration.collection_name.replace(".", "_")
+        collection_name = self._collection_name.replace(".", "_")
 
         corporate_bucket = self._configuration.configuration_file.s3_corporate_bucket
-        source_prefix = self._configuration.source_s3_prefix
+        source_prefix = path.join(
+            self._configuration.source_s3_prefix,
+            *export_date.split("-"),
+            collection_name.replace(":", "/"),
+        )
 
         published_bucket = self._configuration.configuration_file.s3_published_bucket
         destination_prefix = path.join(
@@ -81,7 +85,7 @@ class BaseIngester:
 
         except Exception as err:
             logger.error(
-                f"""Unexpected error occurred processing collection named {self._configuration.collection_name} """
+                f"""Unexpected error occurred processing collection named {self._collection_name} """
                 f""" for correlation id: {correlation_id} "{str(err)}" """
             )
             raise
@@ -104,7 +108,7 @@ class BusinessAuditIngester(BaseIngester):
 
     def execute_hive_statements(self):
         export_date = self._configuration.export_date
-        collection_name = self._configuration.collection_name.replace(".", "_")
+        collection_name = self._collection_name.replace(".", "_")
 
         published_bucket = self._configuration.configuration_file.s3_published_bucket
         destination_prefix = path.join(

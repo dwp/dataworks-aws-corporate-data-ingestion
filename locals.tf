@@ -251,49 +251,27 @@ locals {
 
   hive_metastore_location = "data/dataworks-aws-corporate-data-ingestion"
 
+
   run_daily_export_on_schedule = {
     development = false
     qa          = false
     integration = false
-    preprod     = true
+    preprod     = false
     production  = false
   }
 
-  corporate_data_ingestion_audit_config = {
-    development = {
-      start_date            = ""
-      end_date              = ""
+  collections_configuration = {
+    calculationParts = {
+      source_s3_prefix      = "corporate_storage/ucfs_main"
+      destination_s3_prefix = "corporate_data_ingestion/json/daily"
+      collection_names      = "calculator:calculationParts"
+      concurrency           = "1"
+    },
+    businessAudit = {
       source_s3_prefix      = "corporate_storage/ucfs_audit"
       destination_s3_prefix = "corporate_data_ingestion/json/daily"
-      collection_name       = "data.businessAudit"
-    }
-    qa = {
-      start_date            = ""
-      end_date              = ""
-      source_s3_prefix      = "corporate_storage/ucfs_audit"
-      destination_s3_prefix = "corporate_data_ingestion/json/daily"
-      collection_name       = "data.businessAudit"
-    }
-    integration = {
-      start_date            = ""
-      end_date              = ""
-      source_s3_prefix      = "corporate_storage/ucfs_audit"
-      destination_s3_prefix = "corporate_data_ingestion/json/daily"
-      collection_name       = "data.businessAudit"
-    }
-    preprod = {
-      start_date            = "2023-02-12"
-      end_date              = "2023-02-12"
-      source_s3_prefix      = "corporate_storage/ucfs_audit"
-      destination_s3_prefix = "corporate_data_ingestion/json/daily"
-      collection_name       = "data.businessAudit"
-    }
-    production = {
-      start_date            = "2022-10-07"
-      end_date              = "2022-10-13"
-      source_s3_prefix      = "corporate_storage/ucfs_audit"
-      destination_s3_prefix = "corporate_data_ingestion/json/daily"
-      collection_name       = "data.businessAudit"
+      collection_names      = "data:businessAudit"
+      concurrency           = "1"
     }
   }
 }
