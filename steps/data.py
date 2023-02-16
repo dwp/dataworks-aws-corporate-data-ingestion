@@ -25,6 +25,7 @@ class Configuration:
     start_date: str  # format: "%Y-%m-%d"
     end_date: str  # format: "%Y-%m-%d"
     collection_names: List[str]
+    override_ingestion_class: str
     source_s3_prefix: str
     destination_s3_prefix: str
     concurrency: int

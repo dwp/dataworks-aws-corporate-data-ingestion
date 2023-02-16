@@ -60,6 +60,7 @@ def get_parameters() -> argparse.Namespace:
     parser.add_argument("--start_date", required=False, help="format %Y-%m-%d, uses previous day if not provided")
     parser.add_argument("--end_date", required=False, help="format %Y-%m-%d, uses previous day if not provided")
     parser.add_argument("--collection_names", required=True, help="name of the collections to process")
+    parser.add_argument("--override_ingestion_class", required=False, help="Optionally use specific ingestion class")
     parser.add_argument("--concurrency", required=False, default="5", help="Concurrent collections processed, default=5")
     args, unrecognized_args = parser.parse_known_args()
 
@@ -71,9 +72,16 @@ def get_parameters() -> argparse.Namespace:
     return args
 
 
-def process_collection(collection_name, ingesters, configuration: Configuration, spark_session, hive_session):
+def process_collection(collection_name, override_ingestion_class, ingesters, configuration: Configuration, spark_session, hive_session):
     start = dt.datetime.strptime(configuration.start_date, "%Y-%m-%d") - timedelta(days=1)
     end = dt.datetime.strptime(configuration.end_date, "%Y-%m-%d") - timedelta(days=1)
+
+    if override_ingestion_class:
+        ingestion_class = ingesters.get(override_ingestion_class)
+        if not ingestion_class:
+            raise ValueError(f"Override ingestion class not found: {override_ingestion_class}")
+    else:
+        ingestion_class = ingesters.get(collection_name, BaseIngester)
 
     export_date_range = [
         (start + dt.timedelta(days=x)).strftime("%Y-%m-%d")
@@ -83,7 +91,7 @@ def process_collection(collection_name, ingesters, configuration: Configuration,
     for export_date in export_date_range:
         configuration.export_date = export_date
         logger.info(f"Initialising ingester for collection: {collection_name} - [{export_date}]")
-        ingester = ingesters.get(collection_name, BaseIngester)(configuration, collection_name, spark_session, hive_session)
+        ingester = ingestion_class(configuration, collection_name, spark_session, hive_session)
         logger.info(f"{ingester.__class__.__name__}::{collection_name}::{export_date}:: ingester initialised")
         logger.info(f"{ingester.__class__.__name__}::{collection_name}::{export_date}:: ingester running")
         ingester.run()
@@ -108,6 +116,7 @@ def main():
             start_date=args.start_date if args.start_date else today_str,
             end_date=args.end_date if args.end_date else today_str,
             collection_names=args.collection_names.split(","),
+            override_ingestion_class=args.override_ingestion_class,
             source_s3_prefix=args.source_s3_prefix,
             destination_s3_prefix=args.destination_s3_prefix,
             concurrency=int(args.concurrency),
@@ -135,6 +144,7 @@ def main():
             _results = list(executor.map(
                 process_collection,
                 configuration.collection_names,
+                itertools.repeat(configuration.override_ingestion_class),
                 itertools.repeat(ingesters),
                 itertools.repeat(configuration),
                 itertools.repeat(spark_session),
