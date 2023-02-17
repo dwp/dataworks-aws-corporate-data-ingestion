@@ -256,17 +256,11 @@ locals {
     development = false
     qa          = false
     integration = false
-    preprod     = false
-    production  = false
+    preprod     = true
+    production  = true
   }
 
   collections_configuration = {
-    calculationParts = {
-      source_s3_prefix      = "corporate_storage/ucfs_main"
-      destination_s3_prefix = "corporate_data_ingestion/json/daily"
-      collection_names      = "calculator:calculationParts"
-      concurrency           = "1"
-    },
     businessAudit = {
       source_s3_prefix      = "corporate_storage/ucfs_audit"
       destination_s3_prefix = "corporate_data_ingestion/json/daily"
