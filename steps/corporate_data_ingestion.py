@@ -73,8 +73,8 @@ def get_parameters() -> argparse.Namespace:
 
 
 def process_collection(collection_name, override_ingestion_class, ingesters, configuration: Configuration, spark_session, hive_session):
-    start = dt.datetime.strptime(configuration.start_date, "%Y-%m-%d") - timedelta(days=1)
-    end = dt.datetime.strptime(configuration.end_date, "%Y-%m-%d") - timedelta(days=1)
+    start = dt.datetime.strptime(configuration.start_date, "%Y-%m-%d")
+    end = dt.datetime.strptime(configuration.end_date, "%Y-%m-%d")
 
     if override_ingestion_class:
         ingestion_class = ingesters.get(override_ingestion_class)

@@ -2,6 +2,8 @@ import logging
 from os import path
 
 import boto3
+import datetime as dt
+
 
 from data import UCMessage
 from utils import Utils
@@ -23,20 +25,20 @@ class BaseIngester:
     # Processes and publishes data
     def run(self):
         correlation_id = self._configuration.correlation_id
-        export_date = self._configuration.export_date
+        prefix_date = (dt.datetime.strptime(self._configuration.export_date, "%Y-%m-%d") - dt.timedelta(days=1)).strftime("%Y-%m-%d")
         collection_name = self._collection_name
 
         corporate_bucket = self._configuration.configuration_file.s3_corporate_bucket
         source_prefix = path.join(
             self._configuration.source_s3_prefix,
-            *export_date.split("-"),
+            *prefix_date.split("-"),
             *collection_name.split(":"),
         )
 
         published_bucket = self._configuration.configuration_file.s3_published_bucket
         destination_prefix = path.join(
             self._configuration.destination_s3_prefix.lstrip("/"),
-            export_date,
+            self._configuration.export_date,
             *collection_name.split(":"),
         )
         self.destination_prefix = destination_prefix
