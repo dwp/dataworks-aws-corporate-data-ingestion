@@ -1,8 +1,11 @@
 import argparse
+import itertools
 import json
 import sys
 import uuid
-from datetime import datetime
+import datetime as dt
+from datetime import timedelta
+from concurrent.futures import ThreadPoolExecutor
 from os import path
 
 from pyspark.sql import SparkSession
@@ -54,10 +57,11 @@ def get_parameters() -> argparse.Namespace:
     parser.add_argument("--correlation_id", default=str(uuid.uuid4()))
     parser.add_argument("--source_s3_prefix", required=True)
     parser.add_argument("--destination_s3_prefix", required=True)
-    parser.add_argument("--export_date", required=False, help="format %Y-%m-%d, uses today if not provided", )
-    parser.add_argument("--intermediate_db_name", required=True, help="name of the intermediate Hive database", )
-    parser.add_argument("--user_db_name", required=True, help="name of the Hive database exposed to the end-users", )
-    parser.add_argument("--collection_name", required=True, help="name of the collection to process")
+    parser.add_argument("--start_date", required=False, help="format %Y-%m-%d, uses previous day if not provided")
+    parser.add_argument("--end_date", required=False, help="format %Y-%m-%d, uses previous day if not provided")
+    parser.add_argument("--collection_names", required=True, help="name of the collections to process")
+    parser.add_argument("--override_ingestion_class", required=False, help="Optionally use specific ingestion class")
+    parser.add_argument("--concurrency", required=False, default="5", help="Concurrent collections processed, default=5")
     args, unrecognized_args = parser.parse_known_args()
 
     if len(unrecognized_args) > 0:
@@ -68,12 +72,39 @@ def get_parameters() -> argparse.Namespace:
     return args
 
 
+def process_collection(collection_name, override_ingestion_class, ingesters, configuration: Configuration, spark_session, hive_session):
+    start = dt.datetime.strptime(configuration.start_date, "%Y-%m-%d")
+    end = dt.datetime.strptime(configuration.end_date, "%Y-%m-%d")
+
+    if override_ingestion_class:
+        ingestion_class = ingesters.get(override_ingestion_class)
+        if not ingestion_class:
+            raise ValueError(f"Override ingestion class not found: {override_ingestion_class}")
+    else:
+        ingestion_class = ingesters.get(collection_name, BaseIngester)
+
+    export_date_range = [
+        (start + dt.timedelta(days=x)).strftime("%Y-%m-%d")
+        for x in range(0, (end - start).days + 1)
+    ]
+
+    for export_date in export_date_range:
+        configuration.export_date = export_date
+        logger.info(f"Initialising ingester for collection: {collection_name} - [{export_date}]")
+        ingester = ingestion_class(configuration, collection_name, spark_session, hive_session)
+        logger.info(f"{ingester.__class__.__name__}::{collection_name}::{export_date}:: ingester initialised")
+        logger.info(f"{ingester.__class__.__name__}::{collection_name}::{export_date}:: ingester running")
+        ingester.run()
+        logger.info(f"{ingester.__class__.__name__}::{collection_name}::{export_date}:: ingester completed")
+
+
 def main():
     try:
-        job_start_time = datetime.now()
+        job_start_time = dt.datetime.now()
         logger.info("getting args")
         args = get_parameters()
         logger.info(f"args: {str(args)}")
+        today_str = dt.datetime.now().date().strftime("%Y-%m-%d")
 
         logger.info("parsing configuration file")
         with open("/opt/emr/steps/configuration.json", "r") as fd:
@@ -82,14 +113,13 @@ def main():
         configuration = Configuration(
             correlation_id=args.correlation_id,
             run_timestamp=job_start_time.strftime("%Y-%m-%d_%H-%M-%S"),
-            export_date=args.export_date
-            if args.export_date
-            else job_start_time.strftime("%Y-%m-%d"),
-            collection_name=args.collection_name,
+            start_date=args.start_date if args.start_date else today_str,
+            end_date=args.end_date if args.end_date else today_str,
+            collection_names=args.collection_names.split(","),
+            override_ingestion_class=args.override_ingestion_class,
             source_s3_prefix=args.source_s3_prefix,
             destination_s3_prefix=args.destination_s3_prefix,
-            intermediate_db_name=args.intermediate_db_name,
-            user_db_name=args.user_db_name,
+            concurrency=int(args.concurrency),
             configuration_file=configuration_file,
         )
 
@@ -103,23 +133,24 @@ def main():
         # Instantiate Hive service
         logger.info("Hive session: initialising")
         hive_session = HiveService(
-            intermediate_db_name=configuration.intermediate_db_name,
-            user_db_name=configuration.user_db_name,
             correlation_id=configuration.correlation_id,
             spark_session=spark_session,
         )
         logger.info("Hive session: initialised")
 
-        logger.info(f"Initialising ingester for collection: {configuration.collection_name}")
-        ingester = {
-            "data.businessAudit": BusinessAuditIngester,
-            "foo": BaseIngester,
-            "bar": BaseIngester,
-        }.get(configuration.collection_name)(configuration, spark_session, hive_session)
-        logger.info(f"{ingester.__class__.__name__} ingester initialised")
+        ingesters = {"data:businessAudit": BusinessAuditIngester}
 
-        logger.info(f"Processing spark job for correlation_id: {args.correlation_id}")
-        ingester.run()
+        with ThreadPoolExecutor(max_workers=configuration.concurrency) as executor:
+            _results = list(executor.map(
+                process_collection,
+                configuration.collection_names,
+                itertools.repeat(configuration.override_ingestion_class),
+                itertools.repeat(ingesters),
+                itertools.repeat(configuration),
+                itertools.repeat(spark_session),
+                itertools.repeat(hive_session),
+            ))
+
     except Exception as err:
         logger.error(repr(err))
         sys.exit(-1)

@@ -5,10 +5,8 @@ logger = logging.getLogger("hive")
 
 class HiveService:
     def __init__(
-        self, intermediate_db_name: str, user_db_name: str, correlation_id: str, spark_session,
+        self, correlation_id: str, spark_session,
     ):
-        self._intermediate_db_name = intermediate_db_name
-        self._user_db_name = user_db_name
         self._correlation_id = correlation_id
         self._spark_session = spark_session
 
