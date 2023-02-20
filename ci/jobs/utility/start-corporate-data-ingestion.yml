@@ -3,67 +3,58 @@ jobs:
     plan:
       - get: dataworks-aws-corporate-data-ingestion
         trigger: false
-      - .: (( inject meta.plan.terraform-bootstrap ))
-      - .: (( inject meta.plan.terraform-output ))
-      - .: (( inject meta.plan.start-corporate-data-ingestion ))
-        config:
-          params:
-            AWS_ACC: ((aws_account.development))
-            AWS_ROLE_ARN: arn:aws:iam::((aws_account.development)):role/ci
-            AWS_DEFAULT_REGION: ((dataworks.aws_region))
-
-  - name: start-corporate-data-ingestion-integration
-    plan:
-      - get: dataworks-aws-corporate-data-ingestion
-        trigger: false
-      - .: (( inject meta.plan.terraform-bootstrap ))
-      - .: (( inject meta.plan.terraform-output ))
-        params:
-          TF_WORKSPACE: 'integration'
       - .: (( inject meta.plan.start-corporate-data-ingestion ))
         params:
-          TF_WORKSPACE: 'integration'
-          AWS_ROLE_ARN: arn:aws:iam::((aws_account.integration)):role/ci
+          AWS_ACC: ((aws_account.development))
+          AWS_ROLE_ARN: arn:aws:iam::((aws_account.development)):role/ci
           AWS_DEFAULT_REGION: ((dataworks.aws_region))
+          EXPORT_START_DATE: "2023-02-19"
+          EXPORT_END_DATE: "2023-02-20"
 
   - name: start-corporate-data-ingestion-qa
     plan:
       - get: dataworks-aws-corporate-data-ingestion
         trigger: false
-      - .: (( inject meta.plan.terraform-bootstrap ))
-      - .: (( inject meta.plan.terraform-output ))
-        params:
-          TF_WORKSPACE: 'qa'
       - .: (( inject meta.plan.start-corporate-data-ingestion ))
         params:
-          TF_WORKSPACE: 'qa'
           AWS_ROLE_ARN: arn:aws:iam::((aws_account.qa)):role/ci
           AWS_DEFAULT_REGION: ((dataworks.aws_region))
+          AWS_ACC: ((aws_account.qa))
+          EXPORT_START_DATE: "2023-02-19"
+          EXPORT_END_DATE: "2023-02-20"
+
+  - name: start-corporate-data-ingestion-integration
+    plan:
+      - get: dataworks-aws-corporate-data-ingestion
+        trigger: false
+      - .: (( inject meta.plan.start-corporate-data-ingestion ))
+        params:
+          AWS_ROLE_ARN: arn:aws:iam::((aws_account.integration)):role/ci
+          AWS_DEFAULT_REGION: ((dataworks.aws_region))
+          AWS_ACC: ((aws_account.integration))
+          EXPORT_START_DATE: "2023-02-19"
+          EXPORT_END_DATE: "2023-02-20"
 
   - name: start-corporate-data-ingestion-preprod
     plan:
       - get: dataworks-aws-corporate-data-ingestion
         trigger: false
-      - .: (( inject meta.plan.terraform-bootstrap ))
-      - .: (( inject meta.plan.terraform-output ))
-        params:
-          TF_WORKSPACE: 'preprod'
       - .: (( inject meta.plan.start-corporate-data-ingestion ))
         params:
-          TF_WORKSPACE: 'preprod'
           AWS_ROLE_ARN: arn:aws:iam::((aws_account.preprod)):role/ci
           AWS_DEFAULT_REGION: ((dataworks.aws_region))
+          AWS_ACC: ((aws_account.preprod))
+          EXPORT_START_DATE: "2023-02-19"
+          EXPORT_END_DATE: "2023-02-20"
 
   - name: start-corporate-data-ingestion-production
     plan:
       - get: dataworks-aws-corporate-data-ingestion
         trigger: false
-      - .: (( inject meta.plan.terraform-bootstrap ))
-      - .: (( inject meta.plan.terraform-output ))
-        params:
-          TF_WORKSPACE: 'production'
       - .: (( inject meta.plan.start-corporate-data-ingestion ))
         params:
-          TF_WORKSPACE: 'production'
           AWS_ROLE_ARN: arn:aws:iam::((aws_account.production)):role/ci
           AWS_DEFAULT_REGION: ((dataworks.aws_region))
+          AWS_ACC: ((aws_account.production))
+          EXPORT_START_DATE: "2023-02-19"
+          EXPORT_END_DATE: "2023-02-20"
