@@ -332,14 +332,42 @@ meta:
             - -exc
             - |
               source /assume-role
-
-              FUNCTION_ARN=$(jq -r ".start_corporate_data_ingestion_arn.value" < ../terraform-output/outputs.json)
-              aws lambda invoke --function-name $FUNCTION_ARN --payload "{\"launch_type\": \"manual\"}" --invocation-type Event --cli-connect-timeout 900 --cli-read-timeout 900 output.json
-
+              aws sns publish --topic-arn "arn:aws:sns:eu-west-2:$AWS_ACC:corporate_data_ingestion_cw_trigger_sns" --message "$(cat <<EOF
+              {
+                "s3_overrides": null,
+                "overrides": {
+                  "Instances": {"KeepJobFlowAliveWhenNoSteps": true},
+                  "Steps": [{
+                    "Name": "TEST",
+                    "ActionOnFailure": "CONTINUE",
+                    "HadoopJarStep": {
+                      "Jar": "command-runner.jar",
+                      "Args": [
+                        "spark-submit",
+                        "/opt/emr/steps/corporate_data_ingestion.py",
+                        "--source_s3_prefix",
+                        "corporate_storage/ucfs_audit",
+                        "--destination_s3_prefix",
+                        "corporate_data_ingestion/json/daily",
+                        "--collection_names",
+                        "data:businessAudit",
+                        "--concurrency",
+                        "1",
+                        "--start_date",
+                        "$EXPORT_START_DATE",
+                        "--end_date",
+                        "$EXPORT_END_DATE"
+                      ]
+                    }}]
+                },
+                "extend": null,
+                "additional_step_args": null
+              }
+              EOF
+              )"
           dir: dataworks-aws-corporate-data-ingestion
         inputs:
           - name: dataworks-aws-corporate-data-ingestion
-          - name: terraform-output
 
     start-backup:
       task: start-backup
