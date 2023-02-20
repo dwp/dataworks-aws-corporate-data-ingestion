@@ -338,7 +338,7 @@ meta:
                 "overrides": {
                   "Instances": {"KeepJobFlowAliveWhenNoSteps": true},
                   "Steps": [{
-                    "Name": "TEST",
+                    "Name": "corporate-data-ingestion::$EXPORT_START_DATE-$EXPORT_END_DATE",
                     "ActionOnFailure": "CONTINUE",
                     "HadoopJarStep": {
                       "Jar": "command-runner.jar",
