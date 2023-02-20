@@ -336,7 +336,7 @@ meta:
               {
                 "s3_overrides": null,
                 "overrides": {
-                  "Instances": {"KeepJobFlowAliveWhenNoSteps": true},
+                  "Instances": null,
                   "Steps": [{
                     "Name": "corporate-data-ingestion::$EXPORT_START_DATE-$EXPORT_END_DATE",
                     "ActionOnFailure": "CONTINUE",
