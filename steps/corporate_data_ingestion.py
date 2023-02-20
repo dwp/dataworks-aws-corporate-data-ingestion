@@ -138,7 +138,9 @@ def main():
         )
         logger.info("Hive session: initialised")
 
-        ingesters = {"data:businessAudit": BusinessAuditIngester}
+        ingesters = {"data:businessAudit": BusinessAuditIngester,
+                     "calculator:calculationParts": BaseIngester,
+                     }
 
         with ThreadPoolExecutor(max_workers=configuration.concurrency) as executor:
             _results = list(executor.map(
