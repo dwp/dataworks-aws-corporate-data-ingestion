@@ -16,7 +16,7 @@ resource "aws_cloudwatch_event_target" "run_daily_export" {
     "overrides": {
       "Steps": [{
         "Name": "corporate-data-ingestion::${each.key}::daily-run",
-        "ActionOnFailure": "CONTINUE",
+        "ActionOnFailure": "TERMINATE_CLUSTER",
         "HadoopJarStep": {
           "Jar": "command-runner.jar",
           "Args": [

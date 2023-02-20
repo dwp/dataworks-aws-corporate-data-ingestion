@@ -15,6 +15,7 @@ resource "aws_s3_bucket_object" "cluster" {
       instance_profile       = aws_iam_instance_profile.dataworks_aws_corporate_data_ingestion.arn
       security_configuration = aws_emr_security_configuration.ebs_emrfs_em.id
       emr_release            = var.emr_release[local.environment]
+      cluster_name           = local.emr_cluster_name
       environment_tag_value  = local.common_repo_tags.Environment
     }
   )
