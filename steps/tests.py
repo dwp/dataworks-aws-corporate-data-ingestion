@@ -217,10 +217,10 @@ class TestMessageDecryptionHelper(TestCase):
 class TestUCMessage(TestCase):
     @staticmethod
     def get_event(
-        lastModifiedDateTime=None,
-        createdDateTime=None,
-        kafkaTimestamp=None,
-        message_type=None,
+            lastModifiedDateTime=None,
+            createdDateTime=None,
+            kafkaTimestamp=None,
+            message_type=None,
     ):
         message = {"message": {}}
         if message_type is not None:
@@ -399,3 +399,43 @@ class TestUCMessage(TestCase):
             )
             with self.assertRaises(error):
                 _ = UCMessage(message).timestamp
+
+    def test_sanitise(self):
+        disallowed_strings = [
+            "\\u0000",
+            "\u0000",
+            "$",
+            "_archivedDateTime",
+            "_archived",
+        ]
+
+        some_allowed_strings = [
+            "u0000",
+            "£",
+            "archivedDateTime",
+            "otherDateTime",
+            "abcdef",
+            "archived",
+        ]
+
+        def message_template_string(replacement_string):
+            return json.dumps(
+                {"message": {"dbObject": json.dumps(
+                    {f"calid nested JSON object as a string{replacement_string}":
+                         {f"{replacement_string}": "some_value"}}
+                )}}
+            )
+
+        for disallowed_string in disallowed_strings:
+            message_str = message_template_string(disallowed_string)
+            message = UCMessage(message_str)
+            message.sanitise()
+            self.assertNotIn(disallowed_string, message.dbobject)
+
+        for allowed_string in some_allowed_strings:
+            message_str = message_template_string(allowed_string)
+            message = UCMessage(message_str)
+            pre_sanitised_message = message.dbobject
+            message.sanitise()
+            sanitised_message = message.dbobject
+            self.assertEqual(pre_sanitised_message, sanitised_message)

@@ -43,12 +43,46 @@ class EncryptionMaterials:
 
 class UCMessage:
     _py_date_format = "%Y-%m-%dT%H:%M:%S.%f%z"
+    LAST_MODIFIED_DATE_TIME_FIELD = "_lastModifiedDateTime"
+    CREATED_DATE_TIME_FIELD = "createdDateTime"
+    REMOVED_DATE_TIME_FIELD = "_removedDateTime"
+    ARCHIVED_DATE_TIME_FIELD = "_archivedDateTime"
+    INNER_DATE_FIELD = "$date"
 
     def __init__(self, message_string: str):
         self._message_string = message_string
         self._message_json = json.loads(self._message_string)
         self._last_modified = self._get_last_modified()
         self._timestamp = self._get_timestamp()
+
+    def sanitise(self):
+        """Replaces dbObject str with sanitised version"""
+        # From HTME:SanitisationProcessor
+        db_object: str = self.dbobject \
+            .replace("$", "_d") \
+            .replace("\\u0000", "") \
+            .replace("_archivedDateTime", "_removedDateTime") \
+            .replace("_archived", "_removed")
+
+        self._message_json["message"]["dbObject"] = db_object
+
+    # def validate(self):
+    #     """Carries out validation/date wrapping as seen in HTME:Validator"""
+    #     json_dbObject = json.loads(self.dbobject)
+    #
+    #     # Wrap dates
+    #     # lastModifiedDateTimeAsString =
+
+    # @staticmethod
+    # def get_last_modified_date(db_object: str):
+    #     epoch = "1980-01-01T00:00:00.000Z"      # from HTME
+    #     lastModifiedDateTime =
+    #
+    # @staticmethod
+    # def get_date_time_element(key: str, jsonObject: dict) -> str:
+    #     date_element = jsonObject.get(key)
+    #     if date_element
+
 
     @property
     def message_json(self) -> Dict:
@@ -80,7 +114,6 @@ class UCMessage:
 
     def _get_last_modified(self) -> (str, str):
         record_type = self.message_json.get("message", {}).get("@type", "NOT_SET")
-
         epoch = "1980-01-01T00:00:00.000+0000"  # As defined in kafka-to-hbase, =315532800000
         kafka_timestamp = self.message_json.get("timestamp", "")
         last_modified_timestamp = self.message_json.get("message", {}).get(
