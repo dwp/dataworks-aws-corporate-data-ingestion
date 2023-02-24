@@ -4,7 +4,6 @@ import json
 import sys
 import uuid
 import datetime as dt
-from datetime import timedelta
 from concurrent.futures import ThreadPoolExecutor
 from os import path
 

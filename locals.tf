@@ -138,6 +138,14 @@ locals {
     production  = 10
   }
 
+  dks_cache_maxsize = {
+    development = 10000
+    qa          = 10000
+    integration = 10000
+    preprod     = 10000
+    production  = 10000
+  }
+
   extra_python_files = toset(["data.py", "dks.py", "utils.py", "hive.py", "ingesters.py", "logger.py"])
 
   cw_agent_namespace                   = "/app/${local.emr_cluster_name}"

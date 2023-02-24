@@ -39,7 +39,6 @@ class HiveService:
         else:
             content = sql_statement
 
-        logger.info(f"interpolation_dict: {str(interpolation_dict)}")
         if interpolation_dict:
             for k, v in interpolation_dict.items():
                 content = content.replace(k, v)

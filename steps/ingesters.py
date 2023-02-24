@@ -49,29 +49,26 @@ class BaseIngester:
 
         # begin processing
         try:
-            dks_hit_accumulator = self._spark_session.sparkContext.accumulator(0)
+            dks_attempt_accumulator = self._spark_session.sparkContext.accumulator(0)
             dks_miss_accumulator = self._spark_session.sparkContext.accumulator(0)
 
             logger.info(f"Instantiating decryption helper")
             decryption_helper = Utils.get_decryption_helper(
                 decrypt_endpoint=self._configuration.configuration_file.dks_decrypt_endpoint,
                 correlation_id=correlation_id,
-                dks_hit_acc=dks_hit_accumulator,
+                dks_attempt_acc=dks_attempt_accumulator,
                 dks_miss_acc=dks_miss_accumulator,
             )
 
             logger.info(f"Emptying destination prefix: '{destination_prefix}'")
             self.empty_s3_prefix(published_bucket=published_bucket, prefix=destination_prefix)
 
-            # empty dict sent to each container for caching
-            dks_key_cache = {}
-
             # Persist records to JSONL in S3
             logger.info("starting pyspark processing")
             (
                 self.read_dir(s3_source_url)
                 .map(UCMessage)
-                .map(lambda x: decryption_helper.decrypt_dbObject(x, dks_key_cache))
+                .map(lambda x: decryption_helper.decrypt_dbObject(x))
                 .map(lambda x: x.dbobject)
                 .saveAsTextFile(
                     s3_destination_url,
@@ -81,11 +78,11 @@ class BaseIngester:
             logger.info("Initial pyspark ingestion completed")
 
             # stats for logging
-            dks_hits = dks_hit_accumulator.value
+            dks_attempts = dks_attempt_accumulator.value
             dks_misses = dks_miss_accumulator.value
 
-            logger.info(f"DKS Hits: {dks_hits}")
-            logger.info(f"DKS Misses: {dks_misses}")
+            logger.info(f"DKS Attempts: {dks_attempts}")
+            logger.info(f"DKS Cache Misses: {dks_misses}")
 
         except Exception as err:
             logger.error(

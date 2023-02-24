@@ -1,8 +1,10 @@
 import base64
 import binascii
+import os
 from dataclasses import dataclass
 from logging import getLogger
 from typing import Tuple, Dict, Optional
+from functools import lru_cache
 
 import pyspark
 from Crypto.Cipher import AES
@@ -32,7 +34,7 @@ class DKSService:
         certificates: tuple,
         verify: str,
         retry_config: RetryConfig = RetryConfig(),
-        dks_hit_acc: Optional[pyspark.Accumulator] = None,
+        dks_attempt_acc: Optional[pyspark.Accumulator] = None,
         dks_miss_acc: Optional[pyspark.Accumulator] = None,
     ):
         self._dks_decrypt_endpoint = dks_decrypt_endpoint
@@ -41,7 +43,7 @@ class DKSService:
         self._certificates = certificates
         self._verify = verify
         self._http_adapter = None
-        self._dks_hit_acc = dks_hit_acc
+        self._dks_attempt_acc = dks_attempt_acc
         self._dks_miss_acc = dks_miss_acc
 
     def _retry_session(self, http=False) -> Session:
@@ -60,19 +62,11 @@ class DKSService:
             session.mount("http://", self._http_adapter)
         return session
 
-    def get_new_data_key(self) -> dict:
-        with self._retry_session() as session:
-            response = session.get(
-                url=self._dks_datakey_endpoint,
-                cert=self._certificates[0],
-                verify=self._certificates[1],
-            )
-            content = response.json()
-            return content
-
+    @lru_cache(maxsize=int(os.environ.get("DKS_CACHE_MAXSIZE", 1024)))
     def _get_decrypted_key_from_dks(
         self, encrypted_data_key: str, key_encryption_key_id: str, correlation_id: str,
     ) -> str:
+        logger.error("test")
         with self._retry_session() as session:
             response = session.post(
                 url=self._dks_decrypt_endpoint,
@@ -84,36 +78,29 @@ class DKSService:
                 cert=self._certificates,
                 verify=self._verify,
             )
-
         content = response.json()
 
         if "plaintextDataKey" not in content:
             # todo: check response code & provide detail in exception message
             raise Exception("Unable to retrieve datakey from DKS")
 
+        self._dks_miss_acc += 1
         return content["plaintextDataKey"]
 
     def decrypt_data_key(
         self,
         encryption_materials: EncryptionMaterials,
         correlation_id: str,
-        dks_key_cache: Dict,
     ) -> str:
-        if encryption_materials.encryptedEncryptionKey in dks_key_cache:
-            if self._dks_hit_acc:
-                self._dks_hit_acc += 1
-            return dks_key_cache[encryption_materials.encryptedEncryptionKey]
-        else:
-            if self._dks_miss_acc:
-                self._dks_miss_acc += 1
-            plaintext_key = self._get_decrypted_key_from_dks(
-                encryption_materials.encryptedEncryptionKey,
-                encryption_materials.keyEncryptionKeyId,
-                correlation_id,
-            )
+        plaintext_key = self._get_decrypted_key_from_dks(
+            encryption_materials.encryptedEncryptionKey,
+            encryption_materials.keyEncryptionKeyId,
+            correlation_id,
+        )
 
-            dks_key_cache[encryption_materials.encryptedEncryptionKey] = plaintext_key
-            return plaintext_key
+        self._dks_attempt_acc += 1
+        # self._dks_miss_acc += 1
+        return plaintext_key
 
 
 class MessageCryptoHelper(object):
@@ -136,7 +123,6 @@ class MessageCryptoHelper(object):
     def decrypt_dbObject(
         self,
         message: UCMessage,
-        dks_key_cache: Dict,
     ) -> UCMessage:
 
         if message.dbobject is None:
@@ -146,7 +132,6 @@ class MessageCryptoHelper(object):
         data_key = self.data_key_service.decrypt_data_key(
             encryption_materials=encryption_materials,
             correlation_id=self.correlation_id,
-            dks_key_cache=dks_key_cache,
         )
         decrypted_dbobject: str = self.decrypt_string(
             ciphertext=message.dbobject,

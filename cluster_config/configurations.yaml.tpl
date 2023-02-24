@@ -89,6 +89,7 @@ Configurations:
       "PYSPARK_PYTHON": "/usr/bin/python3"
       "S3_PUBLISHED_BUCKET": "${s3_published_bucket}"
       "S3_CORPORATE_BUCKET": "${s3_corporate_bucket}"
+      "DKS_CACHE_MAXSIZE": "${dks_cache_maxsize}"
 
 - Classification: "hadoop-env"
   Configurations:

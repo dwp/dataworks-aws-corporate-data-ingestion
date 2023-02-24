@@ -95,7 +95,7 @@ resource "aws_s3_bucket_object" "configurations" {
       hive_metastore_database_name        = data.terraform_remote_state.internal_compute.outputs.hive_metastore_v2.database_name
       hive_metastore_username             = data.terraform_remote_state.internal_compute.outputs.metadata_store_users.corporate_data_ingestion_writer.username
       hive_metastore_pwd                  = data.terraform_remote_state.internal_compute.outputs.metadata_store_users.corporate_data_ingestion_writer.secret_name
-
+      dks_cache_maxsize                   = local.dks_cache_maxsize[local.environment]
     }
   )
   tags = {
