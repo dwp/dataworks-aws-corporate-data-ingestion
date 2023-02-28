@@ -47,6 +47,7 @@ class UCMessage:
     def __init__(self, kafka_message_string: str):
         self._kafka_message_string = kafka_message_string
         self._kafka_message_json = json.loads(self._kafka_message_string)
+        self.decrypted_record = None
 
     @property
     def message_json(self) -> Dict:
@@ -64,11 +65,9 @@ class UCMessage:
     def dbobject(self) -> str:
         return self.message_json["message"]["dbObject"]
 
-    def get_decrypted_uc_message(self, decrypted_dbobject: str):
+    def set_decrypted_message(self, decrypted_dbobject: str):
         """Returns new UCMessage object, replacing encrypted dbObject attribute with the decrypted
         dbObject provided.  Removes encryption materials.
         """
-        json_message = deepcopy(self.message_json)
-        json_message["message"].update([("dbObject", decrypted_dbobject)])
-        json_message["message"].pop("encryption", None)
-        return UCMessage(json.dumps(json_message))
+        self.decrypted_record = decrypted_dbobject
+        return self

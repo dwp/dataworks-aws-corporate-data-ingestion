@@ -194,12 +194,12 @@ class TestMessageDecryptionHelper(TestCase):
                 encryption_material,
                 db_object,
             ) = TestUtils.generate_test_uc_message(index)
-            decrypted_uc_message = decryption_helper.decrypt_dbObject(message=message, dks_key_cache={})
+            uc_message_with_decrypted_record = (
+                decryption_helper
+                .decrypt_dbObject(message=message, dks_key_cache={})
+            )
 
-            self.assertIn("message", decrypted_uc_message.message_json)
-            self.assertIn("dbObject", decrypted_uc_message.message_json["message"])
-            self.assertNotIn("encryption", decrypted_uc_message.message_json["message"])
-            self.assertEqual(db_object + "-decrypted", decrypted_uc_message.dbobject)
+            self.assertEqual(db_object + "-decrypted", uc_message_with_decrypted_record.decrypted_record)
 
             decryption_helper.data_key_service.decrypt_data_key.assert_called_once_with(
                 encryption_materials=encryption_material,
@@ -243,13 +243,11 @@ class TestUCMessage(TestCase):
         )
 
         results = [
-            UCMessage(test).get_decrypted_uc_message("'decrypted dbObject'")
+            UCMessage(test).set_decrypted_message("'decrypted dbObject'")
             for test in [standard_test, encryption_missing_test, dbobject_missing_test]
         ]
 
         for result in results:
-            self.assertNotIn("encryption", result.message_json)
-            self.assertIn("dbObject", result.message_json["message"])
             self.assertEqual(
-                "'decrypted dbObject'", result.message_json["message"]["dbObject"]
+                "'decrypted dbObject'", result.decrypted_record
             )

@@ -153,5 +153,5 @@ class MessageCryptoHelper(object):
             data_key=data_key,
             iv=encryption_materials.initialisationVector,
         )
-
-        return message.get_decrypted_uc_message(decrypted_dbobject)
+        message.set_decrypted_message(decrypted_dbobject)
+        return message
