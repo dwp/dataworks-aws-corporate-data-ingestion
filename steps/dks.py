@@ -139,7 +139,7 @@ class MessageCryptoHelper(object):
         dks_key_cache: Dict,
     ) -> UCMessage:
 
-        if message.dbobject is None:
+        if message.encrypted_db_object is None:
             raise ValueError("dbObject is missing (None)")
 
         encryption_materials = message.encryption_materials
@@ -149,7 +149,7 @@ class MessageCryptoHelper(object):
             dks_key_cache=dks_key_cache,
         )
         decrypted_dbobject: str = self.decrypt_string(
-            ciphertext=message.dbobject,
+            ciphertext=message.encrypted_db_object,
             data_key=data_key,
             iv=encryption_materials.initialisationVector,
         )

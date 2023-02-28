@@ -251,3 +251,70 @@ class TestUCMessage(TestCase):
             self.assertEqual(
                 "'decrypted dbObject'", result.decrypted_record
             )
+
+
+class TestUCMessageTransform(TestCase):
+    def test_transform(self):
+        """Test that the context element is enriched with auditType and timestamps"""
+        mock_message = json.dumps({
+            "message": {
+                "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                "dbObject": "mock_encrypted_dbobject"
+            }
+        })
+        mock_audit_record = json.dumps({
+            "context": {
+                "AUDIT_ID": "12.0.0.1"
+            },
+            "auditType": "audit_type"
+        })
+        transformed_expected = json.dumps({
+            "AUDIT_ID": "12.0.0.1",
+            "AUDIT_EVENT": "audit_type",
+            "TIME_STAMP": "2019-07-04T07:27:35.104+0000",
+            "TIME_STAMP_ORIG": "2019-07-04T07:27:35.104+0000"
+        })
+
+        test_uc_message = UCMessage(mock_message, "data:businessAudit")
+        test_uc_message.set_decrypted_message(mock_audit_record)
+        test_uc_message.transform()
+        self.assertEqual(test_uc_message.decrypted_record, transformed_expected)
+
+    def test_transform_without_audit_type(self):
+        """Ensure Exception raised when audit type not present"""
+        mock_message = json.dumps({
+            "message": {
+                "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                "dbObject": "mock_encrypted_dbobject"
+            }
+        })
+        mock_audit_record = json.dumps({
+            "context": {
+                "AUDIT_ID": "12.0.0.1"
+            },
+            # "auditType": "audit_type"
+        })
+        test_uc_message = UCMessage(mock_message, "data:businessAudit")
+        test_uc_message.set_decrypted_message(mock_audit_record)
+
+        self.assertRaises(Exception, test_uc_message.transform)
+
+    def test_transform_without_context(self):
+        """Ensure exception raised when context not present"""
+        mock_message = json.dumps({
+            "message": {
+                "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                "dbObject": "mock_encrypted_dbobject"
+            }
+        })
+        mock_audit_record = json.dumps({
+            # "context": {
+            #     "AUDIT_ID": "12.0.0.1"
+            # },
+            "auditType": "audit_type"
+        })
+        test_uc_message = UCMessage(mock_message, "data:businessAudit")
+        test_uc_message.set_decrypted_message(mock_audit_record)
+
+        self.assertRaises(Exception, test_uc_message.transform)
+
