@@ -73,6 +73,7 @@ class BaseIngester:
                 .map(lambda x: UCMessage(x, collection_name))
                 .map(lambda uc_message: decryption_helper.decrypt_dbObject(uc_message, dks_key_cache))
                 .map(UCMessage.transform)
+                .map(UCMessage.validate)
                 .map(lambda x: x.decrypted_record)
                 .saveAsTextFile(
                     s3_destination_url,

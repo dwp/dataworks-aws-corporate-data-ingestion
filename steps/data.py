@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import Dict, List
 import re
 
-
 JSON_PRIMITIVES = (int, dict, float, complex, bool, str)
 
 
@@ -51,6 +50,11 @@ class UCMessage:
     KEY_AUDIT_EVENT = "AUDIT_EVENT"
     KEY_TIME_STAMP = "TIME_STAMP"
     KEY_TIME_STAMP_ORIG = "TIME_STAMP_ORIG"
+
+    KEY_ARCHIVED_DT = "_archivedDateTime"
+    KEY_LAST_MODIFIED_DT = "_lastModifiedDateTime"
+    KEY_CREATED_DT = "createdDateTime"
+    KEY_REMOVED_DT = "_removedDateTime"
 
     def __init__(self, kafka_message_string: str, collection_name=None):
         """Collection name optional, in format `db:collection`"""
@@ -108,12 +112,79 @@ class UCMessage:
             self.decrypted_record = json.dumps(context_element)
         return self
 
+    def validate(self):
+        db_object = json.loads(self.decrypted_record)
+
+        # Wraps the last modified, creates from other dates if not present
+        prioritised_last_modified = self._get_last_modified(db_object)
+        if prioritised_last_modified:
+            formatted_date = DateHelper.from_incoming_format(prioritised_last_modified).to_outgoing_format()
+            db_object[self.KEY_LAST_MODIFIED_DT] = {"$date": formatted_date}
+
+        # Wraps all dates in the record
+        DateWrapper.process_object(db_object)
+
+        # Older records have Archived-datetime, which was renamed in this pipeline to the same
+        # as Removed-datetime.  If Removed-datetime is already present, then renaming Archived-datetime
+        # would introduce duplicate, and is not necessary
+        if self.KEY_ARCHIVED_DT in db_object and self.KEY_REMOVED_DT in db_object:
+            db_object.pop(self.KEY_ARCHIVED_DT)
+
+        id_element = db_object.get("_id")
+        if isinstance(id_element, JSON_PRIMITIVES):
+            new_id_element = {"$oid": str(id_element)}
+            db_object["_id"] = new_id_element
+
+        self.decrypted_record = json.dumps(db_object)
+        return self
+
+    @classmethod
+    def _get_last_modified(cls, dbobject: dict):
+        """Gets last modified in following priority order:
+            $.message._lastModifiedDateTime
+            > $.message._removedDateTime
+            > $.message.createdDateTime
+            > epoch (="1980-01-01T00:00:00.000Z")
+        """
+        epoch = "1980-01-01T00:00:00.000Z"
+        last_modified = cls._retrieve_date_time_element(dbobject, cls.KEY_LAST_MODIFIED_DT)
+        removed = cls._retrieve_date_time_element(dbobject, cls.KEY_REMOVED_DT)
+        created = cls._retrieve_date_time_element(dbobject,cls.KEY_CREATED_DT)
+
+        if last_modified:
+            return last_modified
+        elif removed:
+            return removed
+        elif created:
+            return created
+        else:
+            return epoch
+
+    @staticmethod
+    def _retrieve_date_time_element(json_object, key):
+        """If datetime is wrapped in mongo {$date: ""} object, returns the inner string"""
+        date_element = json_object.get(key)
+        if date_element:
+            if "$date" in date_element & date_element["$date"]:
+                return str(date_element["$date"])
+            else:
+                return str(date_element)
+
 
 class DateWrapper:
     DATE_KEY = "$date"
 
     @classmethod
     def process_object(cls, json_object: Dict, include_last_modified=True):
+        """Iterates through a json_object (dictionary) finding string elements
+            that match regex in the DateHelper.  If a date is already part of
+            a mongo date object, the date is formatted.  If not part of a mongo
+            date object, the date is wrapped and formatted in place
+
+            { "created_date": "{date in format A}"}
+            becomes
+            { "created_date": {"$date": "{date in format B}"}
+        """
         for key in json_object.keys():
             if include_last_modified or key != "_lastModifiedDateTime":
                 cls.process_element(json_object, key, json_object[key])
@@ -154,11 +225,11 @@ class DateWrapper:
     @classmethod
     def is_mongo_date_object(cls, json_element) -> bool:
         return (
-            json_element
-            and isinstance(json_element, dict)
-            and len(json_element.keys()) == 1
-            and json_element.get(cls.DATE_KEY, None)
-            and isinstance(json_element.get(cls.DATE_KEY), JSON_PRIMITIVES)
+                json_element
+                and isinstance(json_element, dict)
+                and len(json_element.keys()) == 1
+                and json_element.get(cls.DATE_KEY, None)
+                and isinstance(json_element.get(cls.DATE_KEY), JSON_PRIMITIVES)
         )
 
 
