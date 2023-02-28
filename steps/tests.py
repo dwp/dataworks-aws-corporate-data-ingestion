@@ -91,6 +91,8 @@ class TestUtils:
         dbObject = f"__encrypted_db_object__{index}"
         message = {
             "message": {
+                "db": "test_db",
+                "collection": "test_collection",
                 "encryption": encryption_material_dict,
                 "dbObject": dbObject,
             }
@@ -238,12 +240,13 @@ class TestUCMessage(TestCase):
                         "encryptionb": "b",
                         "encryptionc": "c",
                     },
+                    "dbObject": None
                 }
             }
         )
 
         results = [
-            UCMessage(test).set_decrypted_message("'decrypted dbObject'")
+            UCMessage(test, "db:collection").set_decrypted_message("'decrypted dbObject'")
             for test in [standard_test, encryption_missing_test, dbobject_missing_test]
         ]
 
