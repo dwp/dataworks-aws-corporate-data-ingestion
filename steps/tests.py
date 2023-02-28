@@ -10,7 +10,7 @@ from Crypto import Random
 from Crypto.Cipher import AES
 from Crypto.Util import Counter
 
-from data import UCMessage, EncryptionMaterials
+from data import UCMessage, EncryptionMaterials, DateWrapper
 from dks import DKSService, RetryConfig, MessageCryptoHelper
 
 
@@ -318,3 +318,140 @@ class TestUCMessageTransform(TestCase):
 
         self.assertRaises(Exception, test_uc_message.transform)
 
+
+class TestDateWrapper(TestCase):
+    def test_process_nested_dates(self):
+        """Check all dates processed except top level, with ignore flag applied"""
+        date_key = "$date"
+        test_object = {
+            "_lastModifiedDateTime": {
+                date_key: "2001-12-14T15:01:02.000+0000"
+            },
+            "notDate1": 123,
+            "notDate2": "abc",
+            "parentDate": "2017-12-14T15:01:02.000+0000",
+            "childObjectWithDates": {
+                "_lastModifiedDateTime": {
+                    date_key: "1980-12-14T15:01:02.000+0000"
+                },
+                "grandChildObjectWithDate": {
+                    "notDate1": 123,
+                    "notDate2": "abc",
+                    "grandChildDate1": "2019-12-14T15:01:02.000+0000"
+                },
+                "childDate": "2018-12-14T15:01:02.000+0000",
+                "arrayWithDates": [
+                    789,
+                    "xyz",
+                    "2010-12-14T15:01:02.000+0000",
+                    [
+                        "2011-12-14T15:01:02.000+0000",
+                        "qwerty"
+                    ],
+                    {
+                        "grandChildDate3": "2012-12-14T15:01:02.000+0000",
+                        "_lastModifiedDateTime": "1995-12-14T15:01:02.000+0000"
+                    }
+                ]
+            }
+        }
+
+        DateWrapper.process_object(test_object, False)
+
+        expected_wrapped_object = {
+            "_lastModifiedDateTime": {
+                date_key: "2001-12-14T15:01:02.000+0000"
+            },
+            "notDate1": 123,
+            "notDate2": "abc",
+            "parentDate": {
+                date_key: "2017-12-14T15:01:02.000Z"
+            },
+            "childObjectWithDates": {
+                "_lastModifiedDateTime": {
+                    date_key: "1980-12-14T15:01:02.000Z"
+                },
+                "grandChildObjectWithDate": {
+                    "notDate1": 123,
+                    "notDate2": "abc",
+                    "grandChildDate1": {
+                        date_key: "2019-12-14T15:01:02.000Z"
+                    }
+                },
+                "childDate": {
+                    date_key: "2018-12-14T15:01:02.000Z"
+                },
+                "arrayWithDates": [
+                    789,
+                    "xyz",
+                    {date_key: "2010-12-14T15:01:02.000Z"},
+                    [
+                        {date_key: "2011-12-14T15:01:02.000Z"},
+                        "qwerty"
+                    ],
+                    {
+                        "grandChildDate3": {date_key: "2012-12-14T15:01:02.000Z"},
+                        "_lastModifiedDateTime": {date_key: "1995-12-14T15:01:02.000Z"}
+                    }
+                ]
+            }
+        }
+        self.assertEqual(json.dumps(expected_wrapped_object), json.dumps(test_object))
+
+    def test_ignores_last_modified_date(self):
+        test_string = json.dumps({"_lastModifiedDateTime": "2001-12-14T15:01:02.000+0000"})
+        test_object = json.loads(test_string)
+
+        DateWrapper.process_object(test_object, False)
+        self.assertEqual(test_string, json.dumps(test_object))
+
+    def test_wraps_common_dates(self):
+        test_object = {
+            "_lastModifiedDateTime": "2001-12-14T15:01:02.000+0000",
+            "createdDateTime": "2001-12-01T15:01:02.000+0000",
+            "_removedDateTime": "2001-12-02T15:01:02.000+0000",
+            "_archivedDateTime": "2001-12-03T15:01:02.000+0000"
+        }
+
+        expected_string = json.dumps({
+            "_lastModifiedDateTime": {"$date": "2001-12-14T15:01:02.000Z"},
+            "createdDateTime": {"$date": "2001-12-01T15:01:02.000Z"},
+            "_removedDateTime": {"$date": "2001-12-02T15:01:02.000Z"},
+            "_archivedDateTime": {"$date": "2001-12-03T15:01:02.000Z"}
+        })
+
+        DateWrapper.process_object(test_object)
+        self.assertEqual(expected_string, json.dumps(test_object))
+
+    def test_non_utc(self):
+        test_object = {"dateTime": "2001-12-01T15:01:02.000+0100"}
+        expected_string = json.dumps({"dateTime": {"$date": "2001-12-01T14:01:02.000Z"}})
+
+        DateWrapper.process_object(test_object)
+        self.assertEqual(expected_string, json.dumps(test_object))
+
+    def test_rewraps_mongo_dates(self):
+        test_object = {"dateTime": {"$date": "2001-12-01T15:01:02.000+0000"}}
+        expected_string = json.dumps({"dateTime": {"$date": "2001-12-01T15:01:02.000Z"}})
+
+        DateWrapper.process_object(test_object)
+        self.assertEqual(expected_string, json.dumps(test_object))
+
+    def test_wraps_id_dates(self):
+        test_object = {"_id": {
+            "_lastModifiedDateTime": "2001-12-14T15:01:02.000+0000",
+            "createdDateTime": "2001-12-01T15:01:02.000+0000",
+            "_removedDateTime": "2001-12-02T15:01:02.000+0000",
+            "_archivedDateTime": "2001-12-03T15:01:02.000+0000",
+            "someOtherDate": "1990-12-02T15:01:02.000+0000"
+        }}
+        expected_string = json.dumps({"_id": {
+            "_lastModifiedDateTime": {"$date": "2001-12-14T15:01:02.000Z"},
+            "createdDateTime": {"$date": "2001-12-01T15:01:02.000Z"},
+            "_removedDateTime": {"$date": "2001-12-02T15:01:02.000Z"},
+            "_archivedDateTime": {"$date": "2001-12-03T15:01:02.000Z"},
+            "someOtherDate": {"$date": "1990-12-02T15:01:02.000Z"}
+        }})
+
+        DateWrapper.process_object(test_object)
+        self.assertEqual(expected_string, json.dumps(test_object))

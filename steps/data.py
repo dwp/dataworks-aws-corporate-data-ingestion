@@ -1,8 +1,11 @@
 import datetime as dt
 import json
-from copy import deepcopy
 from dataclasses import dataclass
 from typing import Dict, List
+import re
+
+
+JSON_PRIMITIVES = (int, dict, float, complex, bool, str)
 
 
 @dataclass
@@ -88,7 +91,7 @@ class UCMessage:
         if self.db == "data" and self.collection == "businessAudit":
             last_modified_timestamp = self.kafka_message_json.get("message").get("_lastModifiedDateTime", "")
             # Test for json primitives per HTME
-            if isinstance(last_modified_timestamp, (int, dict, float, complex, bool, str)):
+            if isinstance(last_modified_timestamp, JSON_PRIMITIVES):
                 last_modified_timestamp = str(last_modified_timestamp)
             else:
                 last_modified_timestamp = ""
@@ -105,3 +108,86 @@ class UCMessage:
             self.decrypted_record = json.dumps(context_element)
         return self
 
+
+class DateWrapper:
+    DATE_KEY = "$date"
+
+    @classmethod
+    def process_object(cls, json_object: Dict, include_last_modified=True):
+        for key in json_object.keys():
+            if include_last_modified or key != "_lastModifiedDateTime":
+                cls.process_element(json_object, key, json_object[key])
+
+    @classmethod
+    def process_list(cls, json_list: List):
+        for i in range(0, len(json_list)):
+            value = json_list[i]
+            if isinstance(value, dict):
+                cls.process_object(value)
+            elif isinstance(value, list):
+                cls.process_list(value)
+            elif isinstance(value, str) and DateHelper.is_date_string(value):
+                json_list[i] = {"$date": DateHelper.from_incoming_format(value).to_outgoing_format()}
+
+    @classmethod
+    def process_string(cls, parent, key, json_element: str):
+        # Replace a simple date string with a date object {"$date": "original value re-formatted"}
+        if DateHelper.is_date_string(json_element):
+            parent[key] = {"$date": DateHelper.from_incoming_format(json_element).to_outgoing_format()}
+
+    @classmethod
+    def process_mongo_date_object(cls, json_element: dict):
+        date_str = json_element[cls.DATE_KEY]
+        json_element[cls.DATE_KEY] = DateHelper.from_incoming_format(date_str).to_outgoing_format()
+
+    @classmethod
+    def process_element(cls, parent, key, json_element):
+        if cls.is_mongo_date_object(json_element):
+            cls.process_mongo_date_object(json_element)
+        elif isinstance(json_element, dict):
+            cls.process_object(json_element)
+        elif isinstance(json_element, list):
+            cls.process_list(json_element)
+        elif isinstance(json_element, str):
+            cls.process_string(parent, key, json_element)
+
+    @classmethod
+    def is_mongo_date_object(cls, json_element) -> bool:
+        return (
+            json_element
+            and isinstance(json_element, dict)
+            and len(json_element.keys()) == 1
+            and json_element.get(cls.DATE_KEY, None)
+            and isinstance(json_element.get(cls.DATE_KEY), JSON_PRIMITIVES)
+        )
+
+
+class DateHelper:
+    KAFKA_INCOMING_FORMAT = "%Y-%m-%dT%H:%M:%S.%f%z"
+    KAFKA_OUTGOING_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
+    incoming_matcher = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}\+\d{4}")
+    outgoing_matcher = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z")
+    date_matcher = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}((Z)|(\+\d{4}))")
+
+    def __init__(self, datetime: dt.datetime):
+        self.dt_object = datetime.astimezone(dt.timezone.utc)
+
+    @classmethod
+    def is_date_string(cls, possible_date: str):
+        return bool(cls.date_matcher.match(possible_date))
+
+    @classmethod
+    def from_incoming_format(cls, kafka_timestamp):
+        dt_object = dt.datetime.strptime(kafka_timestamp, cls.KAFKA_INCOMING_FORMAT)
+        return cls(dt_object)
+
+    def to_incoming_format(self):
+        # python provides 6 digits for %f, here it's truncated to 3
+        return self.dt_object.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + self.dt_object.strftime("%z")
+
+    def to_outgoing_format(self):
+        # python provides 6 digits for %f, here it's truncated to 3
+        return self.dt_object.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+    def to_timestamp(self):
+        return str(round(1000 * self.dt_object.timestamp()))
