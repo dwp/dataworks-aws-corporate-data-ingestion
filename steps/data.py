@@ -138,6 +138,30 @@ class UCMessage:
         self.decrypted_record = json.dumps(db_object)
         return self
 
+    def sanitise(self):
+        self.sanitise_collection_specific()
+        db_object = self.decrypted_record
+        db_object = (
+            db_object
+            .replace("$", "d_")
+            .replace("\\u0000", "")
+            .replace("_archivedDateTime", "_removedDateTime")
+            .replace("_archived", "_removed")
+        )
+        self.decrypted_record = db_object
+        return self
+
+    def sanitise_collection_specific(self):
+        require_specific_sanitising = (
+            ("penalties-and-deductions", "sanction"),
+            ("core", "healthAndDisabilityDeclaration"),
+            ("accepted-data", "healthAndDisabilityCircumstances"),
+        )
+        for db, collection in require_specific_sanitising:
+            if self.db == db and self.collection == collection:
+                raise NotImplementedError("This collection requires specific sanitising which has not yet been "
+                                          "implemented.  Check HTME SanitisationProcessor for details")
+
     @classmethod
     def _get_last_modified(cls, dbobject: dict):
         """Gets last modified in following priority order:
@@ -149,7 +173,7 @@ class UCMessage:
         epoch = "1980-01-01T00:00:00.000Z"
         last_modified = cls._retrieve_date_time_element(dbobject, cls.KEY_LAST_MODIFIED_DT)
         removed = cls._retrieve_date_time_element(dbobject, cls.KEY_REMOVED_DT)
-        created = cls._retrieve_date_time_element(dbobject,cls.KEY_CREATED_DT)
+        created = cls._retrieve_date_time_element(dbobject, cls.KEY_CREATED_DT)
 
         if last_modified:
             return last_modified

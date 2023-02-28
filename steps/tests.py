@@ -760,3 +760,23 @@ class TestDateHelper(TestCase):
 
         actual = DateHelper.from_incoming_format(date_one).to_outgoing_format()
         self.assertEqual(expected, actual)
+
+
+class TestUCMessageSanitise(TestCase):
+    def test_should_remove_chars_in_all_collections(self):
+        mock_message = json.dumps({
+            "message": {
+                "db": "db",
+                "collection": "collection",
+                "dbObject": None
+
+            }
+        })
+        decrypted_record = json.dumps({"fieldA": "a$\u0000", "_archivedDateTime": "b", "_archived": "c"})
+        expected = {"fieldA": "ad_", "_removedDateTime": "b", "_removed": "c"}
+
+        uc_message = UCMessage(mock_message)
+        uc_message.set_decrypted_message(decrypted_record)
+        uc_message.sanitise()
+
+        self.assertDictEqual(expected, json.loads(uc_message.decrypted_record))
