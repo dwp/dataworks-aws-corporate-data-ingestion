@@ -19,7 +19,6 @@ locals {
 
   overridden_tags = {
     Role         = "corporate-data-ingestion"
-    Owner        = "dataworks-aws-corporate-data-ingestion"
     Persistence  = local.persistence_tag_value[local.environment]
     AutoShutdown = local.auto_shutdown_tag_value[local.environment]
   }
