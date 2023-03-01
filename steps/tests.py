@@ -690,7 +690,7 @@ class TestDateWrapper(TestCase):
         DateWrapper.process_object(decrypted_record)
         self.assertDictEqual(expected_record, decrypted_record)
 
-    def test_should_allow_fir_null_created_removed_and_archived_dates(self):
+    def test_should_allow_for_null_created_removed_and_archived_dates(self):
         date_one = "2019-12-14T15:01:02.000Z"
         decrypted_record = {
             "_id": {"test_key_a": "test_value_a", "test_key_b": "test_value_b"},

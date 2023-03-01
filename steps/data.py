@@ -189,10 +189,13 @@ class UCMessage:
         """If datetime is wrapped in mongo {$date: ""} object, returns the inner string"""
         date_element = json_object.get(key)
         if date_element:
-            if "$date" in date_element & date_element["$date"]:
-                return str(date_element["$date"])
+            if isinstance(date_element, dict):
+                date = date_element.get("$date")
+                if date:
+                    return str(date)
             else:
                 return str(date_element)
+        return ""
 
 
 class DateWrapper:
