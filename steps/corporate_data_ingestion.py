@@ -61,7 +61,8 @@ def get_parameters() -> argparse.Namespace:
     parser.add_argument("--end_date", required=False, help="format %Y-%m-%d, uses previous day if not provided")
     parser.add_argument("--collection_names", required=True, help="name of the collections to process")
     parser.add_argument("--override_ingestion_class", required=False, help="Optionally use specific ingestion class")
-    parser.add_argument("--concurrency", required=False, default="5", help="Concurrent collections processed, default=5")
+    parser.add_argument("--concurrency", required=False, default="5",
+                        help="Concurrent collections processed, default=5")
     args, unrecognized_args = parser.parse_known_args()
 
     if len(unrecognized_args) > 0:
@@ -72,7 +73,8 @@ def get_parameters() -> argparse.Namespace:
     return args
 
 
-def process_collection(collection_name, override_ingestion_class, ingesters, configuration: Configuration, spark_session, hive_session):
+def process_collection(collection_name, override_ingestion_class, ingesters, configuration: Configuration,
+                       spark_session, hive_session):
     start = dt.datetime.strptime(configuration.start_date, "%Y-%m-%d")
     end = dt.datetime.strptime(configuration.end_date, "%Y-%m-%d")
 
@@ -138,9 +140,10 @@ def main():
         )
         logger.info("Hive session: initialised")
 
-        ingesters = {"data:businessAudit": BusinessAuditIngester,
-                     "calculator:calculationParts": BaseIngester,
-                     }
+        ingesters = {
+            "data:businessAudit": BusinessAuditIngester,
+            "calculator:calculationParts": BaseIngester,
+        }
 
         with ThreadPoolExecutor(max_workers=configuration.concurrency) as executor:
             _results = list(executor.map(
