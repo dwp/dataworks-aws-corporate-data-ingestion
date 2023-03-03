@@ -11,6 +11,8 @@ set -euo pipefail
     log_wrapper_message "Pulling files from S3"
 
     METRICS_FILEPATH="/opt/emr/metrics"
+    MAVEN="apache-maven"
+    VERSION="3.6.3"
 
     mkdir -p /opt/emr/metrics
 
@@ -18,14 +20,8 @@ set -euo pipefail
     aws s3 cp "${prometheus_config}" $METRICS_FILEPATH/prometheus_config.yml
 
     log_wrapper_message "Fetching and unzipping maven"
-
-    MAVEN="apache-maven"
-    VERSION="3.6.3"
-
-    export http_proxy="${proxy_url}"
-    export https_proxy="${proxy_url}"
-
     aws s3 cp "${maven_binary_location}/component/maven/$MAVEN-$VERSION-bin.tar.gz" /tmp/$MAVEN-$VERSION.tar.gz
+
     tar -C /tmp -xvf "/tmp/$MAVEN-$VERSION.tar.gz"
 
     log_wrapper_message "Moving maven and cleaning up"
@@ -34,6 +30,9 @@ set -euo pipefail
     rm "/tmp/$MAVEN-$VERSION.tar.gz"
 
     log_wrapper_message "Resolving dependencies for metrics"
+
+    export http_proxy="${proxy_url}"
+    export https_proxy="${proxy_url}"
 
     #shellcheck disable=SC2001
     PROXY_HOST=$(echo "${proxy_url}" | sed 's|.*://\(.*\):.*|\1|') # SED is fine to use here
