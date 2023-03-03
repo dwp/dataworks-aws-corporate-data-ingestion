@@ -414,6 +414,7 @@ class TestUCMessageValidate(TestCase):
         self.assertEqual(expected_decrypted_record, message.decrypted_record)
 
     def test_primitive_id(self):
+        """Wrap json primitive IDs"""
         for primitive_id in ("PRIMITIVE_ID", 1234):
             mock_message = json.dumps({
                 "message": {
@@ -428,13 +429,14 @@ class TestUCMessageValidate(TestCase):
             message.set_decrypted_message(decrypted_object)
             message.validate()
 
-            expected_decrypted_record = {
+            expected_decrypted_record_id = {
                 "_id": {"$oid": str(primitive_id)},
             }
 
-            self.assertDictEqual(expected_decrypted_record["_id"], json.loads(message.decrypted_record)["_id"])
+            self.assertDictEqual(expected_decrypted_record_id["_id"], json.loads(message.decrypted_record)["_id"])
 
     def test_json_id(self):
+        """Don't wrap a json ID"""
         mock_message = json.dumps({
             "message": {
                 "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
@@ -451,11 +453,26 @@ class TestUCMessageValidate(TestCase):
         message.set_decrypted_message(decrypted_object)
         message.validate()
 
-        expected_decrypted_record = {
+        expected_decrypted_record_id = {
             "_id": {"some_id": "actual_id"},
         }
 
-        self.assertDictEqual(expected_decrypted_record["_id"], json.loads(message.decrypted_record)["_id"])
+        self.assertDictEqual(expected_decrypted_record_id["_id"], json.loads(message.decrypted_record)["_id"])
+
+    def test_no_id(self):
+        """Don't wrap an id that doesn't exist"""
+        mock_message = json.dumps({
+            "message": {
+                "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                "dbObject": "mock_encrypted_dbobject"
+            }
+        })
+        decrypted_object = json.dumps({"some_key": "some_value"})
+        message = UCMessage(mock_message, "some:collection")
+        message.set_decrypted_message(decrypted_object)
+        message.validate()
+
+        self.assertIsNone(json.loads(message.decrypted_record).get("_id"))
 
 
 class TestDateWrapper(TestCase):
