@@ -413,6 +413,50 @@ class TestUCMessageValidate(TestCase):
 
         self.assertEqual(expected_decrypted_record, message.decrypted_record)
 
+    def test_primitive_id(self):
+        for primitive_id in ("PRIMITIVE_ID", 1234):
+            mock_message = json.dumps({
+                "message": {
+                    "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                    "dbObject": "mock_encrypted_dbobject"
+                }
+            })
+            decrypted_object = json.dumps({
+                "_id": primitive_id,
+            })
+            message = UCMessage(mock_message, "some:collection")
+            message.set_decrypted_message(decrypted_object)
+            message.validate()
+
+            expected_decrypted_record = {
+                "_id": {"$oid": str(primitive_id)},
+            }
+
+            self.assertDictEqual(expected_decrypted_record["_id"], json.loads(message.decrypted_record)["_id"])
+
+    def test_json_id(self):
+        mock_message = json.dumps({
+            "message": {
+                "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                "dbObject": "mock_encrypted_dbobject"
+            }
+        })
+        decrypted_object = json.dumps({
+            "_id": {"some_id": "actual_id"},
+            "_archivedDateTime": "2021-10-10T03:35:51.145+0000",
+            "_removedDateTime": "2021-10-12T10:06:01.280+0000",
+            "_lastModifiedDateTime": "2021-10-02T14:02:16.653+0000"
+        })
+        message = UCMessage(mock_message, "some:collection")
+        message.set_decrypted_message(decrypted_object)
+        message.validate()
+
+        expected_decrypted_record = {
+            "_id": {"some_id": "actual_id"},
+        }
+
+        self.assertDictEqual(expected_decrypted_record["_id"], json.loads(message.decrypted_record)["_id"])
+
 
 class TestDateWrapper(TestCase):
     def test_process_nested_dates(self):
