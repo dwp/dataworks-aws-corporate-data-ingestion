@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Dict, List
 import re
 
-JSON_PRIMITIVES = (int, dict, float, complex, bool, str)
+JSON_PRIMITIVES = (int, float, complex, bool, str)
 
 
 @dataclass
