@@ -638,6 +638,36 @@ class TestDateWrapper(TestCase):
         DateWrapper.process_object(decrypted_object)
         self.assertEqual(expected_record, json.dumps(decrypted_object))
 
+    def test_should_not_wrap_dates_in_broader_text(self):
+        date_one = "2019-12-14T15:01:02.000Z"
+        date_two = "2018-12-14T15:01:02.000Z"
+        date_three = "2017-12-14T15:01:02.000Z"
+        date_four = "2016-12-14T15:01:02.000Z"
+        date_key = "$date"
+
+        decrypted_object = {
+            "_id": {"test_key_a": "test_value_a", "test_key_b": "test_value_b"},
+            "_lastModifiedDateTime": date_one,
+            "createdDateTime": date_two,
+            "_removedDateTime": date_three,
+            "bodyOfText": f"{date_four} This text starts with a date, but is not a date",
+            "bodyOfText2": f"This text ends with a date, but is not a date {date_four}",
+            "bodyOfText3": f"This text includes a date, {date_four}, but is not a date",
+        }
+
+        expected_record = json.dumps({
+            "_id": {"test_key_a": "test_value_a", "test_key_b": "test_value_b"},
+            "_lastModifiedDateTime": {date_key: date_one},
+            "createdDateTime": {date_key: date_two},
+            "_removedDateTime": {date_key: date_three},
+            "bodyOfText": f"{date_four} This text starts with a date, but is not a date",
+            "bodyOfText2": f"This text ends with a date, but is not a date {date_four}",
+            "bodyOfText3": f"This text includes a date, {date_four}, but is not a date",
+        })
+
+        DateWrapper.process_object(decrypted_object)
+        self.assertEqual(expected_record, json.dumps(decrypted_object))
+
     def test_should_format_all_unwrapped_dates(self):
         date_one = "2019-12-14T15:01:02.000+0000"
         date_two = "2018-12-14T15:01:02.000+0000"
