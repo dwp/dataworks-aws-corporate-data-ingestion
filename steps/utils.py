@@ -1,14 +1,11 @@
-import gzip
-import re
-from typing import Optional, List, Tuple, Dict
+import csv
+import io
+from typing import Optional
 
 import pyspark
 
+from data import UCMessage
 from dks import MessageCryptoHelper, DKSService
-
-
-class ValidationError(BaseException):
-    pass
 
 
 class Utils(object):
@@ -36,3 +33,20 @@ class Utils(object):
             ),
             correlation_id=correlation_id
         )
+
+    @staticmethod
+    def try_skip(message: UCMessage, skip_exceptions, accumulator, fn, *fn_args, **fn_kwargs):
+        """Attempts to apply the given transformation.  If an Exception in `skip_exceptions`
+            is encountered, the processing skips the record and logs the failure
+        """
+        try:
+            return fn(message, *fn_args, **fn_kwargs)
+        except skip_exceptions as e:
+            accumulator += 1
+            return message.error(e)
+
+    @staticmethod
+    def to_csv(row):
+        output = io.StringIO(initial_value="", newline="")
+        csv.writer(output).writerow(row)
+        return output.getvalue().strip()

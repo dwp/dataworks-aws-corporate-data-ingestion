@@ -63,6 +63,8 @@ class UCMessage:
         self.db, self.collection = self._get_db_collection_name(collection_name)
         self.encrypted_db_object = self.kafka_message_json["message"]["dbObject"]
         self.decrypted_record = None
+        self.errored = False
+        self.errored_exception = None
 
     @property
     def id(self) -> str:
@@ -92,7 +94,7 @@ class UCMessage:
             - adds data to the context element
             - unwraps the context element
         """
-        if self.db == "data" and self.collection == "businessAudit":
+        if self.db == "data" and self.collection == "businessAudit" and self.errored is False:
             last_modified_timestamp = self.kafka_message_json.get("message").get("_lastModifiedDateTime", "")
             # Test for json primitives per HTME
             if isinstance(last_modified_timestamp, JSON_PRIMITIVES):
@@ -113,6 +115,8 @@ class UCMessage:
         return self
 
     def validate(self):
+        if self.errored is True:
+            return self
         db_object = json.loads(self.decrypted_record)
 
         # Wraps the last modified, creates from other dates if not present
@@ -139,6 +143,9 @@ class UCMessage:
         return self
 
     def sanitise(self):
+        if self.errored is True:
+            return self
+
         self.sanitise_collection_specific()
         db_object = self.decrypted_record
         db_object = (
@@ -161,6 +168,12 @@ class UCMessage:
             if self.db == db and self.collection == collection:
                 raise NotImplementedError("This collection requires specific sanitising which has not yet been "
                                           "implemented.  Check HTME SanitisationProcessor for details")
+
+    def error(self, exception):
+        """Marks the Message as 'errored', unable to process"""
+        self.errored = True
+        self.errored_exception = exception
+        return self
 
     @classmethod
     def _get_last_modified(cls, dbobject: dict):

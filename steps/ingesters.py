@@ -1,9 +1,8 @@
+import datetime as dt
 import logging
 from os import path
 
 import boto3
-import datetime as dt
-
 
 from data import UCMessage
 from utils import Utils
@@ -49,8 +48,10 @@ class BaseIngester:
 
         # begin processing
         try:
+            # accumulators may be incremented more than once for a single record if the container fails and retries
             dks_hit_accumulator = self._spark_session.sparkContext.accumulator(0)
             dks_miss_accumulator = self._spark_session.sparkContext.accumulator(0)
+            failed_acc = self._spark_session.sparkContext.accumulator(0)
 
             logger.info(f"Instantiating decryption helper")
             decryption_helper = Utils.get_decryption_helper(
@@ -72,10 +73,12 @@ class BaseIngester:
                 self.read_dir(s3_source_url)
                 .map(lambda x: UCMessage(x, collection_name))
                 .map(lambda uc_message: decryption_helper.decrypt_dbObject(uc_message, dks_key_cache))
-                .map(UCMessage.transform)
-                .map(UCMessage.validate)
-                .map(UCMessage.sanitise)
-                .map(lambda x: x.decrypted_record)
+                .map(lambda x: Utils.try_skip(x, (Exception,), failed_acc, UCMessage.transform))
+                .map(lambda x: Utils.try_skip(x, (Exception,), failed_acc, UCMessage.validate))
+                .map(lambda x: Utils.try_skip(x, (Exception,), failed_acc, UCMessage.sanitise))
+                .map(lambda x: Utils.to_csv(
+                    (correlation_id, x.decrypted_record, x.errored_exception, x.errored)
+                 ))
                 .saveAsTextFile(
                     s3_destination_url,
                     compressionCodecClass="com.hadoop.compression.lzo.LzopCodec",
@@ -86,9 +89,11 @@ class BaseIngester:
             # stats for logging
             dks_hits = dks_hit_accumulator.value
             dks_misses = dks_miss_accumulator.value
+            errored_records = failed_acc.value
 
             logger.info(f"DKS Hits: {dks_hits}")
             logger.info(f"DKS Misses: {dks_misses}")
+            logger.info(f"Errored Records: {errored_records}")
 
         except Exception as err:
             logger.error(

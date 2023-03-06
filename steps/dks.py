@@ -131,7 +131,7 @@ class MessageCryptoHelper(object):
         counter = Counter.new(nbits=AES.block_size * 8, initial_value=iv_int)
         aes = AES.new(key=key_bytes, mode=AES.MODE_CTR, counter=counter)
         decrypted_bytes: bytes = aes.decrypt(ciphertext_bytes)
-        return decrypted_bytes.decode("utf8")
+        return decrypted_bytes.decode("UTF-8")
 
     def decrypt_dbObject(
         self,
