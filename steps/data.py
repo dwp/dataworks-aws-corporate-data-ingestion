@@ -151,6 +151,10 @@ class UCMessage:
         self.decrypted_record = db_object
         return self
 
+    @property
+    def utf8_decrypted_record(self):
+        return json.dumps(json.loads(self.decrypted_record), ensure_ascii=False, separators=(',', ':'))
+
     def sanitise_collection_specific(self):
         require_specific_sanitising = (
             ("penalties-and-deductions", "sanction"),
