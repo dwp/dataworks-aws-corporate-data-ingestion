@@ -1,0 +1,55 @@
+jobs:
+  - name: start-snapshot-updater-development
+    plan:
+      - get: dataworks-aws-corporate-data-ingestion
+        trigger: false
+      - .: (( inject meta.plan.start-snapshot-updater ))
+        params:
+          AWS_ACC: ((aws_account.development))
+          AWS_ROLE_ARN: arn:aws:iam::((aws_account.development)):role/ci
+          AWS_DEFAULT_REGION: ((dataworks.aws_region))
+          EXPORT_START_DATE: ""
+
+  - name: start-snapshot-updater-qa
+    plan:
+      - get: dataworks-aws-corporate-data-ingestion
+        trigger: false
+      - .: (( inject meta.plan.start-snapshot-updater ))
+        params:
+          AWS_ACC: ((aws_account.qa))
+          AWS_ROLE_ARN: arn:aws:iam::((aws_account.qa)):role/ci
+          AWS_DEFAULT_REGION: ((dataworks.aws_region))
+          EXPORT_START_DATE: ""
+
+  - name: start-snapshot-updater-integration
+    plan:
+      - get: dataworks-aws-corporate-data-ingestion
+        trigger: false
+      - .: (( inject meta.plan.start-snapshot-updater ))
+        params:
+          AWS_ACC: ((aws_account.integration))
+          AWS_ROLE_ARN: arn:aws:iam::((aws_account.integration)):role/ci
+          AWS_DEFAULT_REGION: ((dataworks.aws_region))
+          EXPORT_START_DATE: ""
+
+  - name: start-snapshot-updater-preprod
+    plan:
+      - get: dataworks-aws-corporate-data-ingestion
+        trigger: false
+      - .: (( inject meta.plan.start-snapshot-updater ))
+        params:
+          AWS_ACC: ((aws_account.preprod))
+          AWS_ROLE_ARN: arn:aws:iam::((aws_account.preprod)):role/ci
+          AWS_DEFAULT_REGION: ((dataworks.aws_region))
+          EXPORT_START_DATE: ""
+
+  - name: start-snapshot-updater-production
+    plan:
+      - get: dataworks-aws-corporate-data-ingestion
+        trigger: false
+      - .: (( inject meta.plan.start-snapshot-updater ))
+        params:
+          AWS_ACC: ((aws_account.production))
+          AWS_ROLE_ARN: arn:aws:iam::((aws_account.production)):role/ci
+          AWS_DEFAULT_REGION: ((dataworks.aws_region))
+          EXPORT_START_DATE: ""
