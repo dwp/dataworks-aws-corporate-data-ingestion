@@ -75,7 +75,7 @@ class BaseIngester:
                 .map(UCMessage.transform)
                 .map(UCMessage.validate)
                 .map(UCMessage.sanitise)
-                .map(lambda x: x.decrypted_record)
+                .map(lambda x: x.utf8_decrypted_record)
                 .saveAsTextFile(
                     s3_destination_url,
                     compressionCodecClass="com.hadoop.compression.lzo.LzopCodec",

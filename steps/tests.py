@@ -255,6 +255,17 @@ class TestUCMessage(TestCase):
                 "'decrypted dbObject'", result.decrypted_record
             )
 
+    def test_get_utf8_message(self):
+        """Ensure non-ascii chars are not escaped in output"""
+        mock_message = UCMessage(json.dumps({
+            "message": {
+                "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                "dbObject": "mock_encrypted_dbobject"
+            }
+        }), "some:collection")
+
+        mock_message.decrypted_record = """{"key": "\\u00e7"}"""
+        self.assertEqual("""{"key":"ç"}""", mock_message.utf8_decrypted_record)
 
 class TestUCMessageTransform(TestCase):
     def test_transform(self):
@@ -271,17 +282,17 @@ class TestUCMessageTransform(TestCase):
             },
             "auditType": "audit_type"
         })
-        transformed_expected = json.dumps({
+        transformed_expected = {
             "AUDIT_ID": "12.0.0.1",
             "AUDIT_EVENT": "audit_type",
             "TIME_STAMP": "2019-07-04T07:27:35.104+0000",
             "TIME_STAMP_ORIG": "2019-07-04T07:27:35.104+0000"
-        })
+        }
 
         test_uc_message = UCMessage(mock_message, "data:businessAudit")
         test_uc_message.set_decrypted_message(mock_audit_record)
         test_uc_message.transform()
-        self.assertEqual(test_uc_message.decrypted_record, transformed_expected)
+        self.assertDictEqual(json.loads(test_uc_message.utf8_decrypted_record), transformed_expected)
 
     def test_transform_without_audit_type(self):
         """Ensure Exception raised when audit type not present"""
@@ -365,7 +376,7 @@ class TestUCMessageValidate(TestCase):
         message.set_decrypted_message(decrypted_object)
         message.validate()
 
-        output_decrypted_object = json.loads(message.decrypted_record)
+        output_decrypted_object = json.loads(message.utf8_decrypted_record)
         self.assertIn("_removedDateTime", output_decrypted_object)
         self.assertNotIn("_archivedDateTime", output_decrypted_object)
 
@@ -385,7 +396,7 @@ class TestUCMessageValidate(TestCase):
         message.set_decrypted_message(decrypted_object)
         message.validate()
 
-        output_decrypted_object = json.loads(message.decrypted_record)
+        output_decrypted_object = json.loads(message.utf8_decrypted_record)
         self.assertIn("_archivedDateTime", output_decrypted_object)
 
     def test_should_tolerate_absent_id(self):
@@ -403,15 +414,15 @@ class TestUCMessageValidate(TestCase):
         message.set_decrypted_message(decrypted_object)
         message.validate()
 
-        expected_decrypted_record = json.dumps({
+        expected_decrypted_record = {
             "_id1": {
                 "test_key_a": "test_value_a",
                 "test_key_b": "test_value_b"
             },
             "_lastModifiedDateTime": {"$date": "2018-12-14T15:01:02.000Z"}
-        })
+        }
 
-        self.assertEqual(expected_decrypted_record, message.decrypted_record)
+        self.assertDictEqual(expected_decrypted_record, json.loads(message.utf8_decrypted_record))
 
     def test_primitive_id(self):
         """Wrap json primitive IDs"""
@@ -433,7 +444,7 @@ class TestUCMessageValidate(TestCase):
                 "_id": {"$oid": str(primitive_id)},
             }
 
-            self.assertDictEqual(expected_decrypted_record_id["_id"], json.loads(message.decrypted_record)["_id"])
+            self.assertDictEqual(expected_decrypted_record_id["_id"], json.loads(message.utf8_decrypted_record)["_id"])
 
     def test_json_id(self):
         """Don't wrap a json ID"""
@@ -457,7 +468,7 @@ class TestUCMessageValidate(TestCase):
             "_id": {"some_id": "actual_id"},
         }
 
-        self.assertDictEqual(expected_decrypted_record_id["_id"], json.loads(message.decrypted_record)["_id"])
+        self.assertDictEqual(expected_decrypted_record_id["_id"], json.loads(message.utf8_decrypted_record)["_id"])
 
     def test_no_id(self):
         """Don't wrap an id that doesn't exist"""
@@ -472,7 +483,7 @@ class TestUCMessageValidate(TestCase):
         message.set_decrypted_message(decrypted_object)
         message.validate()
 
-        self.assertIsNone(json.loads(message.decrypted_record).get("_id"))
+        self.assertIsNone(json.loads(message.utf8_decrypted_record).get("_id"))
 
 
 class TestDateWrapper(TestCase):
@@ -638,6 +649,36 @@ class TestDateWrapper(TestCase):
         DateWrapper.process_object(decrypted_object)
         self.assertEqual(expected_record, json.dumps(decrypted_object))
 
+    def test_should_not_wrap_dates_in_broader_text(self):
+        date_one = "2019-12-14T15:01:02.000Z"
+        date_two = "2018-12-14T15:01:02.000Z"
+        date_three = "2017-12-14T15:01:02.000Z"
+        date_four = "2016-12-14T15:01:02.000Z"
+        date_key = "$date"
+
+        decrypted_object = {
+            "_id": {"test_key_a": "test_value_a", "test_key_b": "test_value_b"},
+            "_lastModifiedDateTime": date_one,
+            "createdDateTime": date_two,
+            "_removedDateTime": date_three,
+            "bodyOfText": f"{date_four} This text starts with a date, but is not a date",
+            "bodyOfText2": f"This text ends with a date, but is not a date {date_four}",
+            "bodyOfText3": f"This text includes a date, {date_four}, but is not a date",
+        }
+
+        expected_record = json.dumps({
+            "_id": {"test_key_a": "test_value_a", "test_key_b": "test_value_b"},
+            "_lastModifiedDateTime": {date_key: date_one},
+            "createdDateTime": {date_key: date_two},
+            "_removedDateTime": {date_key: date_three},
+            "bodyOfText": f"{date_four} This text starts with a date, but is not a date",
+            "bodyOfText2": f"This text ends with a date, but is not a date {date_four}",
+            "bodyOfText3": f"This text includes a date, {date_four}, but is not a date",
+        })
+
+        DateWrapper.process_object(decrypted_object)
+        self.assertEqual(expected_record, json.dumps(decrypted_object))
+
     def test_should_format_all_unwrapped_dates(self):
         date_one = "2019-12-14T15:01:02.000+0000"
         date_two = "2018-12-14T15:01:02.000+0000"
@@ -790,7 +831,7 @@ class TestDateWrapper(TestCase):
         message = UCMessage(mock_message)
         message.set_decrypted_message(decrypted_record)
         message.validate()
-        self.assertDictEqual(expected_record, json.loads(message.decrypted_record))
+        self.assertDictEqual(expected_record, json.loads(message.utf8_decrypted_record))
 
 
 class TestDateHelper(TestCase):
@@ -840,4 +881,4 @@ class TestUCMessageSanitise(TestCase):
         uc_message.set_decrypted_message(decrypted_record)
         uc_message.sanitise()
 
-        self.assertDictEqual(expected, json.loads(uc_message.decrypted_record))
+        self.assertDictEqual(expected, json.loads(uc_message.utf8_decrypted_record))

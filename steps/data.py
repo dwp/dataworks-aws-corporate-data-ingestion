@@ -151,6 +151,10 @@ class UCMessage:
         self.decrypted_record = db_object
         return self
 
+    @property
+    def utf8_decrypted_record(self):
+        return json.dumps(json.loads(self.decrypted_record), ensure_ascii=False, separators=(',', ':'))
+
     def sanitise_collection_specific(self):
         require_specific_sanitising = (
             ("penalties-and-deductions", "sanction"),
@@ -263,9 +267,9 @@ class DateWrapper:
 class DateHelper:
     KAFKA_INCOMING_FORMAT = "%Y-%m-%dT%H:%M:%S.%f%z"
     KAFKA_OUTGOING_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
-    incoming_matcher = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}\+\d{4}")
-    outgoing_matcher = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z")
-    date_matcher = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}((Z)|(\+\d{4}))")
+    incoming_matcher = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}\+\d{4}$")
+    outgoing_matcher = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$")
+    date_matcher = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}((Z)|(\+\d{4}))$")
 
     def __init__(self, datetime: dt.datetime):
         self.dt_object = datetime.astimezone(dt.timezone.utc)
