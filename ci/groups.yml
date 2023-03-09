@@ -36,3 +36,8 @@ groups:
       - start-backup-integration
       - start-backup-preprod
       - start-backup-production
+      - start-snapshot-updater-development
+      - start-snapshot-updater-qa
+      - start-snapshot-updater-integration
+      - start-snapshot-updater-preprod
+      - start-snapshot-updater-production

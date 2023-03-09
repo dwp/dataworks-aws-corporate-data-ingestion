@@ -54,6 +54,10 @@ chmod u+x /opt/emr/logging.sh
     aws s3 cp --recursive "${scripts_location}/audit_sql/" /opt/emr/audit_sql/
 
 
+    log_wrapper_message "Downloading snapshot updater files"
+    aws s3 cp --recursive "${scripts_location}/snapshot_updater/" /opt/emr/snapshot_updater/
+
+
     log_wrapper_message "Script downloads completed"
 
 
