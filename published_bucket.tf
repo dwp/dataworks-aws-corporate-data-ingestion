@@ -31,6 +31,14 @@ data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_read_writ
   statement {
     effect = "Allow"
 
+    actions = ["s3:GetObject*"]
+
+    resources = ["${data.terraform_remote_state.common.outputs.published_bucket.arn}/analytical-dataset/archive/11_2022_backup/calculationParts/*"]
+  }
+
+  statement {
+    effect = "Allow"
+
     actions = [
       "kms:Encrypt",
       "kms:Decrypt",

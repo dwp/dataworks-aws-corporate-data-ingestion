@@ -37,8 +37,8 @@ resource "aws_s3_bucket_object" "snapshot_updater_file" {
   key    = "component/${local.emr_cluster_name}/snapshot_updater/snapshot_updater.sql"
   content = templatefile("${path.module}/steps/snapshot_updater/snapshot_updater.sql",
     {
-      s3_corporate_bucket = data.terraform_remote_state.aws_ingestion.outputs.corporate_storage_bucket.id
       s3_published_bucket = data.terraform_remote_state.common.outputs.published_bucket.id
+
     }
   )
 }
