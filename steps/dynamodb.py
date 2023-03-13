@@ -1,6 +1,6 @@
-import boto3
-from botocore.client import BaseClient
 import datetime as dt
+
+from botocore.client import BaseClient
 
 
 class DynamoDBHelper:
@@ -14,7 +14,6 @@ class DynamoDBHelper:
         client: BaseClient,
         correlation_id,
         collection_name,
-        created_date,
         cluster_id,
         run_id=0,
     ):
@@ -22,7 +21,6 @@ class DynamoDBHelper:
         self.correlation_id = correlation_id
         self.collection_name = collection_name
         self.data_product = f"CDI-{collection_name}"
-        self.created_date = created_date
         self.cluster_id = cluster_id
         self.run_id = run_id
         self.KEY = {

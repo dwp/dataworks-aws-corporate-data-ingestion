@@ -1,21 +1,22 @@
 import argparse
+import datetime as dt
 import itertools
 import json
+import os
 import sys
 import uuid
-import datetime as dt
-from datetime import timedelta
 from concurrent.futures import ThreadPoolExecutor
+from logging import getLogger
 from os import path
 
+import boto3
 from pyspark.sql import SparkSession
 
 from data import ConfigurationFile, Configuration
-
+from dynamodb import DynamoDBHelper
 from hive import HiveService
-from logger import setup_logging
 from ingesters import BaseIngester, BusinessAuditIngester
-from logging import getLogger
+from logger import setup_logging
 
 DEFAULT_AWS_REGION = "eu-west-2"
 
@@ -74,7 +75,14 @@ def get_parameters() -> argparse.Namespace:
 
 
 def process_collection(collection_name, override_ingestion_class, ingesters, configuration: Configuration,
-                       spark_session, hive_session):
+                       spark_session, hive_session, dynamodb_client):
+    dynamodb_helper = DynamoDBHelper(
+        client=dynamodb_client,
+        correlation_id=configuration.correlation_id,
+        collection_name=collection_name,
+        cluster_id=configuration.cluster_id,
+    )
+
     start = dt.datetime.strptime(configuration.start_date, "%Y-%m-%d")
     end = dt.datetime.strptime(configuration.end_date, "%Y-%m-%d")
 
@@ -92,11 +100,17 @@ def process_collection(collection_name, override_ingestion_class, ingesters, con
 
     for export_date in export_date_range:
         configuration.export_date = export_date
+        dynamodb_helper.update_status(dynamodb_helper.IN_PROGRESS, export_date)
         logger.info(f"Initialising ingester for collection: {collection_name} - [{export_date}]")
         ingester = ingestion_class(configuration, collection_name, spark_session, hive_session)
         logger.info(f"{ingester.__class__.__name__}::{collection_name}::{export_date}:: ingester initialised")
         logger.info(f"{ingester.__class__.__name__}::{collection_name}::{export_date}:: ingester running")
-        ingester.run()
+        try:
+            ingester.run()
+            dynamodb_helper.update_status(dynamodb_helper.COMPLETED, export_date)
+        except Exception as e:
+            dynamodb_helper.update_status(dynamodb_helper.FAILED, export_date)
+            raise e
         logger.info(f"{ingester.__class__.__name__}::{collection_name}::{export_date}:: ingester completed")
 
 
@@ -122,6 +136,7 @@ def main():
             source_s3_prefix=args.source_s3_prefix,
             destination_s3_prefix=args.destination_s3_prefix,
             concurrency=int(args.concurrency),
+            cluster_id=os.environ.get("EMR_CLUSTER_ID", "NOT_SET"),
             configuration_file=configuration_file,
         )
 
@@ -140,6 +155,8 @@ def main():
         )
         logger.info("Hive session: initialised")
 
+        dynamo_db_client = boto3.client("dynamodb")
+
         ingesters = {
             "data:businessAudit": BusinessAuditIngester,
             "calculator:calculationParts": BaseIngester,
@@ -154,6 +171,7 @@ def main():
                 itertools.repeat(configuration),
                 itertools.repeat(spark_session),
                 itertools.repeat(hive_session),
+                itertools.repeat(dynamo_db_client),
             ))
 
     except Exception as err:

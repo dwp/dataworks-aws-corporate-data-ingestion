@@ -138,7 +138,7 @@ locals {
     production  = 10
   }
 
-  extra_python_files = toset(["data.py", "dks.py", "utils.py", "hive.py", "ingesters.py", "logger.py"])
+  extra_python_files = toset(["data.py", "dks.py", "utils.py", "hive.py", "ingesters.py", "logger.py", "dynamodb.py"])
 
   cw_agent_namespace                   = "/app/${local.emr_cluster_name}"
   cw_agent_log_group_name              = "/app/${local.emr_cluster_name}"
