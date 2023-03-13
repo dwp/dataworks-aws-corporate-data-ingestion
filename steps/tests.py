@@ -56,9 +56,7 @@ class TestUtils:
             verify="",
         )
 
-        dks_service._get_decrypted_key_from_dks = MagicMock(
-            side_effect=cls.mock_decrypt
-        )
+        dks_service._get_decrypted_key_from_dks = MagicMock(side_effect=cls.mock_decrypt)
         return dks_service
 
     @staticmethod
@@ -71,9 +69,7 @@ class TestUtils:
             verify="",
             retry_config=RetryConfig(),
         )
-        dks_service._get_decrypted_key_from_dks = MagicMock(
-            side_effect=lambda *args: args[0]
-        )
+        dks_service._get_decrypted_key_from_dks = MagicMock(side_effect=lambda *args: args[0])
         return dks_service
 
     @staticmethod
@@ -97,7 +93,11 @@ class TestUtils:
                 "dbObject": dbObject,
             }
         }
-        return UCMessage(json.dumps(message)), EncryptionMaterials(**encryption_material_dict), dbObject
+        return (
+            UCMessage(json.dumps(message)),
+            EncryptionMaterials(**encryption_material_dict),
+            dbObject,
+        )
 
 
 class TestDKSCache(TestCase):
@@ -114,7 +114,8 @@ class TestDKSCache(TestCase):
 
         # All records in 1 partition makes caching predictable
         test_rdd = spark_session.sparkContext.parallelize(
-            repeat_materials * [
+            repeat_materials
+            * [
                 EncryptionMaterials(**TestUtils.generate_test_encryption_material(index))
                 for index in range(unique_materials)
             ]
@@ -125,15 +126,13 @@ class TestDKSCache(TestCase):
         dks_service._dks_hit_acc = hits
         dks_service._dks_miss_acc = misses
         (
-            test_rdd
-            .map(
+            test_rdd.map(
                 lambda x: dks_service.decrypt_data_key(
                     encryption_materials=x,
                     correlation_id="TEST",
                     dks_key_cache=cache,
                 )
-            )
-            .collect()
+            ).collect()
         )
 
         self.assertEqual(expected_misses, misses.value)
@@ -187,21 +186,23 @@ class TestMessageDecryptionHelper(TestCase):
 
         for index in range(unique_messages):
             # new mocks
-            decryption_helper.decrypt_string = \
-                MagicMock(side_effect=lambda ciphertext, data_key, iv: ciphertext + "-decrypted")
-            decryption_helper.data_key_service.decrypt_data_key = \
-                MagicMock(side_effect=lambda **kwargs: kwargs["encryption_materials"].encryptedEncryptionKey)
+            decryption_helper.decrypt_string = MagicMock(
+                side_effect=lambda ciphertext, data_key, iv: ciphertext + "-decrypted"
+            )
+            decryption_helper.data_key_service.decrypt_data_key = MagicMock(
+                side_effect=lambda **kwargs: kwargs["encryption_materials"].encryptedEncryptionKey
+            )
             (
                 message,
                 encryption_material,
                 db_object,
             ) = TestUtils.generate_test_uc_message(index)
-            uc_message_with_decrypted_record = (
-                decryption_helper
-                .decrypt_dbObject(message=message, dks_key_cache={})
-            )
+            uc_message_with_decrypted_record = decryption_helper.decrypt_dbObject(message=message, dks_key_cache={})
 
-            self.assertEqual(db_object + "-decrypted", uc_message_with_decrypted_record.decrypted_record)
+            self.assertEqual(
+                db_object + "-decrypted",
+                uc_message_with_decrypted_record.decrypted_record,
+            )
 
             decryption_helper.data_key_service.decrypt_data_key.assert_called_once_with(
                 encryption_materials=encryption_material,
@@ -229,9 +230,7 @@ class TestUCMessage(TestCase):
                 }
             }
         )
-        encryption_missing_test = json.dumps(
-            {"message": {"dbObject": "'encrypted dbobject'"}}
-        )
+        encryption_missing_test = json.dumps({"message": {"dbObject": "'encrypted dbobject'"}})
         dbobject_missing_test = json.dumps(
             {
                 "message": {
@@ -240,7 +239,7 @@ class TestUCMessage(TestCase):
                         "encryptionb": "b",
                         "encryptionc": "c",
                     },
-                    "dbObject": None
+                    "dbObject": None,
                 }
             }
         )
@@ -251,42 +250,43 @@ class TestUCMessage(TestCase):
         ]
 
         for result in results:
-            self.assertEqual(
-                "'decrypted dbObject'", result.decrypted_record
-            )
+            self.assertEqual("'decrypted dbObject'", result.decrypted_record)
 
     def test_get_utf8_message(self):
         """Ensure non-ascii chars are not escaped in output"""
-        mock_message = UCMessage(json.dumps({
-            "message": {
-                "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
-                "dbObject": "mock_encrypted_dbobject"
-            }
-        }), "some:collection")
+        mock_message = UCMessage(
+            json.dumps(
+                {
+                    "message": {
+                        "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                        "dbObject": "mock_encrypted_dbobject",
+                    }
+                }
+            ),
+            "some:collection",
+        )
 
         mock_message.decrypted_record = """{"key": "\\u00e7"}"""
         self.assertEqual("""{"key":"ç"}""", mock_message.utf8_decrypted_record)
 
+
 class TestUCMessageTransform(TestCase):
     def test_transform(self):
         """Test that the context element is enriched with auditType and timestamps"""
-        mock_message = json.dumps({
-            "message": {
-                "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
-                "dbObject": "mock_encrypted_dbobject"
+        mock_message = json.dumps(
+            {
+                "message": {
+                    "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                    "dbObject": "mock_encrypted_dbobject",
+                }
             }
-        })
-        mock_audit_record = json.dumps({
-            "context": {
-                "AUDIT_ID": "12.0.0.1"
-            },
-            "auditType": "audit_type"
-        })
+        )
+        mock_audit_record = json.dumps({"context": {"AUDIT_ID": "12.0.0.1"}, "auditType": "audit_type"})
         transformed_expected = {
             "AUDIT_ID": "12.0.0.1",
             "AUDIT_EVENT": "audit_type",
             "TIME_STAMP": "2019-07-04T07:27:35.104+0000",
-            "TIME_STAMP_ORIG": "2019-07-04T07:27:35.104+0000"
+            "TIME_STAMP_ORIG": "2019-07-04T07:27:35.104+0000",
         }
 
         test_uc_message = UCMessage(mock_message, "data:businessAudit")
@@ -296,18 +296,20 @@ class TestUCMessageTransform(TestCase):
 
     def test_transform_without_audit_type(self):
         """Ensure Exception raised when audit type not present"""
-        mock_message = json.dumps({
-            "message": {
-                "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
-                "dbObject": "mock_encrypted_dbobject"
+        mock_message = json.dumps(
+            {
+                "message": {
+                    "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                    "dbObject": "mock_encrypted_dbobject",
+                }
             }
-        })
-        mock_audit_record = json.dumps({
-            "context": {
-                "AUDIT_ID": "12.0.0.1"
-            },
-            # "auditType": "audit_type"
-        })
+        )
+        mock_audit_record = json.dumps(
+            {
+                "context": {"AUDIT_ID": "12.0.0.1"},
+                # "auditType": "audit_type"
+            }
+        )
         test_uc_message = UCMessage(mock_message, "data:businessAudit")
         test_uc_message.set_decrypted_message(mock_audit_record)
 
@@ -315,18 +317,22 @@ class TestUCMessageTransform(TestCase):
 
     def test_transform_without_context(self):
         """Ensure exception raised when context not present"""
-        mock_message = json.dumps({
-            "message": {
-                "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
-                "dbObject": "mock_encrypted_dbobject"
+        mock_message = json.dumps(
+            {
+                "message": {
+                    "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                    "dbObject": "mock_encrypted_dbobject",
+                }
             }
-        })
-        mock_audit_record = json.dumps({
-            # "context": {
-            #     "AUDIT_ID": "12.0.0.1"
-            # },
-            "auditType": "audit_type"
-        })
+        )
+        mock_audit_record = json.dumps(
+            {
+                # "context": {
+                #     "AUDIT_ID": "12.0.0.1"
+                # },
+                "auditType": "audit_type"
+            }
+        )
         test_uc_message = UCMessage(mock_message, "data:businessAudit")
         test_uc_message.set_decrypted_message(mock_audit_record)
 
@@ -335,12 +341,14 @@ class TestUCMessageTransform(TestCase):
 
 class TestUCMessageValidate(TestCase):
     def test_invalid_json(self):
-        mock_message = json.dumps({
-            "message": {
-                "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
-                "dbObject": "mock_encrypted_dbobject"
+        mock_message = json.dumps(
+            {
+                "message": {
+                    "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                    "dbObject": "mock_encrypted_dbobject",
+                }
             }
-        })
+        )
         invalid_decrypted_json = "{NOTVALID}{JSON}"
 
         message = UCMessage(mock_message, "some:collection")
@@ -348,30 +356,36 @@ class TestUCMessageValidate(TestCase):
         self.assertRaises(json.JSONDecodeError, message.validate)
 
     def test_record_is_primitive(self):
-        mock_message = json.dumps({
-            "message": {
-                "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
-                "dbObject": "mock_encrypted_dbobject"
+        mock_message = json.dumps(
+            {
+                "message": {
+                    "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                    "dbObject": "mock_encrypted_dbobject",
+                }
             }
-        })
+        )
         json_primitive = "some_normal_string"
         message = UCMessage(mock_message, "some:collection")
         message.set_decrypted_message(json_primitive)
         self.assertRaises(json.JSONDecodeError, message.validate)
 
     def test_should_remove_archived_ts_if_removed_ts_also_present(self):
-        mock_message = json.dumps({
-            "message": {
-                "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
-                "dbObject": "mock_encrypted_dbobject"
+        mock_message = json.dumps(
+            {
+                "message": {
+                    "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                    "dbObject": "mock_encrypted_dbobject",
+                }
             }
-        })
-        decrypted_object = json.dumps({
-            "_id": {"id": "12345"},
-            "_archivedDateTime": "2021-10-10T03:35:51.145+0000",
-            "_removedDateTime": "2021-10-12T10:06:01.280+0000",
-            "_lastModifiedDateTime": "2021-10-02T14:02:16.653+0000"
-        })
+        )
+        decrypted_object = json.dumps(
+            {
+                "_id": {"id": "12345"},
+                "_archivedDateTime": "2021-10-10T03:35:51.145+0000",
+                "_removedDateTime": "2021-10-12T10:06:01.280+0000",
+                "_lastModifiedDateTime": "2021-10-02T14:02:16.653+0000",
+            }
+        )
         message = UCMessage(mock_message, "some:collection")
         message.set_decrypted_message(decrypted_object)
         message.validate()
@@ -381,17 +395,21 @@ class TestUCMessageValidate(TestCase):
         self.assertNotIn("_archivedDateTime", output_decrypted_object)
 
     def test_not_should_remove_archived_ts_if_removed_ts_not_present(self):
-        mock_message = json.dumps({
-            "message": {
-                "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
-                "dbObject": "mock_encrypted_dbobject"
+        mock_message = json.dumps(
+            {
+                "message": {
+                    "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                    "dbObject": "mock_encrypted_dbobject",
+                }
             }
-        })
-        decrypted_object = json.dumps({
-            "_id": {"id": "12345"},
-            "_archivedDateTime": "2021-10-10T03:35:51.145+0000",
-            "_lastModifiedDateTime": "2021-10-02T14:02:16.653+0000"
-        })
+        )
+        decrypted_object = json.dumps(
+            {
+                "_id": {"id": "12345"},
+                "_archivedDateTime": "2021-10-10T03:35:51.145+0000",
+                "_lastModifiedDateTime": "2021-10-02T14:02:16.653+0000",
+            }
+        )
         message = UCMessage(mock_message, "some:collection")
         message.set_decrypted_message(decrypted_object)
         message.validate()
@@ -400,26 +418,27 @@ class TestUCMessageValidate(TestCase):
         self.assertIn("_archivedDateTime", output_decrypted_object)
 
     def test_should_tolerate_absent_id(self):
-        mock_message = json.dumps({
-            "message": {
-                "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
-                "dbObject": "mock_encrypted_dbobject"
+        mock_message = json.dumps(
+            {
+                "message": {
+                    "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                    "dbObject": "mock_encrypted_dbobject",
+                }
             }
-        })
-        decrypted_object = json.dumps({
-            "_id1": {"test_key_a": "test_value_a", "test_key_b": "test_value_b"},
-            "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000"
-        })
+        )
+        decrypted_object = json.dumps(
+            {
+                "_id1": {"test_key_a": "test_value_a", "test_key_b": "test_value_b"},
+                "_lastModifiedDateTime": "2018-12-14T15:01:02.000+0000",
+            }
+        )
         message = UCMessage(mock_message, "some:collection")
         message.set_decrypted_message(decrypted_object)
         message.validate()
 
         expected_decrypted_record = {
-            "_id1": {
-                "test_key_a": "test_value_a",
-                "test_key_b": "test_value_b"
-            },
-            "_lastModifiedDateTime": {"$date": "2018-12-14T15:01:02.000Z"}
+            "_id1": {"test_key_a": "test_value_a", "test_key_b": "test_value_b"},
+            "_lastModifiedDateTime": {"$date": "2018-12-14T15:01:02.000Z"},
         }
 
         self.assertDictEqual(expected_decrypted_record, json.loads(message.utf8_decrypted_record))
@@ -427,15 +446,19 @@ class TestUCMessageValidate(TestCase):
     def test_primitive_id(self):
         """Wrap json primitive IDs"""
         for primitive_id in ("PRIMITIVE_ID", 1234):
-            mock_message = json.dumps({
-                "message": {
-                    "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
-                    "dbObject": "mock_encrypted_dbobject"
+            mock_message = json.dumps(
+                {
+                    "message": {
+                        "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                        "dbObject": "mock_encrypted_dbobject",
+                    }
                 }
-            })
-            decrypted_object = json.dumps({
-                "_id": primitive_id,
-            })
+            )
+            decrypted_object = json.dumps(
+                {
+                    "_id": primitive_id,
+                }
+            )
             message = UCMessage(mock_message, "some:collection")
             message.set_decrypted_message(decrypted_object)
             message.validate()
@@ -444,22 +467,29 @@ class TestUCMessageValidate(TestCase):
                 "_id": {"$oid": str(primitive_id)},
             }
 
-            self.assertDictEqual(expected_decrypted_record_id["_id"], json.loads(message.utf8_decrypted_record)["_id"])
+            self.assertDictEqual(
+                expected_decrypted_record_id["_id"],
+                json.loads(message.utf8_decrypted_record)["_id"],
+            )
 
     def test_json_id(self):
         """Don't wrap a json ID"""
-        mock_message = json.dumps({
-            "message": {
-                "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
-                "dbObject": "mock_encrypted_dbobject"
+        mock_message = json.dumps(
+            {
+                "message": {
+                    "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                    "dbObject": "mock_encrypted_dbobject",
+                }
             }
-        })
-        decrypted_object = json.dumps({
-            "_id": {"some_id": "actual_id"},
-            "_archivedDateTime": "2021-10-10T03:35:51.145+0000",
-            "_removedDateTime": "2021-10-12T10:06:01.280+0000",
-            "_lastModifiedDateTime": "2021-10-02T14:02:16.653+0000"
-        })
+        )
+        decrypted_object = json.dumps(
+            {
+                "_id": {"some_id": "actual_id"},
+                "_archivedDateTime": "2021-10-10T03:35:51.145+0000",
+                "_removedDateTime": "2021-10-12T10:06:01.280+0000",
+                "_lastModifiedDateTime": "2021-10-02T14:02:16.653+0000",
+            }
+        )
         message = UCMessage(mock_message, "some:collection")
         message.set_decrypted_message(decrypted_object)
         message.validate()
@@ -468,16 +498,21 @@ class TestUCMessageValidate(TestCase):
             "_id": {"some_id": "actual_id"},
         }
 
-        self.assertDictEqual(expected_decrypted_record_id["_id"], json.loads(message.utf8_decrypted_record)["_id"])
+        self.assertDictEqual(
+            expected_decrypted_record_id["_id"],
+            json.loads(message.utf8_decrypted_record)["_id"],
+        )
 
     def test_no_id(self):
         """Don't wrap an id that doesn't exist"""
-        mock_message = json.dumps({
-            "message": {
-                "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
-                "dbObject": "mock_encrypted_dbobject"
+        mock_message = json.dumps(
+            {
+                "message": {
+                    "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                    "dbObject": "mock_encrypted_dbobject",
+                }
             }
-        })
+        )
         decrypted_object = json.dumps({"some_key": "some_value"})
         message = UCMessage(mock_message, "some:collection")
         message.set_decrypted_message(decrypted_object)
@@ -491,77 +526,57 @@ class TestDateWrapper(TestCase):
         """Check all dates processed except top level, with ignore flag applied"""
         date_key = "$date"
         test_object = {
-            "_lastModifiedDateTime": {
-                date_key: "2001-12-14T15:01:02.000+0000"
-            },
+            "_lastModifiedDateTime": {date_key: "2001-12-14T15:01:02.000+0000"},
             "notDate1": 123,
             "notDate2": "abc",
             "parentDate": "2017-12-14T15:01:02.000+0000",
             "childObjectWithDates": {
-                "_lastModifiedDateTime": {
-                    date_key: "1980-12-14T15:01:02.000+0000"
-                },
+                "_lastModifiedDateTime": {date_key: "1980-12-14T15:01:02.000+0000"},
                 "grandChildObjectWithDate": {
                     "notDate1": 123,
                     "notDate2": "abc",
-                    "grandChildDate1": "2019-12-14T15:01:02.000+0000"
+                    "grandChildDate1": "2019-12-14T15:01:02.000+0000",
                 },
                 "childDate": "2018-12-14T15:01:02.000+0000",
                 "arrayWithDates": [
                     789,
                     "xyz",
                     "2010-12-14T15:01:02.000+0000",
-                    [
-                        "2011-12-14T15:01:02.000+0000",
-                        "qwerty"
-                    ],
+                    ["2011-12-14T15:01:02.000+0000", "qwerty"],
                     {
                         "grandChildDate3": "2012-12-14T15:01:02.000+0000",
-                        "_lastModifiedDateTime": "1995-12-14T15:01:02.000+0000"
-                    }
-                ]
-            }
+                        "_lastModifiedDateTime": "1995-12-14T15:01:02.000+0000",
+                    },
+                ],
+            },
         }
 
         DateWrapper.process_object(test_object, False)
 
         expected_wrapped_object = {
-            "_lastModifiedDateTime": {
-                date_key: "2001-12-14T15:01:02.000+0000"
-            },
+            "_lastModifiedDateTime": {date_key: "2001-12-14T15:01:02.000+0000"},
             "notDate1": 123,
             "notDate2": "abc",
-            "parentDate": {
-                date_key: "2017-12-14T15:01:02.000Z"
-            },
+            "parentDate": {date_key: "2017-12-14T15:01:02.000Z"},
             "childObjectWithDates": {
-                "_lastModifiedDateTime": {
-                    date_key: "1980-12-14T15:01:02.000Z"
-                },
+                "_lastModifiedDateTime": {date_key: "1980-12-14T15:01:02.000Z"},
                 "grandChildObjectWithDate": {
                     "notDate1": 123,
                     "notDate2": "abc",
-                    "grandChildDate1": {
-                        date_key: "2019-12-14T15:01:02.000Z"
-                    }
+                    "grandChildDate1": {date_key: "2019-12-14T15:01:02.000Z"},
                 },
-                "childDate": {
-                    date_key: "2018-12-14T15:01:02.000Z"
-                },
+                "childDate": {date_key: "2018-12-14T15:01:02.000Z"},
                 "arrayWithDates": [
                     789,
                     "xyz",
                     {date_key: "2010-12-14T15:01:02.000Z"},
-                    [
-                        {date_key: "2011-12-14T15:01:02.000Z"},
-                        "qwerty"
-                    ],
+                    [{date_key: "2011-12-14T15:01:02.000Z"}, "qwerty"],
                     {
                         "grandChildDate3": {date_key: "2012-12-14T15:01:02.000Z"},
-                        "_lastModifiedDateTime": {date_key: "1995-12-14T15:01:02.000Z"}
-                    }
-                ]
-            }
+                        "_lastModifiedDateTime": {date_key: "1995-12-14T15:01:02.000Z"},
+                    },
+                ],
+            },
         }
         self.assertEqual(json.dumps(expected_wrapped_object), json.dumps(test_object))
 
@@ -577,15 +592,17 @@ class TestDateWrapper(TestCase):
             "_lastModifiedDateTime": "2001-12-14T15:01:02.000+0000",
             "createdDateTime": "2001-12-01T15:01:02.000+0000",
             "_removedDateTime": "2001-12-02T15:01:02.000+0000",
-            "_archivedDateTime": "2001-12-03T15:01:02.000+0000"
+            "_archivedDateTime": "2001-12-03T15:01:02.000+0000",
         }
 
-        expected_string = json.dumps({
-            "_lastModifiedDateTime": {"$date": "2001-12-14T15:01:02.000Z"},
-            "createdDateTime": {"$date": "2001-12-01T15:01:02.000Z"},
-            "_removedDateTime": {"$date": "2001-12-02T15:01:02.000Z"},
-            "_archivedDateTime": {"$date": "2001-12-03T15:01:02.000Z"}
-        })
+        expected_string = json.dumps(
+            {
+                "_lastModifiedDateTime": {"$date": "2001-12-14T15:01:02.000Z"},
+                "createdDateTime": {"$date": "2001-12-01T15:01:02.000Z"},
+                "_removedDateTime": {"$date": "2001-12-02T15:01:02.000Z"},
+                "_archivedDateTime": {"$date": "2001-12-03T15:01:02.000Z"},
+            }
+        )
 
         DateWrapper.process_object(test_object)
         self.assertEqual(expected_string, json.dumps(test_object))
@@ -605,20 +622,26 @@ class TestDateWrapper(TestCase):
         self.assertEqual(expected_string, json.dumps(test_object))
 
     def test_wraps_id_dates(self):
-        test_object = {"_id": {
-            "_lastModifiedDateTime": "2001-12-14T15:01:02.000+0000",
-            "createdDateTime": "2001-12-01T15:01:02.000+0000",
-            "_removedDateTime": "2001-12-02T15:01:02.000+0000",
-            "_archivedDateTime": "2001-12-03T15:01:02.000+0000",
-            "someOtherDate": "1990-12-02T15:01:02.000+0000"
-        }}
-        expected_string = json.dumps({"_id": {
-            "_lastModifiedDateTime": {"$date": "2001-12-14T15:01:02.000Z"},
-            "createdDateTime": {"$date": "2001-12-01T15:01:02.000Z"},
-            "_removedDateTime": {"$date": "2001-12-02T15:01:02.000Z"},
-            "_archivedDateTime": {"$date": "2001-12-03T15:01:02.000Z"},
-            "someOtherDate": {"$date": "1990-12-02T15:01:02.000Z"}
-        }})
+        test_object = {
+            "_id": {
+                "_lastModifiedDateTime": "2001-12-14T15:01:02.000+0000",
+                "createdDateTime": "2001-12-01T15:01:02.000+0000",
+                "_removedDateTime": "2001-12-02T15:01:02.000+0000",
+                "_archivedDateTime": "2001-12-03T15:01:02.000+0000",
+                "someOtherDate": "1990-12-02T15:01:02.000+0000",
+            }
+        }
+        expected_string = json.dumps(
+            {
+                "_id": {
+                    "_lastModifiedDateTime": {"$date": "2001-12-14T15:01:02.000Z"},
+                    "createdDateTime": {"$date": "2001-12-01T15:01:02.000Z"},
+                    "_removedDateTime": {"$date": "2001-12-02T15:01:02.000Z"},
+                    "_archivedDateTime": {"$date": "2001-12-03T15:01:02.000Z"},
+                    "someOtherDate": {"$date": "1990-12-02T15:01:02.000Z"},
+                }
+            }
+        )
 
         DateWrapper.process_object(test_object)
         self.assertEqual(expected_string, json.dumps(test_object))
@@ -635,16 +658,18 @@ class TestDateWrapper(TestCase):
             "_lastModifiedDateTime": date_one,
             "createdDateTime": date_two,
             "_removedDateTime": date_three,
-            "_archivedDateTime": date_four
+            "_archivedDateTime": date_four,
         }
 
-        expected_record = json.dumps({
-            "_id": {"test_key_a": "test_value_a", "test_key_b": "test_value_b"},
-            "_lastModifiedDateTime": {date_key: date_one},
-            "createdDateTime": {date_key: date_two},
-            "_removedDateTime": {date_key: date_three},
-            "_archivedDateTime": {date_key: date_four}
-        })
+        expected_record = json.dumps(
+            {
+                "_id": {"test_key_a": "test_value_a", "test_key_b": "test_value_b"},
+                "_lastModifiedDateTime": {date_key: date_one},
+                "createdDateTime": {date_key: date_two},
+                "_removedDateTime": {date_key: date_three},
+                "_archivedDateTime": {date_key: date_four},
+            }
+        )
 
         DateWrapper.process_object(decrypted_object)
         self.assertEqual(expected_record, json.dumps(decrypted_object))
@@ -666,15 +691,17 @@ class TestDateWrapper(TestCase):
             "bodyOfText3": f"This text includes a date, {date_four}, but is not a date",
         }
 
-        expected_record = json.dumps({
-            "_id": {"test_key_a": "test_value_a", "test_key_b": "test_value_b"},
-            "_lastModifiedDateTime": {date_key: date_one},
-            "createdDateTime": {date_key: date_two},
-            "_removedDateTime": {date_key: date_three},
-            "bodyOfText": f"{date_four} This text starts with a date, but is not a date",
-            "bodyOfText2": f"This text ends with a date, but is not a date {date_four}",
-            "bodyOfText3": f"This text includes a date, {date_four}, but is not a date",
-        })
+        expected_record = json.dumps(
+            {
+                "_id": {"test_key_a": "test_value_a", "test_key_b": "test_value_b"},
+                "_lastModifiedDateTime": {date_key: date_one},
+                "createdDateTime": {date_key: date_two},
+                "_removedDateTime": {date_key: date_three},
+                "bodyOfText": f"{date_four} This text starts with a date, but is not a date",
+                "bodyOfText2": f"This text ends with a date, but is not a date {date_four}",
+                "bodyOfText3": f"This text includes a date, {date_four}, but is not a date",
+            }
+        )
 
         DateWrapper.process_object(decrypted_object)
         self.assertEqual(expected_record, json.dumps(decrypted_object))
@@ -690,7 +717,7 @@ class TestDateWrapper(TestCase):
             "_lastModifiedDateTime": date_one,
             "createdDateTime": date_two,
             "_removedDateTime": date_three,
-            "_archivedDateTime": date_four
+            "_archivedDateTime": date_four,
         }
         formatted_date_one = "2019-12-14T15:01:02.000Z"
         formatted_date_two = "2018-12-14T15:01:02.000Z"
@@ -718,7 +745,7 @@ class TestDateWrapper(TestCase):
             "_lastModifiedDateTime": {"$date": date_one},
             "createdDateTime": {"$date": date_two},
             "_removedDateTime": {"$date": date_three},
-            "_archivedDateTime": {"$date": date_four}
+            "_archivedDateTime": {"$date": date_four},
         }
         expected_record = {
             "_id": {"test_key_a": "test_value_a", "test_key_b": "test_value_b"},
@@ -741,7 +768,7 @@ class TestDateWrapper(TestCase):
             "_lastModifiedDateTime": {"$date": date_one},
             "createdDateTime": {"$date": date_two},
             "_removedDateTime": {"$date": date_three},
-            "_archivedDateTime": {"$date": date_four}
+            "_archivedDateTime": {"$date": date_four},
         }
         formatted_date_one = "2019-12-14T15:01:02.000Z"
         formatted_date_two = "2018-12-14T15:01:02.000Z"
@@ -762,11 +789,11 @@ class TestDateWrapper(TestCase):
         date_one = "2019-12-14T15:01:02.000Z"
         decrypted_record = {
             "_id": {"test_key_a": "test_value_a", "test_key_b": "test_value_b"},
-            "_lastModifiedDateTime": date_one
+            "_lastModifiedDateTime": date_one,
         }
         expected_record = {
             "_id": {"test_key_a": "test_value_a", "test_key_b": "test_value_b"},
-            "_lastModifiedDateTime": {"$date": date_one}
+            "_lastModifiedDateTime": {"$date": date_one},
         }
 
         DateWrapper.process_object(decrypted_record)
@@ -779,14 +806,14 @@ class TestDateWrapper(TestCase):
             "_lastModifiedDateTime": date_one,
             "createdDateTime": "",
             "_removedDateTime": "",
-            "_archivedDateTime": ""
+            "_archivedDateTime": "",
         }
         expected_record = {
             "_id": {"test_key_a": "test_value_a", "test_key_b": "test_value_b"},
             "_lastModifiedDateTime": {"$date": date_one},
             "createdDateTime": "",
             "_removedDateTime": "",
-            "_archivedDateTime": ""
+            "_archivedDateTime": "",
         }
 
         DateWrapper.process_object(decrypted_record)
@@ -799,35 +826,26 @@ class TestDateWrapper(TestCase):
             "_lastModifiedDateTime": date_one,
             "createdDateTime": None,
             "_removedDateTime": None,
-            "_archivedDateTime": None
+            "_archivedDateTime": None,
         }
         expected_record = {
             "_id": {"test_key_a": "test_value_a", "test_key_b": "test_value_b"},
             "_lastModifiedDateTime": {"$date": date_one},
             "createdDateTime": None,
             "_removedDateTime": None,
-            "_archivedDateTime": None
+            "_archivedDateTime": None,
         }
 
         DateWrapper.process_object(decrypted_record)
         self.assertDictEqual(expected_record, decrypted_record)
 
     def test_should_create_last_modified_if_missing(self):
-        mock_message = json.dumps({
-            "message": {
-                "db": "db",
-                "collection": "collection",
-                "dbObject": None
-
-            }
-        })
+        mock_message = json.dumps({"message": {"db": "db", "collection": "collection", "dbObject": None}})
         epoch = "1980-01-01T00:00:00.000Z"
 
         decrypted_record = "{}"
 
-        expected_record = {
-            "_lastModifiedDateTime": {"$date": epoch}
-        }
+        expected_record = {"_lastModifiedDateTime": {"$date": epoch}}
         message = UCMessage(mock_message)
         message.set_decrypted_message(decrypted_record)
         message.validate()
@@ -866,14 +884,7 @@ class TestDateHelper(TestCase):
 
 class TestUCMessageSanitise(TestCase):
     def test_should_remove_chars_in_all_collections(self):
-        mock_message = json.dumps({
-            "message": {
-                "db": "db",
-                "collection": "collection",
-                "dbObject": None
-
-            }
-        })
+        mock_message = json.dumps({"message": {"db": "db", "collection": "collection", "dbObject": None}})
         decrypted_record = json.dumps({"fieldA": "a$\u0000", "_archivedDateTime": "b", "_archived": "c"})
         expected = {"fieldA": "ad_", "_removedDateTime": "b", "_removed": "c"}
 
