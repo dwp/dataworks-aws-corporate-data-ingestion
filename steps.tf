@@ -31,3 +31,14 @@ resource "aws_s3_bucket_object" "python_utils" {
   key      = "component/${local.emr_cluster_name}/${each.key}"
   content  = file("${path.module}/steps/${each.key}")
 }
+
+resource "aws_s3_bucket_object" "snapshot_updater_file" {
+  bucket = data.terraform_remote_state.common.outputs.config_bucket.id
+  key    = "component/${local.emr_cluster_name}/snapshot_updater/snapshot_updater.sql"
+  content = templatefile("${path.module}/steps/snapshot_updater/snapshot_updater.sql",
+    {
+      s3_published_bucket = data.terraform_remote_state.common.outputs.published_bucket.id
+
+    }
+  )
+}

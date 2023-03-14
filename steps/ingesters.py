@@ -70,9 +70,12 @@ class BaseIngester:
             logger.info("starting pyspark processing")
             (
                 self.read_dir(s3_source_url)
-                .map(UCMessage)
-                .map(lambda x: decryption_helper.decrypt_dbObject(x, dks_key_cache))
-                .map(lambda x: x.dbobject)
+                .map(lambda x: UCMessage(x, collection_name))
+                .map(lambda uc_message: decryption_helper.decrypt_dbObject(uc_message, dks_key_cache))
+                .map(UCMessage.transform)
+                .map(UCMessage.validate)
+                .map(UCMessage.sanitise)
+                .map(lambda x: x.utf8_decrypted_record)
                 .saveAsTextFile(
                     s3_destination_url,
                     compressionCodecClass="com.hadoop.compression.lzo.LzopCodec",
