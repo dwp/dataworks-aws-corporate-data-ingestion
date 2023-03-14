@@ -32,6 +32,7 @@ class Configuration:
     destination_s3_prefix: str
     concurrency: int
     configuration_file: ConfigurationFile
+    cluster_id: str
     export_date: str = ""  # format: "%Y-%m-%d"
 
 
