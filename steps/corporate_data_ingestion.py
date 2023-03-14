@@ -15,7 +15,7 @@ from pyspark.sql import SparkSession
 from data import ConfigurationFile, Configuration
 from dynamodb import DynamoDBHelper
 from hive import HiveService
-from ingesters import BaseIngester, BusinessAuditIngester
+from ingesters import BaseIngester, BusinessAuditIngester, CalcPartBenchmark
 from logger import setup_logging
 
 DEFAULT_AWS_REGION = "eu-west-2"
@@ -160,6 +160,7 @@ def main():
         ingesters = {
             "data:businessAudit": BusinessAuditIngester,
             "calculator:calculationParts": BaseIngester,
+            "calculator:calculationPartsBenchmark": CalcPartBenchmark,
         }
 
         with ThreadPoolExecutor(max_workers=configuration.concurrency) as executor:
