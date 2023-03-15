@@ -2,11 +2,13 @@ import logging
 from os import path
 
 import boto3
+import json
 import datetime as dt
 
 
 from data import UCMessage
 from utils import Utils
+
 
 logger = logging.getLogger("ingesters")
 
@@ -254,15 +256,30 @@ class CalcPartBenchmark:
         self._hive_session = hive_session
         self.destination_prefix = None
 
+    def read_dir(self, file_path):
+        return self._spark_session.sparkContext.textFile(file_path)
+
     # Processes and publishes data
     def run(self):
         configuration = self._configuration
         hive_session = self._hive_session
 
-        interpolation_dict = {
-            "#{hivevar:s3_published_bucket}": configuration.configuration_file.s3_published_bucket,
-        }
+        sql_statement = f"""
+                CREATE TABLE IF NOT EXISTS dwx_audit_transition.calc_parts_snapshot_enriched (id_key STRING, dbType STRING, json STRING)
+                STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB')
+            """
         hive_session.execute_sql_statement_with_interpolation(
-            file=path.join("/opt/emr/snapshot_updater", "snapshot_updater.sql"),
-            interpolation_dict=interpolation_dict,
+            sql_statement=sql_statement
+        )
+
+        logger.info("starting pyspark processing")
+        s3_source_url = "s3://{bucket}/{prefix}".format(bucket=configuration.configuration_file.s3_published_bucket,
+                                                        prefix="analytical-dataset/archive/11_2022_backup/calculationParts/")
+
+        (
+            self.read_dir(s3_source_url)
+                .map(json.loads)
+                .map(lambda x: (f'{x.get("_id").get("id")}_{x.get("_id").get("type")}', "INSERT" if x.get("_removedDateTime") is None else "DELETE", json.dumps(x, ensure_ascii=False, separators=(',', ':'))))
+                .toDF(["id_key", "dbType", "json"])
+                .write.insertInto("dwx_audit_transition.calc_parts_snapshot_enriched", overwrite=True)
         )
