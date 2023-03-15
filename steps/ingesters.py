@@ -244,3 +244,25 @@ class BusinessAuditIngester(BaseIngester):
                 ),
                 interpolation_dict=interpolation_dict,
             )
+
+
+class CalcPartBenchmark:
+    def __init__(self, configuration, collection_name, spark_session, hive_session):
+        self._configuration = configuration
+        self._collection_name = collection_name
+        self._spark_session = spark_session
+        self._hive_session = hive_session
+        self.destination_prefix = None
+
+    # Processes and publishes data
+    def run(self):
+        configuration = self._configuration
+        hive_session = self._hive_session
+
+        interpolation_dict = {
+            "#{hivevar:s3_published_bucket}": configuration.configuration_file.s3_published_bucket,
+        }
+        hive_session.execute_sql_statement_with_interpolation(
+            file=path.join("/opt/emr/snapshot_updater", "snapshot_updater.sql"),
+            interpolation_dict=interpolation_dict,
+        )
