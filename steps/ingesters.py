@@ -295,8 +295,8 @@ class CalcPartBenchmark:
         )
 
         # create new-snapshot table
-        drop_table = "DROP TABLE IF EXISTS dw_auditlog_transition.calc_parts_snapshot_updated"
-        create_table = """ CREATE TABLE dw_auditlog_transition.calc_parst_snapshot_updated (
+        drop_table = "DROP TABLE IF EXISTS dwx_audit_transition.calc_parts_snapshot_updated"
+        create_table = """ CREATE TABLE dwx_audit_transition.calc_parts_snapshot_updated (
                 id_key STRING,
                 dbType STRING,
                 json STRING,
@@ -306,8 +306,8 @@ class CalcPartBenchmark:
         hive_session.execute_sql_statement_with_interpolation(sql_statement=create_table)
 
         # create daily table
-        drop_daily_table = "DROP TABLE IF EXISTS dw_auditlog_transition.calc_parts_daily_2022_10_01"
-        create_daily_table = """CREATE TABLE dw_auditlog_transition.calc_parts_daily_2022_10_01 (
+        drop_daily_table = "DROP TABLE IF EXISTS dwx_audit_transition.calc_parts_daily_2022_10_01"
+        create_daily_table = """CREATE TABLE dwx_audit_transition.calc_parts_daily_2022_10_01 (
                 id_key STRING,
                 dbType STRING,
                 json STRING,
