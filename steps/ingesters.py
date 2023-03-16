@@ -5,10 +5,8 @@ import boto3
 import json
 import datetime as dt
 
-
 from data import UCMessage
 from utils import Utils
-
 
 logger = logging.getLogger("ingesters")
 
@@ -259,15 +257,16 @@ class CalcPartBenchmark:
     def read_dir(self, file_path):
         return self._spark_session.sparkContext.textFile(file_path)
 
-    # Processes and publishes data
-    def run(self):
+    def create_baseline(self):
+        """Processes the most recent ADG-based CalculationParts snapshot into an 'enriched' table
+        """
         configuration = self._configuration
         hive_session = self._hive_session
 
         sql_statement = f"""
-                CREATE TABLE IF NOT EXISTS dwx_audit_transition.calc_parts_snapshot_enriched (id_key STRING, dbType STRING, json STRING)
-                STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB')
-            """
+                    CREATE TABLE IF NOT EXISTS dwx_audit_transition.calc_parts_snapshot_enriched (id_key STRING, dbType STRING, json STRING)
+                    STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB')
+                """
         hive_session.execute_sql_statement_with_interpolation(
             sql_statement=sql_statement
         )
@@ -278,8 +277,52 @@ class CalcPartBenchmark:
 
         (
             self.read_dir(s3_source_url)
-                .map(json.loads)
-                .map(lambda x: (f'{x.get("_id").get("id")}_{x.get("_id").get("type")}', "INSERT" if x.get("_removedDateTime") is None else "DELETE", json.dumps(x, ensure_ascii=False, separators=(',', ':'))))
-                .toDF(["id_key", "dbType", "json"])
-                .write.insertInto("dwx_audit_transition.calc_parts_snapshot_enriched", overwrite=True)
+            .map(json.loads)
+            .map(lambda x: (f'{x.get("_id").get("id")}_{x.get("_id").get("type")}',
+                            "INSERT" if x.get("_removedDateTime") is None else "DELETE",
+                            json.dumps(x, ensure_ascii=False, separators=(',', ':'))))
+            .toDF(["id_key", "dbType", "json"])
+            .write.insertInto("dwx_audit_transition.calc_parts_snapshot_enriched", overwrite=True)
+        )
+
+    # Processes and publishes data
+    def run(self):
+        configuration = self._configuration
+        hive_session = self._hive_session
+        daily_location = "s3://{published_bucket}/corporate_data_ingestion/json/daily/{daily_date}/calculator/calculationParts/".format(
+            published_bucket=configuration.configuration_file.s3_published_bucket,
+            daily_date="2022-10-01"
+        )
+
+        # create new-snapshot table
+        drop_table = "DROP TABLE IF EXISTS dw_auditlog_transition.calc_parts_snapshot_updated"
+        create_table = """ CREATE TABLE dw_auditlog_transition.calc_parst_snapshot_updated (
+                id_key STRING,
+                dbType STRING,
+                json STRING,
+            )  STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB')
+        """
+        hive_session.execute_sql_statement_with_interpolation(sql_statement=drop_table)
+        hive_session.execute_sql_statement_with_interpolation(sql_statement=create_table)
+
+        # create daily table
+        drop_daily_table = "DROP TABLE IF EXISTS dw_auditlog_transition.calc_parts_daily_2022_10_01"
+        create_daily_table = """CREATE TABLE dw_auditlog_transition.calc_parts_daily_2022_10_01 (
+                id_key STRING,
+                dbType STRING,
+                json STRING,
+            )  STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB')
+        """
+        hive_session.execute_sql_statement_with_interpolation(sql_statement=drop_daily_table)
+        hive_session.execute_sql_statement_with_interpolation(sql_statement=create_daily_table)
+
+        # Read daily data into pyspark and process the same way as full snapshot
+        (
+            self.read_dir(daily_location)
+            .map(json.loads)
+            .map(lambda x: (f'{x.get("_id").get("id")}_{x.get("_id").get("type")}',
+                            "INSERT" if x.get("_removedDateTime") is None else "DELETE",
+                            json.dumps(x, ensure_ascii=False, separators=(',', ':'))))
+            .toDF(["id_key", "dbType", "json"])
+            .write.insertInto("dwx_audit_transition.calc_parts_daily_2022_10_01", overwrite=True)
         )

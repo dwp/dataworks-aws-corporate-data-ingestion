@@ -43,6 +43,7 @@ Configurations:
     "javax.jdo.option.ConnectionUserName": "${hive_metastore_username}"
     "javax.jdo.option.ConnectionPassword": "${hive_metastore_pwd}"
     "hive.metastore.client.socket.timeout": "7200"
+    "hive.stats.autogather": "false"
 
 - Classification: "hive-site"
   Properties:
