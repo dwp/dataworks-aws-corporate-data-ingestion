@@ -42,6 +42,8 @@ def get_spark_session() -> SparkSession:
         .config("spark.scheduler.mode", "FAIR")
         .config("spark.files.maxPartitionBytes", 128 * 2 ** 20)  # 128MB
         .config("spark.hadoop.mapreduce.fileoutputcommitter.algorithm.version", "2")
+        .config("spark.hadoop.hive.exec.dynamic.partition", "true")
+        .config("spark.hadoop.hive.exec.dynamic.partition.mode", "nonstrict")
         .appName("corporate-data-ingestion-spike")
         .enableHiveSupport()
         .getOrCreate()

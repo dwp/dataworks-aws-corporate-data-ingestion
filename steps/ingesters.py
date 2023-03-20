@@ -264,8 +264,9 @@ class CalcPartBenchmark:
         hive_session = self._hive_session
 
         sql_statement = f"""
-                    CREATE TABLE IF NOT EXISTS dwx_audit_transition.calc_parts_snapshot_enriched (id_key STRING, dbType STRING, json STRING)
-                    STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB')
+                    DROP TABLE IF EXISTS dwx_audit_transition.calc_parts_snapshot_enriched;
+                    CREATE TABLE dwx_audit_transition.calc_parts_snapshot_enriched (id_key STRING, dbType STRING, json STRING) PARTITIONED BY(id_part STRING)
+                    STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB');
                 """
         hive_session.execute_sql_statement_with_interpolation(
             sql_statement=sql_statement
@@ -280,13 +281,18 @@ class CalcPartBenchmark:
             .map(json.loads)
             .map(lambda x: (f'{x.get("_id").get("id")}_{x.get("_id").get("type")}',
                             "INSERT" if x.get("_removedDateTime") is None else "DELETE",
-                            json.dumps(x, ensure_ascii=False, separators=(',', ':'))))
-            .toDF(["id_key", "dbType", "json"])
-            .write.insertInto("dwx_audit_transition.calc_parts_snapshot_enriched", overwrite=True)
+                            json.dumps(x, ensure_ascii=False, separators=(',', ':')),
+                            x.get("_id").get("id")[:2]),
+                 )
+            .toDF(["id_key", "dbType", "json", "id_part"])
+            .write.partitionBy("id_part").insertInto("dwx_audit_transition.calc_parts_snapshot_enriched", overwrite=True)
         )
 
     # Processes and publishes data
     def run(self):
+        self.create_baseline()
+
+    def daily_test(self):
         configuration = self._configuration
         hive_session = self._hive_session
         daily_location = "s3://{published_bucket}/corporate_data_ingestion/json/daily/{daily_date}/calculator/calculationParts/".format(
