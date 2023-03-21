@@ -265,7 +265,7 @@ class CalcPartBenchmark:
 
         sql_statement = f"""
                     DROP TABLE IF EXISTS dwx_audit_transition.calc_parts_snapshot_enriched;
-                    CREATE TABLE dwx_audit_transition.calc_parts_snapshot_enriched (id_key STRING, dbType STRING, json STRING) PARTITIONED BY(id_part STRING)
+                    CREATE TABLE dwx_audit_transition.calc_parts_snapshot_enriched (id_key STRING, dbType STRING, json STRING) PARTITIONED BY (id_part STRING)
                     STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB');
                 """
         hive_session.execute_sql_statement_with_interpolation(
@@ -285,7 +285,7 @@ class CalcPartBenchmark:
                             x.get("_id").get("id")[:2]),
                  )
             .toDF(["id_key", "dbType", "json", "id_part"])
-            .write.partitionBy("id_part").insertInto("dwx_audit_transition.calc_parts_snapshot_enriched", overwrite=True)
+            .write.insertInto("dwx_audit_transition.calc_parts_snapshot_enriched", overwrite=True)
         )
 
     # Processes and publishes data
