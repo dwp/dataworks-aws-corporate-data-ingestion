@@ -282,7 +282,7 @@ class CalcPartBenchmark:
             .map(lambda x: (f'{x.get("_id").get("id")}_{x.get("_id").get("type")}',
                             "INSERT" if x.get("_removedDateTime") is None else "DELETE",
                             json.dumps(x, ensure_ascii=False, separators=(',', ':')),
-                            x.get("_id").get("id")[:2]),
+                            x.get("_id", {}).get("id", "EX")[:2]),
                  )
             .toDF(["id_key", "dbType", "json", "id_part"])
             .write.insertInto("dwx_audit_transition.calc_parts_snapshot_enriched", overwrite=True)
