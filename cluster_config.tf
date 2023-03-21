@@ -32,11 +32,8 @@ resource "aws_s3_bucket_object" "instances" {
       keep_cluster_alive = local.keep_cluster_alive[local.environment]
       add_master_sg      = aws_security_group.dataworks_aws_corporate_data_ingestion_common.id
       add_slave_sg       = aws_security_group.dataworks_aws_corporate_data_ingestion_common.id
-      subnet_id = (
-        local.use_capacity_reservation[local.environment] == true ?
-        data.terraform_remote_state.internal_compute.outputs.corporate_data_processing_subnet.subnets[index(data.terraform_remote_state.internal_compute.outputs.corporate_data_processing_subnet.subnets.*.availability_zone, data.terraform_remote_state.common.outputs.ec2_capacity_reservations.emr_m5_16_x_large_2a.availability_zone)].id :
-        data.terraform_remote_state.internal_compute.outputs.corporate_data_processing_subnet.subnets[index(data.terraform_remote_state.internal_compute.outputs.corporate_data_processing_subnet.subnets.*.availability_zone, local.emr_subnet_non_capacity_reserved_environments)].id
-      )
+      subnet_ids         = data.terraform_remote_state.internal_compute.outputs.corporate_data_processing_subnet.subnets.*.id
+
       master_sg                           = aws_security_group.dataworks_aws_corporate_data_ingestion_master.id
       slave_sg                            = aws_security_group.dataworks_aws_corporate_data_ingestion_slave.id
       service_access_sg                   = aws_security_group.dataworks_aws_corporate_data_ingestion_emr_service.id
