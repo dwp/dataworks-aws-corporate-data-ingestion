@@ -264,8 +264,8 @@ class CalcPartBenchmark:
         hive_session = self._hive_session
 
         sql_statement = f"""
-                    DROP TABLE IF EXISTS dwx_audit_transition.calc_parts_snapshot_enriched;
-                    CREATE TABLE dwx_audit_transition.calc_parts_snapshot_enriched (id_key STRING, dbType STRING, json STRING) PARTITIONED BY (id_part STRING)
+                    DROP TABLE IF EXISTS dwx_audit_transition.calc_parts_snapshot_enriched_unpartitioned;
+                    CREATE TABLE dwx_audit_transition.calc_parts_snapshot_enriched_unpartitioned (id_key STRING, dbType STRING, json STRING)
                     STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB');
                 """
         hive_session.execute_sql_statement_with_interpolation(
@@ -281,10 +281,9 @@ class CalcPartBenchmark:
             .map(json.loads)
             .map(lambda x: (f'{x.get("_id").get("id")}_{x.get("_id").get("type")}',
                             "INSERT" if x.get("_removedDateTime") is None else "DELETE",
-                            json.dumps(x, ensure_ascii=False, separators=(',', ':')),
-                            x.get("_id", {}).get("id", "EX")[:2]),
+                            json.dumps(x, ensure_ascii=False, separators=(',', ':')))
                  )
-            .toDF(["id_key", "dbType", "json", "id_part"])
+            .toDF(["id_key", "dbType", "json"])
             .write.insertInto("dwx_audit_transition.calc_parts_snapshot_enriched", overwrite=True)
         )
 
