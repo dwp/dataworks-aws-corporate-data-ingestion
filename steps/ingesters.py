@@ -284,7 +284,7 @@ class CalcPartBenchmark:
                             json.dumps(x, ensure_ascii=False, separators=(',', ':')))
                  )
             .toDF(["id_key", "dbType", "json"])
-            .write.insertInto("dwx_audit_transition.calc_parts_snapshot_enriched", overwrite=True)
+            .write.insertInto("dwx_audit_transition.calc_parts_snapshot_enriched_unpartitioned", overwrite=True)
         )
 
     # Processes and publishes data
