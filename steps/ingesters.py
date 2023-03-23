@@ -257,6 +257,24 @@ class CalcPartBenchmark:
     def read_dir(self, file_path):
         return self._spark_session.sparkContext.textFile(file_path)
 
+    def create_baseline_with_insert_only(self):
+        """Processes the most recent ADG-based CalculationParts snapshot into an 'enriched' table with INSERT records only
+        """
+        configuration = self._configuration
+        hive_session = self._hive_session
+
+        sql_statement = f"""
+                    DROP TABLE IF EXISTS dwx_audit_transition.calc_parts_snapshot_enriched_insert_only;
+                    CREATE TABLE dwx_audit_transition.calc_parts_snapshot_enriched_insert_only (id_key STRING, dbType STRING, json STRING)
+                        STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB');
+                    INSERT INTO dwx_audit_transition.calc_parts_snapshot_enriched_insert_only
+                        SELECT * FROM dwx_audit_transition.calc_parts_snapshot_enriched_unpartitioned WHERE dbType = 'INSERT';
+                """
+        hive_session.execute_sql_statement_with_interpolation(
+            sql_statement=sql_statement
+        )
+
+
     def create_baseline(self):
         """Processes the most recent ADG-based CalculationParts snapshot into an 'enriched' table
         """
@@ -289,7 +307,8 @@ class CalcPartBenchmark:
 
     # Processes and publishes data
     def run(self):
-        self.create_baseline()
+        # self.create_baseline()
+        self.create_baseline_with_insert_only()
 
     def daily_test(self):
         configuration = self._configuration
