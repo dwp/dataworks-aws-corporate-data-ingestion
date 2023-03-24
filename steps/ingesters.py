@@ -333,8 +333,8 @@ class CalcPartBenchmark:
 
     # Processes and publishes data
     def run(self):
-        # self.create_new_baseline()
-        self.create_baseline_with_insert_only()
+        self.create_new_baseline()
+        # self.create_baseline_with_insert_only()
 
     def daily_test(self):
         configuration = self._configuration
