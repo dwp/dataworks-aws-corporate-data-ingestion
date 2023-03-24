@@ -274,7 +274,6 @@ class CalcPartBenchmark:
             sql_statement=sql_statement
         )
 
-
     def create_baseline(self):
         """Processes the most recent ADG-based CalculationParts snapshot into an 'enriched' table
         """
@@ -292,7 +291,7 @@ class CalcPartBenchmark:
 
         logger.info("starting pyspark processing")
         s3_source_url = "s3://{bucket}/{prefix}".format(bucket=configuration.configuration_file.s3_published_bucket,
-                                                        prefix="analytical-dataset/archive/11_2022_backup/calculationParts/")
+                                                        prefix="corporate_data_ingestion/hive/external/dwx_audit_transition.db/calc_parts_snapshot_enriched_unpartitioned/")
 
         (
             self.read_dir(s3_source_url)
@@ -305,10 +304,38 @@ class CalcPartBenchmark:
             .write.insertInto("dwx_audit_transition.calc_parts_snapshot_enriched_unpartitioned", overwrite=True)
         )
 
+    def create_new_baseline(self):
+        """Processes the most recent ADG-based CalculationParts snapshot into an 'enriched' table
+        """
+        configuration = self._configuration
+        hive_session = self._hive_session
+
+        sql_statement = f"""
+                    DROP TABLE IF EXISTS dwx_audit_transition.calc_parts_snapshot;
+                    CREATE TABLE dwx_audit_transition.calc_parts_snapshot (id_key STRING, json STRING) PARTITIONED BY (dbType STRING, id_part STRING)
+                    STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB');
+                """
+        hive_session.execute_sql_statement_with_interpolation(
+            sql_statement=sql_statement
+        )
+
+        logger.info("starting pyspark processing")
+        s3_source_url = "s3://{bucket}/{prefix}".format(bucket=configuration.configuration_file.s3_published_bucket,
+                                                        prefix="corporate_data_ingestion/hive/external/dwx_audit_transition.db/calc_parts_snapshot_enriched_unpartitioned/")
+
+        df = self._spark_session.read.orc(s3_source_url)
+        (
+            df.withColumn("id_part", df.id_key[0:2])
+            .repartition(256 * 2, "dbType", "id_part")
+            .sort("id_key")
+            .select("id_key", "json", "dbType", "json")
+            .write.insertInto("dwx_audit_transition.calc_parts_snapshot", overwrite=True)
+        )
+
     # Processes and publishes data
     def run(self):
-        # self.create_baseline()
-        self.create_baseline_with_insert_only()
+        self.create_new_baseline()
+        # self.create_baseline_with_insert_only()
 
     def daily_test(self):
         configuration = self._configuration
