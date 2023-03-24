@@ -260,7 +260,6 @@ class CalcPartBenchmark:
     def create_baseline_with_insert_only(self):
         """Processes the most recent ADG-based CalculationParts snapshot into an 'enriched' table with INSERT records only
         """
-        configuration = self._configuration
         hive_session = self._hive_session
 
         sql_statement = f"""
@@ -334,8 +333,8 @@ class CalcPartBenchmark:
 
     # Processes and publishes data
     def run(self):
-        self.create_new_baseline()
-        # self.create_baseline_with_insert_only()
+        # self.create_new_baseline()
+        self.create_baseline_with_insert_only()
 
     def daily_test(self):
         configuration = self._configuration

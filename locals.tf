@@ -203,8 +203,8 @@ locals {
     development = 24
     qa          = 24
     integration = 24
-    preprod     = 30
-    production  = 30
+    preprod     = 60
+    production  = 60
   }
 
   # >~ 10% of executor memory
