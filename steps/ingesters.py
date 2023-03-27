@@ -324,10 +324,9 @@ class CalcPartBenchmark:
 
         df = self._spark_session.read.orc(s3_source_url)
         (
-            df.withColumn("id_part", df.id_key[0:2])
-            .repartition(256 * 2, "dbType", "id_part")
-            .sort("id_key")
-            .select("id_key", "json", "dbType", "json")
+            df.coalesce(1000)
+            .withColumn("id_part", df.id_key[0:2])
+            .select("id_key", "json", "dbType", "id_part")
             .write.insertInto("dwx_audit_transition.calc_parts_snapshot", overwrite=True)
         )
 
