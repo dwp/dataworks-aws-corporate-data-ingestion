@@ -20,7 +20,6 @@ Configurations:
     "spark.driver.extraClassPath": "/usr/lib/hadoop-lzo/lib/*:/usr/lib/hadoop/hadoop-aws.jar:/usr/share/aws/aws-java-sdk/*:/usr/share/aws/emr/emrfs/conf:/usr/share/aws/emr/emrfs/lib/*:/usr/share/aws/emr/emrfs/auxlib/*:/usr/share/aws/emr/goodies/lib/emr-spark-goodies.jar:/usr/share/aws/emr/security/conf:/usr/share/aws/emr/security/lib/*:/usr/share/aws/hmclient/lib/aws-glue-datacatalog-spark-client.jar:/usr/share/java/Hive-JSON-Serde/hive-openx-serde.jar:/usr/share/aws/sagemaker-spark-sdk/lib/sagemaker-spark-sdk.jar:/usr/share/aws/emr/s3select/lib/emr-s3-select-spark-connector.jar:/opt/emr/metrics/dependencies/*"
     "spark.executor.defaultJavaOptions": "-XX:+UseG1GC -XX:+UnlockDiagnosticVMOptions -XX:+G1SummarizeConcMark -XX:InitiatingHeapOccupancyPercent=35 -verbose:gc -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:OnOutOfMemoryError='kill -9 %p' -Dhttp.proxyHost='${proxy_http_host}' -Dhttp.proxyPort='${proxy_http_port}' -Dhttp.nonProxyHosts='${proxy_no_proxy}' -Dhttps.proxyHost='${proxy_https_host}' -Dhttps.proxyPort='${proxy_https_port}'"
     "spark.driver.defaultJavaOptions": "-XX:+UseG1GC -XX:+UnlockDiagnosticVMOptions -XX:+G1SummarizeConcMark -XX:InitiatingHeapOccupancyPercent=35 -verbose:gc -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:OnOutOfMemoryError='kill -9 %p' -Dhttp.proxyHost='${proxy_http_host}' -Dhttp.proxyPort='${proxy_http_port}' -Dhttp.nonProxyHosts='${proxy_no_proxy}' -Dhttps.proxyHost='${proxy_https_host}' -Dhttps.proxyPort='${proxy_https_port}'"
-    "spark.sql.warehouse.dir": "s3://${s3_published_bucket}/analytical-dataset/hive/external"
     "spark.serializer": "org.apache.spark.serializer.KryoSerializer"
     "spark.kryoserializer.buffer.max": "${spark_kyro_buffer}"
     "spark.driver.maxResultSize": "1g"
@@ -28,7 +27,7 @@ Configurations:
     "spark.dynamicAllocation.enabled": "false"
     "spark.executor.cores": "${spark_executor_cores}"
     "spark.executor.memory": "${spark_executor_memory}g"
-    "spark.executor.memoryOverhead": "${spark_yarn_executor_memory_overhead}G"
+    "spark.executor.memoryOverhead": "${spark_yarn_executor_memory_overhead}g"
     "spark.driver.memory": "${spark_driver_memory}g"
     "spark.driver.cores": "${spark_driver_cores}"
     "spark.executor.instances": "${spark_executor_instances}"
@@ -39,9 +38,8 @@ Configurations:
     "spark.shuffle.spill.compress": "true"
     "spark.memory.fraction": "0.80"
     "spark.memory.storageFraction": "0.30"
-    "spark.network.timeout": "800s",
+    "spark.network.timeout": "800s"
     "spark.executor.heartbeatInterval": "60s"
-
 
 - Classification: "spark-hive-site"
   Properties:
