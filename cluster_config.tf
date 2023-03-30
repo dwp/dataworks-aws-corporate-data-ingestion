@@ -86,6 +86,8 @@ resource "aws_s3_bucket_object" "configurations" {
       spark_executor_memory               = local.spark_executor_memory[local.environment]
       spark_driver_memory                 = local.spark_driver_memory[local.environment]
       spark_driver_cores                  = local.spark_driver_cores[local.environment]
+      spark_default_parallelism           = local.spark_default_parallelism[local.environment]
+      spark_sql_shuffle_partitions        = local.spark_sql_shuffle_partitions[local.environment]
       spark_yarn_executor_memory_overhead = local.spark_yarn_executor_memory_overhead[local.environment]
       spark_executor_instances            = local.spark_executor_instances[local.environment]
       hive_metastore_endpoint             = data.terraform_remote_state.internal_compute.outputs.hive_metastore_v2.endpoint

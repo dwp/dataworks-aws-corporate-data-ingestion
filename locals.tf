@@ -203,8 +203,8 @@ locals {
     development = 24
     qa          = 24
     integration = 24
-    preprod     = 60
-    production  = 60
+    preprod     = 37
+    production  = 37
   }
 
   # >~ 10% of executor memory
@@ -212,24 +212,24 @@ locals {
     development = 5
     qa          = 5
     integration = 5
-    preprod     = 10
-    production  = 10
+    preprod     = 5
+    production  = 5
   }
 
   spark_driver_memory = {
     development = 10
     qa          = 10
     integration = 10
-    preprod     = 30
-    production  = 30 # Doesn't need as much as executors
+    preprod     = local.spark_executor_memory.preprod
+    production  = local.spark_executor_memory.production
   }
 
   spark_driver_cores = {
     development = 5
     qa          = 5
     integration = 5
-    preprod     = 10
-    production  = 10
+    preprod     = local.spark_executor_cores.preprod
+    production  = local.spark_executor_cores.production
   }
 
   spark_kyro_buffer = {
@@ -244,8 +244,24 @@ locals {
     development = 150
     qa          = 150
     integration = 150
-    preprod     = 150
-    production  = 150 # More than possible as it won't create them if no core or memory available
+    preprod     = 170
+    production  = 170
+  }
+
+  spark_default_parallelism = {
+    development = 100
+    qa          = 100
+    integration = 100
+    preprod     = local.spark_executor_instances.preprod * local.spark_executor_cores.preprod * 2
+    production  = local.spark_executor_instances.production * local.spark_executor_cores.production * 2
+  }
+
+  spark_sql_shuffle_partitions = {
+    development = 100
+    qa          = 100
+    integration = 100
+    preprod     = local.spark_default_parallelism.preprod
+    production  = local.spark_default_parallelism.production
   }
 
 

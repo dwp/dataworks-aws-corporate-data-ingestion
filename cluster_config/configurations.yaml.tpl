@@ -1,5 +1,9 @@
 ---
 Configurations:
+- Classification: "spark"
+  Properties:
+    "maximizeResourceAllocation": "false"
+
 - Classification: "yarn-site"
   Properties:
     "yarn.log-aggregation-enable": "true"
@@ -19,23 +23,32 @@ Configurations:
     "spark.sql.warehouse.dir": "s3://${s3_published_bucket}/analytical-dataset/hive/external"
     "spark.serializer": "org.apache.spark.serializer.KryoSerializer"
     "spark.kryoserializer.buffer.max": "${spark_kyro_buffer}"
-    "spark.driver.maxResultSize": "0"
-    "spark.dynamicAllocation.enabled": "true"
+    "spark.driver.maxResultSize": "1g"
+    "spark.sql.warehouse.dir": "s3://${s3_published_bucket}/corporate_data_ingestion/hive/external"
+    "spark.dynamicAllocation.enabled": "false"
     "spark.executor.cores": "${spark_executor_cores}"
-    "spark.executor.memory": "${spark_executor_memory}G"
+    "spark.executor.memory": "${spark_executor_memory}g"
     "spark.executor.memoryOverhead": "${spark_yarn_executor_memory_overhead}G"
-    "spark.driver.memory": "${spark_driver_memory}G"
+    "spark.driver.memory": "${spark_driver_memory}g"
     "spark.driver.cores": "${spark_driver_cores}"
     "spark.executor.instances": "${spark_executor_instances}"
-    "spark.default.parallelism": "2457"
-    "spark.sql.warehouse.dir": "s3://${s3_published_bucket}/corporate_data_ingestion/hive/external"
+    "spark.default.parallelism": "${spark_default_parallelism}"
+    "spark.sql.shuffle.partitions": "${spark_sql_shuffle_partitions}"
+    "spark.rdd.compress": "true"
+    "spark.shuffle.compress": "true"
+    "spark.shuffle.spill.compress": "true"
+    "spark.memory.fraction": "0.80"
+    "spark.memory.storageFraction": "0.30"
+    "spark.network.timeout": "800s",
+    "spark.executor.heartbeatInterval": "60s"
+
 
 - Classification: "spark-hive-site"
   Properties:
     "hive.txn.manager": "org.apache.hadoop.hive.ql.lockmgr.DbTxnManager"
     "hive.enforce.bucketing": "true"
     "hive.exec.dynamic.partition.mode": "nonstrict"
-    "hive.compactor.initiator.on": "true"
+    "hive.compactor.initiator.on": "false"
     "hive.compactor.worker.threads": "1"
     "hive.support.concurrency": "true"
     "javax.jdo.option.ConnectionURL": "jdbc:mysql://${hive_metastore_endpoint}:3306/${hive_metastore_database_name}"
@@ -51,7 +64,7 @@ Configurations:
     "hive.txn.manager": "org.apache.hadoop.hive.ql.lockmgr.DbTxnManager"
     "hive.enforce.bucketing": "true"
     "hive.exec.dynamic.partition.mode": "nonstrict"
-    "hive.compactor.initiator.on": "true"
+    "hive.compactor.initiator.on": "false"
     "hive.compactor.worker.threads": "1"
     "hive.support.concurrency": "true"
     "javax.jdo.option.ConnectionURL": "jdbc:mysql://${hive_metastore_endpoint}:3306/${hive_metastore_database_name}?createDatabaseIfNotExist=true"
