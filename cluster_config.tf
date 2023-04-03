@@ -8,15 +8,19 @@ resource "aws_s3_bucket_object" "cluster" {
   key    = "emr/${local.emr_cluster_name}/cluster.yaml"
   content = templatefile("${path.module}/cluster_config/cluster.yaml.tpl",
     {
-      s3_log_bucket          = data.terraform_remote_state.security-tools.outputs.logstore_bucket.id
-      s3_log_prefix          = local.s3_log_prefix
-      ami_id                 = var.emr_ami_id
-      service_role           = aws_iam_role.dataworks_aws_corporate_data_ingestion_emr_service.arn
-      instance_profile       = aws_iam_instance_profile.dataworks_aws_corporate_data_ingestion.arn
-      security_configuration = aws_emr_security_configuration.ebs_emrfs_em.id
-      emr_release            = var.emr_release[local.environment]
-      cluster_name           = local.emr_cluster_name
-      environment_tag_value  = local.common_repo_tags.Environment
+      s3_log_bucket              = data.terraform_remote_state.security-tools.outputs.logstore_bucket.id
+      s3_log_prefix              = local.s3_log_prefix
+      ami_id                     = var.emr_ami_id
+      service_role               = aws_iam_role.dataworks_aws_corporate_data_ingestion_emr_service.arn
+      instance_profile           = aws_iam_instance_profile.dataworks_aws_corporate_data_ingestion.arn
+      security_configuration     = aws_emr_security_configuration.ebs_emrfs_em.id
+      emr_release                = var.emr_release[local.environment]
+      cluster_name               = local.emr_cluster_name
+      dwx_environment_tag_value  = local.common_repo_tags.Environment
+      application_tag_value      = data.aws_default_tags.provider_tags.tags.Application
+      function_tag_value         = data.aws_default_tags.provider_tags.tags.Function
+      business_project_tag_value = data.aws_default_tags.provider_tags.tags.Business-Project
+      environment_tag_value      = data.aws_default_tags.provider_tags.tags.Environment
     }
   )
   tags = {

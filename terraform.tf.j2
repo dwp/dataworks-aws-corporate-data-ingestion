@@ -209,6 +209,8 @@ provider "aws" {
 
 }
 
+data "aws_default_tags" "provider_tags" {}
+
 // Get AWS Account ID for credentials in use
 data "aws_caller_identity" "current" {}
 
