@@ -25,4 +25,4 @@
 
 
 
-)   >> /var/log/dataworks_aws_corporate_data_ingestion/config_hcs.log 2>&1
+)   >> /var/log/dataworks-aws-corporate-data-ingestion/config_hcs.log 2>&1
