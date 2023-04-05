@@ -332,10 +332,68 @@ class CalcPartBenchmark:
             .write.insertInto("dwx_audit_transition.calc_parts_snapshot", overwrite=True)
         )
 
+    def benchmark_reconciliation(self):
+        hive_session = self._hive_session
+
+        # Create intermediate table
+        create_tables = f"""
+                    DROP TABLE IF EXISTS dwx_audit_transition.int_calc_parts_latest_unmatched;
+                    CREATE TABLE dwx_audit_transition.int_calc_parts_latest_unmatched ( id_key string, dbtype STRING, json STRING);
+                """
+        hive_session.execute_sql_statement_with_interpolation(
+            sql_statement=create_tables
+        )
+
+        # Get orphan INSERT records from full snapshot by checking against DELETE records from a batch of daily records
+        statement = f"""
+                TRUNCATE TABLE dwx_audit_transition.int_calc_parts_latest_unmatched;
+                INSERT INTO dwx_audit_transition.int_calc_parts_latest_unmatched
+                SELECT distinct i.id_key, i.dbtype, i.json
+                FROM dwx_audit_transition.calc_parts_snapshot_enriched_insert_only i
+                LEFT JOIN dwx_audit_transition.int_calc_parts_range_final d
+                ON i.id_key = d.id_key
+                AND d.id_key IS null;
+        """
+        hive_session.execute_sql_statement_with_interpolation(
+            sql_statement=statement
+        )
+
+        # Empty and repopulate calc_parts_snapshot_enriched_insert_only with orphans INSERT exclusively
+        statement = f"""
+                TRUNCATE TABLE dwx_audit_transition.calc_parts_snapshot_enriched_insert_only;
+                INSERT INTO dwx_audit_transition.calc_parts_snapshot_enriched_insert_only
+                SELECT id_key, dbtype, json
+                FROM dwx_audit_transition.int_calc_parts_latest_unmatched;
+        """
+        hive_session.execute_sql_statement_with_interpolation(
+            sql_statement=statement
+        )
+
+        # Add daily INSERT records to dwx_audit_transition.calc_parts_snapshot_enriched_insert_only
+        statement = f"""
+                INSERT INTO dwx_audit_transition.calc_parts_snapshot_enriched_insert_only
+                SELECT id_key, db_type, json
+                FROM dwx_audit_transition.int_calc_parts_range_insert;
+        """
+        hive_session.execute_sql_statement_with_interpolation(
+            sql_statement=statement
+        )
+
+        # Append daily DELETE records to snapshot DELETE records
+        statement = f"""
+                INSERT INTO dwx_audit_transition.calc_parts_snapshot_enriched_delete_only
+                SELECT id_key, db_type, json
+                FROM dwx_audit_transition.int_calc_parts_range_final;
+        """
+        hive_session.execute_sql_statement_with_interpolation(
+            sql_statement=statement
+        )
+
     # Processes and publishes data
     def run(self):
         # self.create_new_baseline()
-        self.create_baseline_with_delete_only()
+        # self.create_baseline_with_delete_only()
+        self.benchmark_reconciliation()
 
     def daily_test(self):
         configuration = self._configuration
