@@ -257,18 +257,36 @@ class CalcPartBenchmark:
     def read_dir(self, file_path):
         return self._spark_session.sparkContext.textFile(file_path)
 
-    def create_baseline_with_delete_only(self):
+    def create_baseline_with_insert_only(self):
         """Processes the most recent ADG-based CalculationParts snapshot into an 'enriched' table with INSERT records only
         """
         hive_session = self._hive_session
 
         sql_statement = f"""
-                    DROP TABLE IF EXISTS dwx_audit_transition.calc_parts_snapshot_enriched_delete_only;
-                    CREATE TABLE dwx_audit_transition.calc_parts_snapshot_enriched_delete_only
-                        (id_key STRING, dbType STRING, json STRING)
+                    DROP TABLE IF EXISTS dwx_audit_transition.calc_parts_snapshot_insert_only_minified;
+                    CREATE TABLE dwx_audit_transition.calc_parts_snapshot_insert_only_minified
+                        (id_key STRING)
                         STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB');
-                    INSERT INTO dwx_audit_transition.calc_parts_snapshot_enriched_delete_only
-                        SELECT * FROM dwx_audit_transition.calc_parts_snapshot_enriched_unpartitioned
+                    INSERT INTO dwx_audit_transition.calc_parts_snapshot_insert_only_minified
+                        SELECT id_key FROM dwx_audit_transition.calc_parts_snapshot_enriched_unpartitioned
+                        WHERE dbType = 'INSERT';
+                """
+        hive_session.execute_sql_statement_with_interpolation(
+            sql_statement=sql_statement
+        )
+
+    def create_baseline_with_delete_only(self):
+        """Processes the most recent ADG-based CalculationParts snapshot into an 'enriched' table with DELETE records only
+        """
+        hive_session = self._hive_session
+
+        sql_statement = f"""
+                    DROP TABLE IF EXISTS dwx_audit_transition.calc_parts_snapshot_delete_only_minified;
+                    CREATE TABLE dwx_audit_transition.calc_parts_snapshot_delete_only_minified
+                        (id_key STRING)
+                        STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB');
+                    INSERT INTO dwx_audit_transition.calc_parts_snapshot_delete_only_minified
+                        SELECT id_key FROM dwx_audit_transition.calc_parts_snapshot_enriched_unpartitioned
                         WHERE dbType = 'DELETE';
                 """
         hive_session.execute_sql_statement_with_interpolation(
@@ -392,8 +410,9 @@ class CalcPartBenchmark:
     # Processes and publishes data
     def run(self):
         # self.create_new_baseline()
-        # self.create_baseline_with_delete_only()
-        self.benchmark_reconciliation()
+        self.create_baseline_with_insert_only()
+        self.create_baseline_with_delete_only()
+        # self.benchmark_reconciliation()
 
     def daily_test(self):
         configuration = self._configuration
