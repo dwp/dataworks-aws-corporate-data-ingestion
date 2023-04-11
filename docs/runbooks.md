@@ -28,8 +28,8 @@ Consider investigating why the coalescer is still running.  It could be one of t
 
 #### Fix: Use a utility job to relaunch the cluster.
 1. Update the CI parameters in `../ci/`
-   1. Ensure that the collection name is correct (data.businessAudit)
-   2. Ensure that the dates are correct; if today's cluster failed, use today's date for start/end
+   1. Ensure that the collection name is correct (`data:businessAudit`)
+   2. Ensure that the dates are correct in format YYYY-MM-DD; if today's cluster failed, use today's date for start and end
 2. Aviator the changes
 3. Re-run corporate data ingestion using the Utility Job: `Concourse > dataworks-aws-corporate-data-ingestion > Utility > start-corporate-data-ingestion-production`
 
