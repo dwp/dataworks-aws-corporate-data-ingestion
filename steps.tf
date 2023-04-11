@@ -1,4 +1,4 @@
-resource "aws_s3_bucket_object" "corporate_data_ingestion_script" {
+resource "aws_s3_object" "corporate_data_ingestion_script" {
   bucket = data.terraform_remote_state.common.outputs.config_bucket.id
   key    = "component/${local.emr_cluster_name}/corporate_data_ingestion.py"
   content = templatefile("${path.module}/steps/corporate_data_ingestion.py",
@@ -11,7 +11,7 @@ resource "aws_s3_bucket_object" "corporate_data_ingestion_script" {
   )
 }
 
-resource "aws_s3_bucket_object" "python_configuration_file" {
+resource "aws_s3_object" "python_configuration_file" {
   bucket = data.terraform_remote_state.common.outputs.config_bucket.id
   key    = "component/${local.emr_cluster_name}/configuration.json"
   content = templatefile("${path.module}/steps/configuration.json",
@@ -25,14 +25,14 @@ resource "aws_s3_bucket_object" "python_configuration_file" {
   )
 }
 
-resource "aws_s3_bucket_object" "python_utils" {
+resource "aws_s3_object" "python_utils" {
   for_each = local.extra_python_files
   bucket   = data.terraform_remote_state.common.outputs.config_bucket.id
   key      = "component/${local.emr_cluster_name}/${each.key}"
   content  = file("${path.module}/steps/${each.key}")
 }
 
-resource "aws_s3_bucket_object" "snapshot_updater_file" {
+resource "aws_s3_object" "snapshot_updater_file" {
   bucket = data.terraform_remote_state.common.outputs.config_bucket.id
   key    = "component/${local.emr_cluster_name}/snapshot_updater/snapshot_updater.sql"
   content = templatefile("${path.module}/steps/snapshot_updater/snapshot_updater.sql",

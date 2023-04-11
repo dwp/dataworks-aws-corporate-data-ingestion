@@ -31,16 +31,11 @@ logger = getLogger("corporate-data-ingestion")
 def get_spark_session() -> SparkSession:
     spark = (
         SparkSession.builder.master("yarn")
-        .config("spark.executor.heartbeatInterval", "300000")
         .config("spark.storage.blockManagerSlaveTimeoutMs", "500000")
-        .config("spark.network.timeout", "500000")
-        .config("spark.executor.instances", "1")
-        .config("spark.executor.cores", "1")
         .config("spark.hadoop.fs.s3.maxRetries", "20")
         .config("spark.rpc.numRetries", "10")
         .config("spark.task.maxFailures", "10")
         .config("spark.scheduler.mode", "FAIR")
-        .config("spark.files.maxPartitionBytes", 128 * 2 ** 20)  # 128MB
         .config("spark.hadoop.mapreduce.fileoutputcommitter.algorithm.version", "2")
         .config("spark.hadoop.hive.exec.dynamic.partition", "true")
         .config("spark.hadoop.hive.exec.dynamic.partition.mode", "nonstrict")

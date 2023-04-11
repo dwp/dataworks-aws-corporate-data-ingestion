@@ -9,6 +9,14 @@ BootstrapActions:
 - Name: "metadata"
   ScriptBootstrapAction:
     Path: "file:/var/ci/metadata.sh"
+- Name: "config_hcs"
+  ScriptBootstrapAction:
+    Path: "file:/var/ci/config_hcs.sh"
+    Args: [
+      "${environment}", 
+      "${proxy_http_host}",
+      "${proxy_http_port}"
+    ]
 - Name: "emr-setup"
   ScriptBootstrapAction:
     Path: "file:/var/ci/emr-setup.sh"

@@ -3,20 +3,24 @@ resource "aws_emr_security_configuration" "ebs_emrfs_em" {
   configuration = jsonencode(local.ebs_emrfs_em)
 }
 
-resource "aws_s3_bucket_object" "cluster" {
+resource "aws_s3_object" "cluster" {
   bucket = data.terraform_remote_state.common.outputs.config_bucket.id
   key    = "emr/${local.emr_cluster_name}/cluster.yaml"
   content = templatefile("${path.module}/cluster_config/cluster.yaml.tpl",
     {
-      s3_log_bucket          = data.terraform_remote_state.security-tools.outputs.logstore_bucket.id
-      s3_log_prefix          = local.s3_log_prefix
-      ami_id                 = var.emr_ami_id
-      service_role           = aws_iam_role.dataworks_aws_corporate_data_ingestion_emr_service.arn
-      instance_profile       = aws_iam_instance_profile.dataworks_aws_corporate_data_ingestion.arn
-      security_configuration = aws_emr_security_configuration.ebs_emrfs_em.id
-      emr_release            = var.emr_release[local.environment]
-      cluster_name           = local.emr_cluster_name
-      environment_tag_value  = local.common_repo_tags.Environment
+      s3_log_bucket              = data.terraform_remote_state.security-tools.outputs.logstore_bucket.id
+      s3_log_prefix              = local.s3_log_prefix
+      ami_id                     = var.emr_ami_id
+      service_role               = aws_iam_role.dataworks_aws_corporate_data_ingestion_emr_service.arn
+      instance_profile           = aws_iam_instance_profile.dataworks_aws_corporate_data_ingestion.arn
+      security_configuration     = aws_emr_security_configuration.ebs_emrfs_em.id
+      emr_release                = var.emr_release[local.environment]
+      cluster_name               = local.emr_cluster_name
+      dwx_environment_tag_value  = local.common_repo_tags.Environment
+      application_tag_value      = data.aws_default_tags.provider_tags.tags.Application
+      function_tag_value         = data.aws_default_tags.provider_tags.tags.Function
+      business_project_tag_value = data.aws_default_tags.provider_tags.tags.Business-Project
+      environment_tag_value      = data.aws_default_tags.provider_tags.tags.Environment
     }
   )
   tags = {
@@ -24,7 +28,7 @@ resource "aws_s3_bucket_object" "cluster" {
   }
 }
 
-resource "aws_s3_bucket_object" "instances" {
+resource "aws_s3_object" "instances" {
   bucket = data.terraform_remote_state.common.outputs.config_bucket.id
   key    = "emr/${local.emr_cluster_name}/instances.yaml"
   content = templatefile("${path.module}/cluster_config/instances.yaml.tpl",
@@ -49,7 +53,7 @@ resource "aws_s3_bucket_object" "instances" {
   }
 }
 
-resource "aws_s3_bucket_object" "steps" {
+resource "aws_s3_object" "steps" {
   bucket = data.terraform_remote_state.common.outputs.config_bucket.id
   key    = "emr/${local.emr_cluster_name}/steps.yaml"
   content = templatefile("${path.module}/cluster_config/steps.yaml.tpl",
@@ -57,6 +61,9 @@ resource "aws_s3_bucket_object" "steps" {
       s3_config_bucket    = data.terraform_remote_state.common.outputs.config_bucket.id
       action_on_failure   = local.step_fail_action[local.environment]
       s3_published_bucket = data.terraform_remote_state.common.outputs.published_bucket.id
+      environment         = local.hcs_environment[local.environment]
+      proxy_http_host     = data.terraform_remote_state.internal_compute.outputs.internet_proxy.host
+      proxy_http_port     = data.terraform_remote_state.internal_compute.outputs.internet_proxy.port
     }
   )
   tags = {
@@ -65,7 +72,7 @@ resource "aws_s3_bucket_object" "steps" {
 }
 
 
-resource "aws_s3_bucket_object" "configurations" {
+resource "aws_s3_object" "configurations" {
   bucket = data.terraform_remote_state.common.outputs.config_bucket.id
   key    = "emr/${local.emr_cluster_name}/configurations.yaml"
   content = templatefile("${path.module}/cluster_config/configurations.yaml.tpl",
@@ -86,6 +93,8 @@ resource "aws_s3_bucket_object" "configurations" {
       spark_executor_memory               = local.spark_executor_memory[local.environment]
       spark_driver_memory                 = local.spark_driver_memory[local.environment]
       spark_driver_cores                  = local.spark_driver_cores[local.environment]
+      spark_default_parallelism           = local.spark_default_parallelism[local.environment]
+      spark_sql_shuffle_partitions        = local.spark_sql_shuffle_partitions[local.environment]
       spark_yarn_executor_memory_overhead = local.spark_yarn_executor_memory_overhead[local.environment]
       spark_executor_instances            = local.spark_executor_instances[local.environment]
       hive_metastore_endpoint             = data.terraform_remote_state.internal_compute.outputs.hive_metastore_v2.endpoint

@@ -19,8 +19,8 @@ variable "emr_instance_type_master" {
     development = "m5.4xlarge"
     qa          = "m5.4xlarge"
     integration = "m5.4xlarge"
-    preprod     = "m5.16xlarge"
-    production  = "m5.16xlarge"
+    preprod     = "r5.12xlarge"
+    production  = "r5.12xlarge"
   }
 }
 
@@ -29,8 +29,8 @@ variable "emr_instance_type_core_one" {
     development = "m5.4xlarge"
     qa          = "m5.4xlarge"
     integration = "m5.4xlarge"
-    preprod     = "m5.16xlarge"
-    production  = "m5.16xlarge"
+    preprod     = "r5.12xlarge"
+    production  = "r5.12xlarge"
   }
 }
 
