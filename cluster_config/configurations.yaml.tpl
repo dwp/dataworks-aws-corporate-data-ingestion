@@ -40,6 +40,7 @@ Configurations:
     "spark.memory.storageFraction": "0.30"
     "spark.network.timeout": "800s"
     "spark.executor.heartbeatInterval": "60s"
+    "spark.sql.autoBroadcastJoinThreshold": "-1"
 
 - Classification: "spark-hive-site"
   Properties:
