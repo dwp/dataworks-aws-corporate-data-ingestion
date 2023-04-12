@@ -444,3 +444,167 @@ class CalcPartBenchmark:
             .toDF(["id_key", "dbType", "json"])
             .write.insertInto("dwx_audit_transition.calc_parts_daily_2022_10_01", overwrite=True)
         )
+
+    def merge_daily_import_into_monthly_tables(self):
+        """ Merge daily import into monthly tables. Both day and month values are derived from 'export_date' parameter
+        """
+        logger.info("Starting merge daily Calculation Parts ingest into monthly tables")
+        hive_session = self._hive_session
+        db_name = "dwx_audit_transition"
+
+        prefix_date = (
+                dt.datetime.strptime(self._configuration.export_date, "%Y-%m-%d") - dt.timedelta(days=1)).strftime(
+            "%Y-%m-%d")
+        collection_name = "calculator:calculationParts"  # Collection name hardcoded here because a different collection_name is used to select this ingester during testing
+
+        corporate_bucket = self._configuration.configuration_file.s3_corporate_bucket
+        source_prefix = path.join(
+            self._configuration.source_s3_prefix,
+            *prefix_date.split("-"),
+            *collection_name.split(":"),
+        )
+
+        s3_source_url = "s3://{bucket}/{prefix}".format(bucket=corporate_bucket, prefix=source_prefix.lstrip("/"))
+
+        # Create external table over daily location in S3
+        external_table_name = f"external_calculation_parts_daily_{prefix_date.replace('-', '_')}"
+        create_external_table = f"""CREATE EXTERNAL TABLE {db_name}.{external_table_name} (val STRING)
+                                    STORED AS TEXTFILE LOCATION '{s3_source_url}'"""
+
+        hive_session.execute_sql_statement_with_interpolation(sql_statement=create_external_table)
+
+        # Create monthly permanent tables
+        monthly_transaction_complete_table_name = f"calculation_parts_{prefix_date[:-3].replace('-', '_')}_transaction_complete"
+        monthly_transaction_start_table_name = f"calculation_parts_{prefix_date[:-3].replace('-', '_')}_transaction_start "
+        create_permanent_tables = f"""
+        CREATE TABLE IF NOT EXISTS {db_name}.{monthly_transaction_complete_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
+        CREATE TABLE IF NOT EXISTS {db_name}.{monthly_transaction_start_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
+        """
+        hive_session.execute_sql_statement_with_interpolation(sql_statement=create_permanent_tables)
+
+        # Create temporary tables
+        transaction_complete_table_name = "calculation_parts_transaction_complete"
+        transaction_start_table_name = "calculation_parts_transaction_start"
+        transaction_end_table_name = "calculation_parts_transaction_end"
+        transaction_unmatched_table_name = "calculation_parts_transaction_unmatched"
+        control_table_name = "calculation_parts_control"
+
+        create_temporary_tables = f"""
+        DROP TABLE IF EXISTS {db_name}.{transaction_complete_table_name};
+        CREATE TABLE {db_name}.{transaction_complete_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
+
+        DROP TABLE IF EXISTS {db_name}.{transaction_start_table_name};
+        CREATE TABLE {db_name}.{transaction_start_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
+
+        DROP TABLE IF EXISTS {db_name}.{transaction_end_table_name};
+        CREATE TABLE {db_name}.{transaction_end_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
+
+        DROP TABLE IF EXISTS {db_name}.{transaction_unmatched_table_name};
+        CREATE TABLE {db_name}.{transaction_unmatched_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
+
+        DROP TABLE IF EXISTS {db_name}.{control_table_name};
+        CREATE TABLE {db_name}.{control_table_name} (id_key STRING, delete_count STRING, insert_count STRING, record_count STRING, last_date STRING, db_type STRING);
+        """
+        hive_session.execute_sql_statement_with_interpolation(sql_statement=create_temporary_tables)
+
+        # Create daily table
+        daily_table_name = f"calculation_parts_{prefix_date.replace('-', '_')}"
+        create_daily_table = f"""CREATE TABLE {db_name}.{daily_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING)"""
+        hive_session.execute_sql_statement_with_interpolation(sql_statement=create_daily_table)
+
+        # Populate daily table
+        populate_daily_table = f"""
+            INSERT INTO {db_name}.{daily_table_name}
+            SELECT
+                CONCAT(GET_JSON_OBJECT(val, '$._id.id'), '_', GET_JSON_OBJECT(val, '$._id.type')) AS id_key
+                ,SUBSTR(GET_JSON_OBJECT(val, '$._id.id'), 0, 2) AS id_prefix
+                ,CASE WHEN GET_JSON_OBJECT(val, '$._removedDateTime') IS null THEN 'INSERT' ELSE 'DELETE' END AS db_type
+                ,SUBSTR(COALESCE(GET_JSON_OBJECT(val, '$._removedDateTime.d_date'), GET_JSON_OBJECT(val, '$.createdDateTime.d_date')), 0, 10) AS last_date
+                ,val AS json
+            FROM {db_name}.{external_table_name}
+        """
+        hive_session.execute_sql_statement_with_interpolation(sql_statement=populate_daily_table)
+
+        # Populate 'control' table
+        populate_control_table = f"""
+                INSERT INTO {db_name}.{control_table_name}
+                SELECT
+                    id_key
+                    ,SUM(CASE WHEN db_type='DELETE' THEN 1 ELSE 0 END) AS delete_count
+                    ,SUM(CASE WHEN db_type='INSERT' THEN 1 ELSE 0 END) AS insert_count
+                    ,COUNT(*) AS record_count
+                    ,'' AS last_date
+                    ,'' AS db_type
+                FROM {db_name}.{daily_table_name}
+                GROUP BY id_key
+        """
+        hive_session.execute_sql_statement_with_interpolation(sql_statement=populate_control_table)
+
+        # Gather completed transactions (pairs of INSERT and DELETE records)
+        populate_transaction_complete_table = f"""
+            INSERT INTO {db_name}.{transaction_complete_table_name}
+            SELECT DISTINCT s.* FROM {db_name}.{daily_table_name} s
+            INNER JOIN {db_name}.{control_table_name} c
+            ON c.id_key = s.id_key
+            WHERE s.db_type='DELETE'
+            AND c.delete_count>=1
+            AND c.insert_count>=1
+        """
+        hive_session.execute_sql_statement_with_interpolation(sql_statement=populate_transaction_complete_table)
+
+        # Gather orphan DELETE records (confirmation that a previously opened transaction is now closed)
+        populate_transaction_end_table = f"""
+            INSERT INTO {db_name}.{transaction_end_table_name}
+            SELECT DISTINCT s.* FROM {db_name}.{daily_table_name} s
+            INNER JOIN {db_name}.{control_table_name} c
+            ON c.id_key = s.id_key
+            WHERE s.db_type='DELETE'
+            AND c.delete_count>=1
+            AND c.insert_count==0
+        """
+        hive_session.execute_sql_statement_with_interpolation(sql_statement=populate_transaction_end_table)
+
+        # Gather orphan INSERT records (confirmation that a record has been opened but not completed yet)
+        populate_transaction_start_table = f"""
+            INSERT INTO {db_name}.{transaction_start_table_name}
+            SELECT DISTINCT s.* FROM {db_name}.{daily_table_name} s
+            LEFT JOIN {db_name}.{control_table_name} c
+            ON c.id_key = s.id_key
+            WHERE s.db_type='INSERT'
+            AND c.delete_count==0
+            AND c.insert_count>=1
+        """
+        hive_session.execute_sql_statement_with_interpolation(sql_statement=populate_transaction_start_table)
+
+        # Append to monthly completed transaction
+        append_completed_transaction = f"""
+            INSERT INTO {db_name}.{monthly_transaction_complete_table_name}
+            SELECT * FROM {db_name}.{transaction_complete_table_name};
+
+            INSERT INTO {db_name}.{monthly_transaction_complete_table_name}
+            SELECT * FROM {transaction_end_table_name};
+        """
+        hive_session.execute_sql_statement_with_interpolation(sql_statement=append_completed_transaction)
+
+        # Rebuild transaction_start_table filtering out the INSERT records
+        # without matching DELETE after processing of current day
+        rebuild_transaction_start_table = f"""
+            INSERT INTO {db_name}.{transaction_unmatched_table_name}
+            SELECT i.* FROM {db_name}.{monthly_transaction_start_table_name} i
+            LEFT JOIN {db_name}.{transaction_end_table_name} d
+            ON i.id_key = d.id_key
+            AND d.id_key IS null;
+
+            TRUNCATE TABLE {db_name}.{monthly_transaction_start_table_name};
+
+            INSERT INTO {db_name}.{monthly_transaction_start_table_name}
+            SELECT * FROM {db_name}.{transaction_unmatched_table_name};"
+        """
+        hive_session.execute_sql_statement_with_interpolation(sql_statement=rebuild_transaction_start_table)
+
+        # Append new INSERT records to monthly_transaction_start table
+        append_to_monthly_transaction_start = f"""
+            INSERT INTO {db_name}.{monthly_transaction_start_table_name}
+            SELECT * FROM {db_name}.{transaction_start_table_name};"
+        """
+        hive_session.execute_sql_statement_with_interpolation(sql_statement=append_to_monthly_transaction_start)
