@@ -511,6 +511,7 @@ class CalcPartBenchmark:
         transaction_end_table_name = "calculation_parts_transaction_end"
         transaction_unmatched_table_name = "calculation_parts_transaction_unmatched"
         control_table_name = "calculation_parts_control"
+        daily_table_name = f"calculation_parts_{prefix_date}"
 
         create_temporary_tables = f"""
         DROP TABLE IF EXISTS {db_name}.{transaction_complete_table_name};
@@ -527,13 +528,11 @@ class CalcPartBenchmark:
 
         DROP TABLE IF EXISTS {db_name}.{control_table_name};
         CREATE TABLE {db_name}.{control_table_name} (id_key STRING, delete_count STRING, insert_count STRING, record_count STRING, last_date STRING, db_type STRING);
+
+        DROP TABLE IF EXISTS {db_name}.{daily_table_name};
+        CREATE TABLE {db_name}.{daily_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
         """
         hive_session.execute_sql_statement_with_interpolation(sql_statement=create_temporary_tables)
-
-        # Create daily table
-        daily_table_name = f"calculation_parts_{prefix_date}"
-        create_daily_table = f"""CREATE TABLE {db_name}.{daily_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING)"""
-        hive_session.execute_sql_statement_with_interpolation(sql_statement=create_daily_table)
 
         # Populate daily table
         populate_daily_table = f"""
