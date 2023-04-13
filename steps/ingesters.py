@@ -410,9 +410,10 @@ class CalcPartBenchmark:
     # Processes and publishes data
     def run(self):
         # self.create_new_baseline()
-        self.create_baseline_with_insert_only()
-        self.create_baseline_with_delete_only()
+        # self.create_baseline_with_insert_only()
+        # self.create_baseline_with_delete_only()
         # self.benchmark_reconciliation()
+        self.merge_daily_import_into_monthly_tables()
 
     def daily_test(self):
         configuration = self._configuration
@@ -445,6 +446,25 @@ class CalcPartBenchmark:
             .write.insertInto("dwx_audit_transition.calc_parts_daily_2022_10_01", overwrite=True)
         )
 
+    def record_daily_statistics(self, table_name, statistics_table_name, db_name):
+        """ Generate and record daily merge statistics for the table name given as parameter """
+
+        export_date = (dt.datetime.strptime(self._configuration.export_date, "%Y-%m-%d") - dt.timedelta(days=1)).strftime("%Y_%m")
+
+        record_statistics = f"""
+            INSERT INTO {db_name}.{statistics_table_name}
+            SELECT
+                FROM_UNIXTIME(UNIX_TIMESTAMP()) AS datetime,
+                {export_date} AS date_processed,
+                {table_name} AS table_name,
+                db_type,
+                MIN(last_date) AS min_date,
+                MAX(last_date) AS max_date,
+                COUNT(id_key) AS record_count
+            FROM {db_name}.{table_name} GROUP BY db_type
+        """
+        self._hive_session.execute_sql_statement_with_interpolation(sql_statement=record_statistics)
+
     def merge_daily_import_into_monthly_tables(self):
         """ Merge daily import into monthly tables. Both day and month values are derived from 'export_date' parameter
         """
@@ -475,10 +495,12 @@ class CalcPartBenchmark:
 
         # Create monthly permanent tables
         monthly_transaction_complete_table_name = f"calculation_parts_{prefix_date[:-3].replace('-', '_')}_transaction_complete"
-        monthly_transaction_start_table_name = f"calculation_parts_{prefix_date[:-3].replace('-', '_')}_transaction_start "
+        monthly_transaction_start_table_name = f"calculation_parts_{prefix_date[:-3].replace('-', '_')}_transaction_start"
+        daily_statistics_table_name = f"calculation_parts_{prefix_date[:-3].replace('-', '_')}_statistics"
         create_permanent_tables = f"""
         CREATE TABLE IF NOT EXISTS {db_name}.{monthly_transaction_complete_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
         CREATE TABLE IF NOT EXISTS {db_name}.{monthly_transaction_start_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
+        CREATE TABLE IF NOT EXISTS {db_name}.{daily_statistics_table_name} (datetime TIMESTAMP, date_processed STRING, table_name STRING, db_type STRING, min_date STRING, max_date STRING, record_count STRING);
         """
         hive_session.execute_sql_statement_with_interpolation(sql_statement=create_permanent_tables)
 
@@ -539,6 +561,7 @@ class CalcPartBenchmark:
                 GROUP BY id_key
         """
         hive_session.execute_sql_statement_with_interpolation(sql_statement=populate_control_table)
+        self.record_daily_statistics(control_table_name, daily_statistics_table_name, db_name)
 
         # Gather completed transactions (pairs of INSERT and DELETE records)
         populate_transaction_complete_table = f"""
@@ -551,6 +574,7 @@ class CalcPartBenchmark:
             AND c.insert_count>=1
         """
         hive_session.execute_sql_statement_with_interpolation(sql_statement=populate_transaction_complete_table)
+        self.record_daily_statistics(transaction_complete_table_name, daily_statistics_table_name, db_name)
 
         # Gather orphan DELETE records (confirmation that a previously opened transaction is now closed)
         populate_transaction_end_table = f"""
@@ -563,6 +587,7 @@ class CalcPartBenchmark:
             AND c.insert_count==0
         """
         hive_session.execute_sql_statement_with_interpolation(sql_statement=populate_transaction_end_table)
+        self.record_daily_statistics(transaction_end_table_name, daily_statistics_table_name, db_name)
 
         # Gather orphan INSERT records (confirmation that a record has been opened but not completed yet)
         populate_transaction_start_table = f"""
@@ -575,6 +600,7 @@ class CalcPartBenchmark:
             AND c.insert_count>=1
         """
         hive_session.execute_sql_statement_with_interpolation(sql_statement=populate_transaction_start_table)
+        self.record_daily_statistics(transaction_start_table_name, daily_statistics_table_name, db_name)
 
         # Append to monthly completed transaction
         append_completed_transaction = f"""
@@ -585,6 +611,7 @@ class CalcPartBenchmark:
             SELECT * FROM {transaction_end_table_name};
         """
         hive_session.execute_sql_statement_with_interpolation(sql_statement=append_completed_transaction)
+        self.record_daily_statistics(monthly_transaction_complete_table_name, daily_statistics_table_name, db_name)
 
         # Rebuild transaction_start_table filtering out the INSERT records
         # without matching DELETE after processing of current day
@@ -601,6 +628,7 @@ class CalcPartBenchmark:
             SELECT * FROM {db_name}.{transaction_unmatched_table_name};"
         """
         hive_session.execute_sql_statement_with_interpolation(sql_statement=rebuild_transaction_start_table)
+        self.record_daily_statistics(monthly_transaction_start_table_name, daily_statistics_table_name, db_name)
 
         # Append new INSERT records to monthly_transaction_start table
         append_to_monthly_transaction_start = f"""
@@ -608,3 +636,4 @@ class CalcPartBenchmark:
             SELECT * FROM {db_name}.{transaction_start_table_name};"
         """
         hive_session.execute_sql_statement_with_interpolation(sql_statement=append_to_monthly_transaction_start)
+        self.record_daily_statistics(monthly_transaction_start_table_name, daily_statistics_table_name, db_name)
