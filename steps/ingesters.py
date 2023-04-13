@@ -489,7 +489,7 @@ class CalcPartBenchmark:
 
         # Create external table over daily location in S3
         external_table_name = f"external_calculation_parts_daily_{prefix_date}"
-        create_external_table = f"""CREATE EXTERNAL TABLE {db_name}.{external_table_name} (val STRING)
+        create_external_table = f"""CREATE EXTERNAL TABLE IF NOT EXISTS {db_name}.{external_table_name} (val STRING)
                                     STORED AS TEXTFILE LOCATION '{s3_source_url}'"""
 
         hive_session.execute_sql_statement_with_interpolation(sql_statement=create_external_table)
