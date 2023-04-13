@@ -455,8 +455,8 @@ class CalcPartBenchmark:
             INSERT INTO {db_name}.{statistics_table_name}
             SELECT
                 FROM_UNIXTIME(UNIX_TIMESTAMP()) AS datetime,
-                {export_date} AS date_processed,
-                {table_name} AS table_name,
+                '{export_date}' AS date_processed,
+                '{table_name}' AS table_name,
                 db_type,
                 MIN(last_date) AS min_date,
                 MAX(last_date) AS max_date,
@@ -474,29 +474,30 @@ class CalcPartBenchmark:
 
         prefix_date = (
                 dt.datetime.strptime(self._configuration.export_date, "%Y-%m-%d") - dt.timedelta(days=1)).strftime(
-            "%Y-%m-%d")
+            "%Y_%m_%d")
         collection_name = "calculator:calculationParts"  # Collection name hardcoded here because a different collection_name is used to select this ingester during testing
 
-        corporate_bucket = self._configuration.configuration_file.s3_corporate_bucket
+        published_bucket = self._configuration.configuration_file.s3_published_bucket
+
         source_prefix = path.join(
-            self._configuration.source_s3_prefix,
-            *prefix_date.split("-"),
+            self._configuration.destination_s3_prefix.lstrip("/"),
+            self._configuration.export_date,
             *collection_name.split(":"),
         )
 
-        s3_source_url = "s3://{bucket}/{prefix}".format(bucket=corporate_bucket, prefix=source_prefix.lstrip("/"))
+        s3_source_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=source_prefix.lstrip("/"))
 
         # Create external table over daily location in S3
-        external_table_name = f"external_calculation_parts_daily_{prefix_date.replace('-', '_')}"
+        external_table_name = f"external_calculation_parts_daily_{prefix_date}"
         create_external_table = f"""CREATE EXTERNAL TABLE {db_name}.{external_table_name} (val STRING)
                                     STORED AS TEXTFILE LOCATION '{s3_source_url}'"""
 
         hive_session.execute_sql_statement_with_interpolation(sql_statement=create_external_table)
 
         # Create monthly permanent tables
-        monthly_transaction_complete_table_name = f"calculation_parts_{prefix_date[:-3].replace('-', '_')}_transaction_complete"
-        monthly_transaction_start_table_name = f"calculation_parts_{prefix_date[:-3].replace('-', '_')}_transaction_start"
-        daily_statistics_table_name = f"calculation_parts_{prefix_date[:-3].replace('-', '_')}_statistics"
+        monthly_transaction_complete_table_name = f"calculation_parts_{prefix_date[:-3]}_transaction_complete"
+        monthly_transaction_start_table_name = f"calculation_parts_{prefix_date[:-3]}_transaction_start"
+        daily_statistics_table_name = f"calculation_parts_{prefix_date[:-3]}_statistics"
         create_permanent_tables = f"""
         CREATE TABLE IF NOT EXISTS {db_name}.{monthly_transaction_complete_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
         CREATE TABLE IF NOT EXISTS {db_name}.{monthly_transaction_start_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
@@ -530,7 +531,7 @@ class CalcPartBenchmark:
         hive_session.execute_sql_statement_with_interpolation(sql_statement=create_temporary_tables)
 
         # Create daily table
-        daily_table_name = f"calculation_parts_{prefix_date.replace('-', '_')}"
+        daily_table_name = f"calculation_parts_{prefix_date}"
         create_daily_table = f"""CREATE TABLE {db_name}.{daily_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING)"""
         hive_session.execute_sql_statement_with_interpolation(sql_statement=create_daily_table)
 
