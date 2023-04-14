@@ -608,7 +608,7 @@ class CalcPartBenchmark:
             SELECT * FROM {db_name}.{transaction_complete_table_name};
 
             INSERT INTO {db_name}.{monthly_transaction_complete_table_name}
-            SELECT * FROM {transaction_end_table_name};
+            SELECT * FROM {db_name}.{transaction_end_table_name};
         """
         hive_session.execute_sql_statement_with_interpolation(sql_statement=append_completed_transaction)
         self.record_daily_statistics(monthly_transaction_complete_table_name, daily_statistics_table_name, db_name)
