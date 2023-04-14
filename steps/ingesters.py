@@ -625,7 +625,7 @@ class CalcPartBenchmark:
             TRUNCATE TABLE {db_name}.{monthly_transaction_start_table_name};
 
             INSERT INTO {db_name}.{monthly_transaction_start_table_name}
-            SELECT * FROM {db_name}.{transaction_unmatched_table_name};"
+            SELECT * FROM {db_name}.{transaction_unmatched_table_name};
         """
         hive_session.execute_sql_statement_with_interpolation(sql_statement=rebuild_transaction_start_table)
         self.record_daily_statistics(monthly_transaction_start_table_name, daily_statistics_table_name, db_name)
@@ -633,7 +633,7 @@ class CalcPartBenchmark:
         # Append new INSERT records to monthly_transaction_start table
         append_to_monthly_transaction_start = f"""
             INSERT INTO {db_name}.{monthly_transaction_start_table_name}
-            SELECT * FROM {db_name}.{transaction_start_table_name};"
+            SELECT * FROM {db_name}.{transaction_start_table_name};
         """
         hive_session.execute_sql_statement_with_interpolation(sql_statement=append_to_monthly_transaction_start)
         self.record_daily_statistics(monthly_transaction_start_table_name, daily_statistics_table_name, db_name)
