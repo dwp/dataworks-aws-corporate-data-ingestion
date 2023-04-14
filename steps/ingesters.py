@@ -501,7 +501,7 @@ class CalcPartBenchmark:
         create_permanent_tables = f"""
         CREATE TABLE IF NOT EXISTS {db_name}.{monthly_transaction_complete_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
         CREATE TABLE IF NOT EXISTS {db_name}.{monthly_transaction_start_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
-        CREATE TABLE IF NOT EXISTS {db_name}.{daily_statistics_table_name} (datetime TIMESTAMP, date_processed STRING, table_name STRING, db_type STRING, min_date STRING, max_date STRING, record_count STRING);
+        CREATE TABLE IF NOT EXISTS {db_name}.{daily_statistics_table_name} (datetime STRING, date_processed STRING, table_name STRING, db_type STRING, min_date STRING, max_date STRING, record_count STRING);
         """
         hive_session.execute_sql_statement_with_interpolation(sql_statement=create_permanent_tables)
 
