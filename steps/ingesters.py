@@ -499,8 +499,8 @@ class CalcPartBenchmark:
         monthly_transaction_start_table_name = f"calculation_parts_{prefix_date[:-3]}_transaction_start"
         daily_statistics_table_name = f"calculation_parts_{prefix_date[:-3]}_statistics"
         create_permanent_tables = f"""
-        CREATE TABLE IF NOT EXISTS {db_name}.{monthly_transaction_complete_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
-        CREATE TABLE IF NOT EXISTS {db_name}.{monthly_transaction_start_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
+        CREATE TABLE IF NOT EXISTS {db_name}.{monthly_transaction_complete_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING) CLUSTERED BY (id_key) INTO 256 BUCKETS;
+        CREATE TABLE IF NOT EXISTS {db_name}.{monthly_transaction_start_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING) CLUSTERED BY (id_key) INTO 256 BUCKETS;
         CREATE TABLE IF NOT EXISTS {db_name}.{daily_statistics_table_name} (datetime STRING, date_processed STRING, table_name STRING, db_type STRING, min_date STRING, max_date STRING, record_count STRING);
         """
         hive_session.execute_sql_statement_with_interpolation(sql_statement=create_permanent_tables)
@@ -515,22 +515,22 @@ class CalcPartBenchmark:
 
         create_temporary_tables = f"""
         DROP TABLE IF EXISTS {db_name}.{transaction_complete_table_name};
-        CREATE TABLE {db_name}.{transaction_complete_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
+        CREATE TABLE {db_name}.{transaction_complete_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING) CLUSTERED BY (id_key) INTO 256 BUCKETS;
 
         DROP TABLE IF EXISTS {db_name}.{transaction_start_table_name};
-        CREATE TABLE {db_name}.{transaction_start_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
+        CREATE TABLE {db_name}.{transaction_start_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING) CLUSTERED BY (id_key) INTO 256 BUCKETS;
 
         DROP TABLE IF EXISTS {db_name}.{transaction_end_table_name};
-        CREATE TABLE {db_name}.{transaction_end_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
+        CREATE TABLE {db_name}.{transaction_end_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING) CLUSTERED BY (id_key) INTO 256 BUCKETS;
 
         DROP TABLE IF EXISTS {db_name}.{transaction_unmatched_table_name};
-        CREATE TABLE {db_name}.{transaction_unmatched_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
+        CREATE TABLE {db_name}.{transaction_unmatched_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING) CLUSTERED BY (id_key) INTO 256 BUCKETS;
 
         DROP TABLE IF EXISTS {db_name}.{control_table_name};
-        CREATE TABLE {db_name}.{control_table_name} (id_key STRING, delete_count STRING, insert_count STRING, record_count STRING, last_date STRING, db_type STRING);
+        CREATE TABLE {db_name}.{control_table_name} (id_key STRING, delete_count STRING, insert_count STRING, record_count STRING, last_date STRING, db_type STRING) CLUSTERED BY (id_key) INTO 256 BUCKETS;
 
         DROP TABLE IF EXISTS {db_name}.{daily_table_name};
-        CREATE TABLE {db_name}.{daily_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
+        CREATE TABLE {db_name}.{daily_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING) CLUSTERED BY (id_key) INTO 256 BUCKETS;
         """
         hive_session.execute_sql_statement_with_interpolation(sql_statement=create_temporary_tables)
 
@@ -620,7 +620,7 @@ class CalcPartBenchmark:
             SELECT i.* FROM {db_name}.{monthly_transaction_start_table_name} i
             LEFT JOIN {db_name}.{transaction_end_table_name} d
             ON i.id_key = d.id_key
-            AND d.id_key IS null;
+            WHERE d.id_key IS null;
 
             TRUNCATE TABLE {db_name}.{monthly_transaction_start_table_name};
 
