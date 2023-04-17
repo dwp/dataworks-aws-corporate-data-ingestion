@@ -542,7 +542,7 @@ class CalcPartBenchmark:
                 ,SUBSTR(GET_JSON_OBJECT(val, '$._id.id'), 0, 2) AS id_prefix
                 ,CASE WHEN GET_JSON_OBJECT(val, '$._removedDateTime') IS null THEN 'INSERT' ELSE 'DELETE' END AS db_type
                 ,SUBSTR(COALESCE(GET_JSON_OBJECT(val, '$._removedDateTime.d_date'), GET_JSON_OBJECT(val, '$.createdDateTime.d_date')), 0, 10) AS last_date
-                ,val AS json
+                ,null AS json
             FROM {db_name}.{external_table_name}
         """
         hive_session.execute_sql_statement_with_interpolation(sql_statement=populate_daily_table)
