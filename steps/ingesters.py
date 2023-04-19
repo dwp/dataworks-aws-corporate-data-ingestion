@@ -7,6 +7,7 @@ import datetime as dt
 
 from data import UCMessage
 from utils import Utils
+from pyspark.sql.functions import col
 
 logger = logging.getLogger("ingesters")
 
@@ -281,7 +282,7 @@ class CalcPartBenchmark:
                             json.dumps(x, ensure_ascii=False, separators=(',', ':'))
                             ))
             .toDF(["id_key", "dbType", "json"])
-            .withColumn("id_part", df.id_key[0:2])
+            .withColumn("id_part", col("id_key")[0:2])
             .select("id_key", "json", "dbType", "id_part")
             .repartition("id_part", "dbType")
             .sortWithinPartitions("id_key")
