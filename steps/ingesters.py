@@ -272,7 +272,7 @@ class CalcPartBenchmark:
 
         logger.info("starting pyspark processing")
         s3_source_url = "s3://{bucket}/{prefix}".format(bucket=configuration.configuration_file.s3_published_bucket,
-                                                        prefix="analytical-dataset/archive/11_2022_backup/calculationParts/part-001*")
+                                                        prefix="analytical-dataset/archive/11_2022_backup/calculationParts/")
 
         df = self.read_dir(s3_source_url)
         (
