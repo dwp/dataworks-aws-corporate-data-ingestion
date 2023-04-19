@@ -257,97 +257,35 @@ class CalcPartBenchmark:
     def read_dir(self, file_path):
         return self._spark_session.sparkContext.textFile(file_path)
 
-    def create_baseline_with_insert_only(self):
-        """Processes the most recent ADG-based CalculationParts snapshot into an 'enriched' table with INSERT records only
-        """
-        hive_session = self._hive_session
-
-        sql_statement = f"""
-                    DROP TABLE IF EXISTS dwx_audit_transition.calc_parts_snapshot_insert_only_minified;
-                    CREATE TABLE dwx_audit_transition.calc_parts_snapshot_insert_only_minified
-                        (id_key STRING)
-                        STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB');
-                    INSERT INTO dwx_audit_transition.calc_parts_snapshot_insert_only_minified
-                        SELECT id_key FROM dwx_audit_transition.calc_parts_snapshot_enriched_unpartitioned
-                        WHERE dbType = 'INSERT';
-                """
-        hive_session.execute_sql_statement_with_interpolation(
-            sql_statement=sql_statement
-        )
-
-    def create_baseline_with_delete_only(self):
-        """Processes the most recent ADG-based CalculationParts snapshot into an 'enriched' table with DELETE records only
-        """
-        hive_session = self._hive_session
-
-        sql_statement = f"""
-                    DROP TABLE IF EXISTS dwx_audit_transition.calc_parts_snapshot_delete_only_minified;
-                    CREATE TABLE dwx_audit_transition.calc_parts_snapshot_delete_only_minified
-                        (id_key STRING)
-                        STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB');
-                    INSERT INTO dwx_audit_transition.calc_parts_snapshot_delete_only_minified
-                        SELECT id_key FROM dwx_audit_transition.calc_parts_snapshot_enriched_unpartitioned
-                        WHERE dbType = 'DELETE';
-                """
-        hive_session.execute_sql_statement_with_interpolation(
-            sql_statement=sql_statement
-        )
-
-    def create_baseline(self):
-        """Processes the most recent ADG-based CalculationParts snapshot into an 'enriched' table
-        """
+    def ingest_snapshot(self):
         configuration = self._configuration
         hive_session = self._hive_session
 
         sql_statement = f"""
-                    DROP TABLE IF EXISTS dwx_audit_transition.calc_parts_snapshot_enriched_unpartitioned;
-                    CREATE TABLE dwx_audit_transition.calc_parts_snapshot_enriched_unpartitioned (id_key STRING, dbType STRING, json STRING)
-                    STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB');
-                """
+                CREATE TABLE IF NOT EXISTS dwx_audit_transition.calculation_parts_snapshot (id_key STRING, json STRING) PARTITIONED BY (dbType STRING, id_part STRING)
+                STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB')
+            """
         hive_session.execute_sql_statement_with_interpolation(
             sql_statement=sql_statement
         )
 
         logger.info("starting pyspark processing")
         s3_source_url = "s3://{bucket}/{prefix}".format(bucket=configuration.configuration_file.s3_published_bucket,
-                                                        prefix="corporate_data_ingestion/hive/external/dwx_audit_transition.db/calc_parts_snapshot_enriched_unpartitioned/")
+                                                        prefix="analytical-dataset/archive/11_2022_backup/calculationParts/part-001*")
 
+        df = self.read_dir(s3_source_url)
         (
-            self.read_dir(s3_source_url)
-            .map(json.loads)
+            df.map(json.loads)
             .map(lambda x: (f'{x.get("_id").get("id")}_{x.get("_id").get("type")}',
                             "INSERT" if x.get("_removedDateTime") is None else "DELETE",
-                            json.dumps(x, ensure_ascii=False, separators=(',', ':')))
-                 )
+                            json.dumps(x, ensure_ascii=False, separators=(',', ':'))
+                            ))
             .toDF(["id_key", "dbType", "json"])
-            .write.insertInto("dwx_audit_transition.calc_parts_snapshot_enriched_unpartitioned", overwrite=True)
-        )
-
-    def create_new_baseline(self):
-        """Processes the most recent ADG-based CalculationParts snapshot into an 'enriched' table
-        """
-        configuration = self._configuration
-        hive_session = self._hive_session
-
-        sql_statement = f"""
-                    DROP TABLE IF EXISTS dwx_audit_transition.calc_parts_snapshot;
-                    CREATE TABLE dwx_audit_transition.calc_parts_snapshot (id_key STRING, json STRING) PARTITIONED BY (dbType STRING, id_part STRING)
-                    STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB');
-                """
-        hive_session.execute_sql_statement_with_interpolation(
-            sql_statement=sql_statement
-        )
-
-        logger.info("starting pyspark processing")
-        s3_source_url = "s3://{bucket}/{prefix}".format(bucket=configuration.configuration_file.s3_published_bucket,
-                                                        prefix="corporate_data_ingestion/hive/external/dwx_audit_transition.db/calc_parts_snapshot_enriched_unpartitioned/")
-
-        df = self._spark_session.read.orc(s3_source_url)
-        (
-            df.coalesce(1000)
             .withColumn("id_part", df.id_key[0:2])
             .select("id_key", "json", "dbType", "id_part")
-            .write.insertInto("dwx_audit_transition.calc_parts_snapshot", overwrite=True)
+            .repartition("id_part", "dbType")
+            .sortWithinPartitions("id_key")
+            .write.insertInto("dwx_audit_transition.calculation_parts_snapshot", overwrite=True)
         )
 
     def benchmark_reconciliation(self):
@@ -409,42 +347,8 @@ class CalcPartBenchmark:
 
     # Processes and publishes data
     def run(self):
-        # self.create_new_baseline()
-        # self.create_baseline_with_insert_only()
-        # self.create_baseline_with_delete_only()
-        # self.benchmark_reconciliation()
-        self.merge_daily_import_into_monthly_tables()
-
-    def daily_test(self):
-        configuration = self._configuration
-        hive_session = self._hive_session
-        daily_location = "s3://{published_bucket}/corporate_data_ingestion/json/daily/{daily_date}/calculator/calculationParts/".format(
-            published_bucket=configuration.configuration_file.s3_published_bucket,
-            daily_date="2022-10-01"
-        )
-
-        # create new-snapshot table
-        drop_table = "DROP TABLE IF EXISTS dwx_audit_transition.calc_parts_snapshot_updated"
-        create_table = """CREATE TABLE dwx_audit_transition.calc_parts_snapshot_updated (id_key STRING, dbType STRING, json STRING)  STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB')"""
-        hive_session.execute_sql_statement_with_interpolation(sql_statement=drop_table)
-        hive_session.execute_sql_statement_with_interpolation(sql_statement=create_table)
-
-        # create daily table
-        drop_daily_table = "DROP TABLE IF EXISTS dwx_audit_transition.calc_parts_daily_2022_10_01"
-        create_daily_table = """CREATE TABLE dwx_audit_transition.calc_parts_daily_2022_10_01 (id_key STRING, dbType STRING, json STRING)  STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB')"""
-        hive_session.execute_sql_statement_with_interpolation(sql_statement=drop_daily_table)
-        hive_session.execute_sql_statement_with_interpolation(sql_statement=create_daily_table)
-
-        # Read daily data into pyspark and process the same way as full snapshot
-        (
-            self.read_dir(daily_location)
-            .map(json.loads)
-            .map(lambda x: (f'{x.get("_id").get("id")}_{x.get("_id").get("type")}',
-                            "INSERT" if x.get("_removedDateTime") is None else "DELETE",
-                            json.dumps(x, ensure_ascii=False, separators=(',', ':'))))
-            .toDF(["id_key", "dbType", "json"])
-            .write.insertInto("dwx_audit_transition.calc_parts_daily_2022_10_01", overwrite=True)
-        )
+        self.ingest_snapshot()
+        # self.merge_daily_import_into_monthly_tables()
 
     def record_daily_statistics(self, table_name, statistics_table_name, db_name):
         """ Generate and record daily merge statistics for the table name given as parameter """

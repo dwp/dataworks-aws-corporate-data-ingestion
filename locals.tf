@@ -245,7 +245,7 @@ locals {
     qa          = 150
     integration = 150
     preprod     = 170
-    production  = 170
+    production  = 269
   }
 
   spark_default_parallelism = {
