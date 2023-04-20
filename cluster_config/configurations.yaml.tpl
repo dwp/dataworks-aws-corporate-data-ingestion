@@ -41,6 +41,7 @@ Configurations:
     "spark.network.timeout": "800s"
     "spark.executor.heartbeatInterval": "60s"
     "spark.sql.autoBroadcastJoinThreshold": "-1"
+    "spark.speculation": "false"
 
 - Classification: "spark-hive-site"
   Properties:
