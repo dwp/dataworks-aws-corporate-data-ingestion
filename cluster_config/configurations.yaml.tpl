@@ -41,7 +41,6 @@ Configurations:
     "spark.network.timeout": "800s"
     "spark.executor.heartbeatInterval": "60s"
     "spark.sql.autoBroadcastJoinThreshold": "-1"
-    "spark.speculation": "false"
 
 - Classification: "spark-hive-site"
   Properties:
@@ -95,11 +94,6 @@ Configurations:
   Properties:
     "fs.s3.maxConnections": "10000"
     "fs.s3.maxRetries": "20"
-
-- Classification: "mapred-site"
-  Properties:
-    "spark.hadoop.mapreduce.map.speculative": false"
-    "spark.hadoop.mapreduce.reduce.speculative": "false"
 
 - Classification: "spark-env"
   Configurations:
