@@ -44,6 +44,8 @@ resource "aws_s3_object" "instances" {
       instance_type_core_one              = var.emr_instance_type_core_one[local.environment]
       instance_type_master                = var.emr_instance_type_master[local.environment]
       core_instance_count                 = var.emr_core_instance_count[local.environment]
+      instance_core_ebs_size_in_gb        = var.instance_core_ebs_size_in_gb[local.environment]
+      instance_master_ebs_size_in_gb      = var.instance_master_ebs_size_in_gb[local.environment]
       capacity_reservation_preference     = local.emr_capacity_reservation_preference
       capacity_reservation_usage_strategy = local.emr_capacity_reservation_usage_strategy
     }

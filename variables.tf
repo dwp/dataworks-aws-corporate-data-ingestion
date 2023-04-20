@@ -45,6 +45,26 @@ variable "emr_core_instance_count" {
   }
 }
 
+variable "instance_core_ebs_size_in_gb" {
+  default = {
+    development = "250"
+    qa          = "250"
+    integration = "250"
+    preprod     = "250"
+    production  = "750"
+  }
+}
+
+variable "instance_master_ebs_size_in_gb" {
+  default = {
+    development = "250"
+    qa          = "250"
+    integration = "250"
+    preprod     = "250"
+    production  = "250"
+  }
+}
+
 variable "emr_ami_id" {
   description = "AMI ID to use for the EMR nodes"
 }
