@@ -263,7 +263,7 @@ class CalcPartBenchmark:
         hive_session = self._hive_session
 
         sql_statement = f"""
-                CREATE TABLE IF NOT EXISTS dwx_audit_transition.calculation_parts_snapshot (id_key STRING, json STRING) PARTITIONED BY (dbType STRING, id_part STRING)
+                CREATE TABLE IF NOT EXISTS dwx_audit_transition.calculation_parts_snapshot_temporary (id_key STRING, json STRING) PARTITIONED BY (dbType STRING, id_part STRING)
                 STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB')
             """
         hive_session.execute_sql_statement_with_interpolation(
@@ -284,9 +284,9 @@ class CalcPartBenchmark:
             .toDF(["id_key", "dbType", "json"])
             .withColumn("id_part", col("id_key")[0:2])
             .select("id_key", "json", "dbType", "id_part")
-            .repartition("id_part", "dbType")
-            .sortWithinPartitions("id_key")
-            .write.insertInto("dwx_audit_transition.calculation_parts_snapshot", overwrite=True)
+            # 4 partitions per executor. Should reduce the number of Hive files.
+            .coalesce(1076)
+            .write.insertInto("dwx_audit_transition.calculation_parts_snapshot_temporary", overwrite=True)
         )
 
     def benchmark_reconciliation(self):
