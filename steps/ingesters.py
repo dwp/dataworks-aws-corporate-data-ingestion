@@ -289,6 +289,32 @@ class CalcPartBenchmark:
             .write.insertInto("dwx_audit_transition.calculation_parts_snapshot_temporary", overwrite=True)
         )
 
+    def reduce_snapshot(self):
+        hive_session = self._hive_session
+
+        create_sql_statement = f"""
+            CREATE TABLE IF NOT EXISTS dwx_audit_transition.calculation_parts_snapshot (id_key STRING, json STRING) PARTITIONED BY (dbType STRING, id_part STRING)
+            STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB')
+        """
+        hive_session.execute_sql_statement_with_interpolation(
+            sql_statement=create_sql_statement
+        )
+
+        # insert_sql_statement = f"""
+        #   INSERT INTO dwx_audit_transition.calculation_parts_snapshot PARTITION (dbType, id_part)
+        #   SELECT id_key, json, dbType, id_part FROM dwx_audit_transition.calculation_parts_snapshot_temporary ORDER BY id_part DESC, id_key DESC;
+        # """
+        insert_sql_statement = f"""
+            INSERT INTO dwx_audit_transition.calculation_parts_snapshot PARTITION (dbType = 'INSERT', id_part = '00')
+            SELECT id_key, json, dbType, id_part FROM dwx_audit_transition.calculation_parts_snapshot_temporary
+            WHERE dbType = 'INSERT' AND id_part = '00'
+            ORDER BY id_part DESC, id_key DESC;
+        """
+
+        hive_session.execute_sql_statement_with_interpolation(
+            sql_statement=insert_sql_statement
+        )
+
     def benchmark_reconciliation(self):
         hive_session = self._hive_session
 
@@ -348,7 +374,8 @@ class CalcPartBenchmark:
 
     # Processes and publishes data
     def run(self):
-        self.ingest_snapshot()
+        # self.ingest_snapshot()
+        self.reduce_snapshot()
         # self.merge_daily_import_into_monthly_tables()
 
     def record_daily_statistics(self, table_name, statistics_table_name, db_name):
