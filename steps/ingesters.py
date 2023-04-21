@@ -306,7 +306,7 @@ class CalcPartBenchmark:
         # """
         insert_sql_statement = f"""
             INSERT INTO dwx_audit_transition.calculation_parts_snapshot PARTITION (dbType = 'INSERT', id_part = '00')
-            SELECT id_key, json, dbType, id_part FROM dwx_audit_transition.calculation_parts_snapshot_temporary
+            SELECT id_key, json FROM dwx_audit_transition.calculation_parts_snapshot_temporary
             WHERE dbType = 'INSERT' AND id_part = '00'
             ORDER BY id_part DESC, id_key DESC;
         """
