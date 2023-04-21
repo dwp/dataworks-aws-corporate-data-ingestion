@@ -300,15 +300,12 @@ class CalcPartBenchmark:
             sql_statement=create_sql_statement
         )
 
-        # insert_sql_statement = f"""
-        #   INSERT INTO dwx_audit_transition.calculation_parts_snapshot PARTITION (dbType, id_part)
-        #   SELECT id_key, json, dbType, id_part FROM dwx_audit_transition.calculation_parts_snapshot_temporary ORDER BY id_part DESC, id_key DESC;
-        # """
         insert_sql_statement = f"""
-            INSERT INTO dwx_audit_transition.calculation_parts_snapshot PARTITION (dbType = 'INSERT', id_part = '00')
-            SELECT id_key, json FROM dwx_audit_transition.calculation_parts_snapshot_temporary
-            WHERE dbType = 'INSERT' AND id_part = '00'
-            ORDER BY id_part DESC, id_key DESC;
+            INSERT INTO dwx_audit_transition.calculation_parts_snapshot PARTITION (dbType, id_part)
+            SELECT id_key, json, dbType, id_part
+            FROM dwx_audit_transition.calculation_parts_snapshot_temporary
+            DISTRIBUTE BY id_part
+            SORT BY id_part DESC, id_key DESC;
         """
 
         hive_session.execute_sql_statement_with_interpolation(
