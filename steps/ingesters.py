@@ -304,7 +304,7 @@ class CalculationPartsIngester(BaseIngester):
                 .map(UCMessage.sanitise)
                 .map(lambda x: (
                     x.id,
-                    x.id[:2],
+                    x.id[2:4],
                     "INSERT" if not x.is_delete else "DELETE",
                     x.utf8_decrypted_record,
                 ))
