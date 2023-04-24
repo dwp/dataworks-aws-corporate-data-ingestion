@@ -23,8 +23,11 @@ class BaseIngester:
     def read_dir(self, file_path):
         return self._spark_session.sparkContext.textFile(file_path)
 
-    # Processes and publishes data
     def run(self):
+        self.decrypt_and_process()
+
+    # Processes and publishes data
+    def decrypt_and_process(self):
         correlation_id = self._configuration.correlation_id
         prefix_date = (dt.datetime.strptime(self._configuration.export_date, "%Y-%m-%d") - dt.timedelta(days=1)).strftime("%Y-%m-%d")
         collection_name = self._collection_name
@@ -245,6 +248,88 @@ class BusinessAuditIngester(BaseIngester):
                 ),
                 interpolation_dict=interpolation_dict,
             )
+
+
+class CalculationPartsIngester(BaseIngester):
+    def decrypt_and_process(self):
+        correlation_id = self._configuration.correlation_id
+        prefix_date = (dt.datetime.strptime(self._configuration.export_date, "%Y-%m-%d") - dt.timedelta(days=1)).strftime("%Y-%m-%d")
+        collection_name = self._collection_name
+
+        corporate_bucket = self._configuration.configuration_file.s3_corporate_bucket
+        source_prefix = path.join(
+            self._configuration.source_s3_prefix,
+            *prefix_date.split("-"),
+            *collection_name.split(":"),
+        )
+
+        published_bucket = self._configuration.configuration_file.s3_published_bucket
+        destination_prefix = path.join(
+            self._configuration.destination_s3_prefix.lstrip("/"),
+            self._configuration.export_date,
+            *collection_name.split(":"),
+        )
+        self.destination_prefix = destination_prefix
+
+        # define source and destination s3 URIs
+        s3_source_url = "s3://{bucket}/{prefix}".format(bucket=corporate_bucket, prefix=source_prefix.lstrip("/"))
+        s3_destination_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=destination_prefix)
+
+        # begin processing
+        try:
+            dks_hit_accumulator = self._spark_session.sparkContext.accumulator(0)
+            dks_miss_accumulator = self._spark_session.sparkContext.accumulator(0)
+
+            logger.info(f"Instantiating decryption helper")
+            decryption_helper = Utils.get_decryption_helper(
+                decrypt_endpoint=self._configuration.configuration_file.dks_decrypt_endpoint,
+                correlation_id=correlation_id,
+                dks_hit_acc=dks_hit_accumulator,
+                dks_miss_acc=dks_miss_accumulator,
+            )
+
+            logger.info(f"Emptying destination prefix: '{destination_prefix}'")
+            self.empty_s3_prefix(published_bucket=published_bucket, prefix=destination_prefix)
+
+            # empty dict sent to each container for caching
+            dks_key_cache = {}
+
+            # Persist records to JSONL in S3
+            logger.info("starting pyspark processing")
+            (
+                self.read_dir(s3_source_url)
+                .map(lambda x: UCMessage(x, collection_name))
+                .map(lambda uc_message: decryption_helper.decrypt_dbObject(uc_message, dks_key_cache))
+                .map(UCMessage.validate)
+                .map(UCMessage.sanitise)
+                .map(lambda x: (
+                    x.id,
+                    x.id[:2],
+                    "INSERT" if not x.is_delete else "DELETE",
+                    x.utf8_decrypted_record,
+                ))
+                .toDF(['id', 'id_part', 'dbtype', 'val'])
+                .repartition("id_part")
+                .orderBy("id")
+                .write.partitionBy("dbtype", "id_part").orc(s3_destination_url, mode="overwrite", compression="zlib")
+            )
+            logger.info("Initial pyspark ingestion completed")
+
+            # stats for logging
+            dks_hits = dks_hit_accumulator.value
+            dks_misses = dks_miss_accumulator.value
+
+            logger.info(f"DKS Hits: {dks_hits}")
+            logger.info(f"DKS Misses: {dks_misses}")
+
+        except Exception as err:
+            logger.error(
+                f"""Unexpected error occurred processing collection named {self._collection_name} """
+                f""" for correlation id: {correlation_id} "{str(err)}" """
+            )
+            raise
+
+
 
 
 class CalcPartBenchmark:

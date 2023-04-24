@@ -269,6 +269,52 @@ class TestUCMessage(TestCase):
         mock_message.decrypted_record = """{"key": "\\u00e7"}"""
         self.assertEqual("""{"key":"ç"}""", mock_message.utf8_decrypted_record)
 
+    def test_is_delete(self):
+        """Ensure non-ascii chars are not escaped in output"""
+        mock_message = UCMessage(
+            json.dumps(
+                {
+                    "message": {
+                        "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                        "dbObject": "mock_encrypted_dbobject",
+                        "_removedDateTime": "2019-07-04T07:27:35.104+0000",
+                    }
+                }
+            ),
+            "some:collection",
+        )
+
+        mock_message.decrypted_record = json.dumps({
+            "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+            "dbObject": "mock_encrypted_dbobject",
+            "_removedDateTime": "2019-07-04T07:27:35.104+0000",
+        })
+
+        mock_message = mock_message.validate()
+        self.assertTrue(mock_message.is_delete)
+
+    def test_is_not_delete(self):
+        """Ensure non-ascii chars are not escaped in output"""
+        mock_message = UCMessage(
+            json.dumps(
+                {
+                    "message": {
+                        "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+                        "dbObject": "mock_encrypted_dbobject",
+                    }
+                }
+            ),
+            "some:collection",
+        )
+
+        mock_message.decrypted_record = json.dumps({
+            "_lastModifiedDateTime": "2019-07-04T07:27:35.104+0000",
+            "dbObject": "mock_encrypted_dbobject",
+        })
+
+        mock_message = mock_message.validate()
+        self.assertFalse(mock_message.is_delete)
+
 
 class TestUCMessageTransform(TestCase):
     def test_transform(self):

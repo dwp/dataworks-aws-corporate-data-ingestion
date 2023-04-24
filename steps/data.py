@@ -64,10 +64,14 @@ class UCMessage:
         self.db, self.collection = self._get_db_collection_name(collection_name)
         self.encrypted_db_object = self.kafka_message_json["message"]["dbObject"]
         self.decrypted_record = None
+        self.is_delete = None
 
     @property
     def id(self) -> str:
-        return self.kafka_message_json["message"]["_id"]
+        _id = self.kafka_message_json["message"]["_id"]
+        if isinstance(_id, dict):
+            _id = json.dumps(_id, ensure_ascii=False, separators=(',', ':'))
+        return _id
 
     @property
     def encryption_materials(self) -> EncryptionMaterials:
@@ -115,6 +119,7 @@ class UCMessage:
 
     def validate(self):
         db_object = json.loads(self.decrypted_record)
+        self.is_delete = "_removedDateTime" in db_object
 
         # Wraps the last modified, creates from other dates if not present
         prioritised_last_modified = self._get_last_modified(db_object)
