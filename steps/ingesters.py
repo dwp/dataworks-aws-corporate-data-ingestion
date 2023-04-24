@@ -294,6 +294,20 @@ class CalculationPartsIngester(BaseIngester):
             # empty dict sent to each container for caching
             dks_key_cache = {}
 
+            def to_row(x: UCMessage):
+                id_str = x.id
+                id_json = json.loads(id_str)
+                id_m = f"{id_json.get('id')}_{id_json.get('type')}"
+                id_part = id_json.get('id')[:2]
+
+                return (
+                    id_str,
+                    id_m,
+                    id_part,
+                    "INSERT" if not x.is_delete else "DELETE",
+                    x.utf8_decrypted_record,
+                )
+
             # Persist records to JSONL in S3
             logger.info("starting pyspark processing")
             (
@@ -302,13 +316,8 @@ class CalculationPartsIngester(BaseIngester):
                 .map(lambda uc_message: decryption_helper.decrypt_dbObject(uc_message, dks_key_cache))
                 .map(UCMessage.validate)
                 .map(UCMessage.sanitise)
-                .map(lambda x: (
-                    x.id,
-                    json.loads(x.id).get("id")[:2],
-                    "INSERT" if not x.is_delete else "DELETE",
-                    x.utf8_decrypted_record,
-                ))
-                .toDF(['id', 'id_part', 'dbtype', 'val'])
+                .map(to_row)
+                .toDF(['id', 'id_m', 'id_part', 'dbtype', 'val'])
                 .repartition("dbtype", "id_part")
                 .sort("id")
                 .write.partitionBy("dbtype", "id_part").orc(s3_destination_url, mode="overwrite", compression="zlib")
