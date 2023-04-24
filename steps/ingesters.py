@@ -300,7 +300,6 @@ class CalculationPartsIngester(BaseIngester):
                 self.read_dir(s3_source_url)
                 .map(lambda x: UCMessage(x, collection_name))
                 .map(lambda uc_message: decryption_helper.decrypt_dbObject(uc_message, dks_key_cache))
-                .map(UCMessage.transform)
                 .map(UCMessage.validate)
                 .map(UCMessage.sanitise)
                 .map(lambda x: (
@@ -312,7 +311,7 @@ class CalculationPartsIngester(BaseIngester):
                 .toDF(['id', 'id_part', 'dbtype', 'val'])
                 .repartition("id_part")
                 .orderBy("id")
-                .write.partitionBy("id_part").orc(s3_destination_url, mode="overwrite", compression="zlib")
+                .write.partitionBy("dbtype", "id_part").orc(s3_destination_url, mode="overwrite", compression="zlib")
             )
             logger.info("Initial pyspark ingestion completed")
 
