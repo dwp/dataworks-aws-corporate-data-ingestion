@@ -304,13 +304,13 @@ class CalculationPartsIngester(BaseIngester):
                 .map(UCMessage.sanitise)
                 .map(lambda x: (
                     x.id,
-                    x.id[:2],
+                    json.loads(x.id).get("id")[:2],
                     "INSERT" if not x.is_delete else "DELETE",
                     x.utf8_decrypted_record,
                 ))
                 .toDF(['id', 'id_part', 'dbtype', 'val'])
-                .repartition("id_part")
-                .orderBy("id")
+                .repartition("db_type", "id_part")
+                .sort("id")
                 .write.partitionBy("dbtype", "id_part").orc(s3_destination_url, mode="overwrite", compression="zlib")
             )
             logger.info("Initial pyspark ingestion completed")
