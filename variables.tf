@@ -51,7 +51,7 @@ variable "instance_core_ebs_size_in_gb" {
     qa          = "250"
     integration = "250"
     preprod     = "250"
-    production  = "750"
+    production  = "2000"
   }
 }
 
@@ -61,7 +61,7 @@ variable "instance_master_ebs_size_in_gb" {
     qa          = "250"
     integration = "250"
     preprod     = "250"
-    production  = "250"
+    production  = "500"
   }
 }
 
