@@ -89,6 +89,9 @@ Configurations:
     "hive.prewarm.enabled": "true"
     "hive.auto.convert.join": "true"
     "hive.auto.convert.join.noconditionaltask.size": "4915"
+    "hive.merge.tezfiles": "true"
+    "hive.merge.smallfiles.avgsize": "128000000"
+    "hive.merge.size.per.task": "128000000"
 
 - Classification: "emrfs-site"
   Properties:
