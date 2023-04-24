@@ -371,7 +371,7 @@ class CalcPartBenchmark:
             .toDF(["id_key", "id_part", "dbType", "json"])
             .repartition("id_part")
             .sortWithinPartitions("id_key")
-            .write.partitionBy("id_part").orc(s3_destination_url, overwrite=True, compression="zlib")
+            .write.partitionBy("id_part").orc(s3_destination_url, mode="overwrite", compression="zlib")
         )
 
     def reduce_snapshot(self):
