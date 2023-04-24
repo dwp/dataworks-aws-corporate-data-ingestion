@@ -339,8 +339,6 @@ class CalculationPartsIngester(BaseIngester):
             raise
 
 
-
-
 class CalcPartBenchmark:
     def __init__(self, configuration, collection_name, spark_session, hive_session):
         self._configuration = configuration
@@ -354,33 +352,26 @@ class CalcPartBenchmark:
 
     def ingest_snapshot(self):
         configuration = self._configuration
-        hive_session = self._hive_session
-
-        sql_statement = f"""
-                CREATE TABLE IF NOT EXISTS dwx_audit_transition.calculation_parts_snapshot_temporary (id_key STRING, json STRING) PARTITIONED BY (dbType STRING, id_part STRING)
-                STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB')
-            """
-        hive_session.execute_sql_statement_with_interpolation(
-            sql_statement=sql_statement
-        )
 
         logger.info("starting pyspark processing")
         s3_source_url = "s3://{bucket}/{prefix}".format(bucket=configuration.configuration_file.s3_published_bucket,
                                                         prefix="analytical-dataset/archive/11_2022_backup/calculationParts/")
 
+        s3_destination_url = "s3://{bucket}/{prefix}".format(bucket=configuration.configuration_file.s3_published_bucket,
+                                                             prefix="corporate_data_ingestion/calculation_parts/snapshot/")
+
         df = self.read_dir(s3_source_url)
         (
             df.map(json.loads)
             .map(lambda x: (f'{x.get("_id").get("id")}_{x.get("_id").get("type")}',
+                            f'{x.get("_id").get("id")}'[0:2],
                             "INSERT" if x.get("_removedDateTime") is None else "DELETE",
                             json.dumps(x, ensure_ascii=False, separators=(',', ':'))
                             ))
-            .toDF(["id_key", "dbType", "json"])
-            .withColumn("id_part", col("id_key")[0:2])
-            .select("id_key", "json", "dbType", "id_part")
-            # 4 partitions per executor. Should reduce the number of Hive files.
-            .coalesce(1076)
-            .write.insertInto("dwx_audit_transition.calculation_parts_snapshot_temporary", overwrite=True)
+            .toDF(["id_key", "id_part", "dbType", "json"])
+            .repartition("id_part")
+            .sortWithinPartitions("id_key")
+            .write.partitionBy("id_part").orc(s3_destination_url, overwrite=True, compression="zlib")
         )
 
     def reduce_snapshot(self):
@@ -465,8 +456,8 @@ class CalcPartBenchmark:
 
     # Processes and publishes data
     def run(self):
-        # self.ingest_snapshot()
-        self.reduce_snapshot()
+        self.ingest_snapshot()
+        # self.reduce_snapshot()
         # self.merge_daily_import_into_monthly_tables()
 
     def record_daily_statistics(self, table_name, statistics_table_name, db_name):
