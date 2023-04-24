@@ -70,7 +70,7 @@ class UCMessage:
     def id(self) -> str:
         _id = self.kafka_message_json["message"]["_id"]
         if isinstance(_id, dict):
-            _id = json.dumps(_id, ensure_ascii=False, separators=(',', ':'))
+            _id = json.dumps(_id, ensure_ascii=False, separators=(',', ':'), sort_keys=True)
         return _id
 
     @property
@@ -159,7 +159,7 @@ class UCMessage:
 
     @property
     def utf8_decrypted_record(self):
-        return json.dumps(json.loads(self.decrypted_record), ensure_ascii=False, separators=(',', ':'))
+        return json.dumps(json.loads(self.decrypted_record), ensure_ascii=False, separators=(',', ':'), sort_keys=True)
 
     def sanitise_collection_specific(self):
         require_specific_sanitising = (
