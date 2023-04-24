@@ -309,7 +309,7 @@ class CalculationPartsIngester(BaseIngester):
                     x.utf8_decrypted_record,
                 ))
                 .toDF(['id', 'id_part', 'dbtype', 'val'])
-                .repartition("db_type", "id_part")
+                .repartition("dbtype", "id_part")
                 .sort("id")
                 .write.partitionBy("dbtype", "id_part").orc(s3_destination_url, mode="overwrite", compression="zlib")
             )
