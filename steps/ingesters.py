@@ -5,9 +5,10 @@ import boto3
 import json
 import datetime as dt
 
+from pyspark.sql.types import StructType, StructField, StringType
+
 from data import UCMessage
 from utils import Utils
-from pyspark.sql.functions import col
 
 logger = logging.getLogger("ingesters")
 
@@ -383,13 +384,20 @@ class CalcPartBenchmark:
         self.empty_s3_prefix(dest_prefix)
 
         logger.info("starting pyspark processing")
-        columns = ["id_key", "id_part", "dbType", "json"]
 
-        df = self._spark_session.read.orc(s3_source_url) \
+        schema = StructType([
+            StructField("id", StringType(), nullable=False),
+            StructField("id_m", StringType(), nullable=False),
+            StructField("val", StringType(), nullable=False),
+            StructField("dbtype", StringType(), nullable=False),
+            StructField("id_part", StringType(), nullable=False),
+        ])
+
+        df = self._spark_session.read.schema(schema).orc(s3_source_url) \
             .withColumnRenamed("id_m", "id_key") \
             .withColumnRenamed("dbtype", "dbType") \
             .withColumnRenamed("val", "json") \
-            .select([col(column_name).cast("string") for column_name in columns]) \
+            .select("id_key", "id_part", "dbType", "json") \
             .repartition("id_part").sortWithinPartitions("id_key")
 
         df.write.partitionBy("id_part").orc(s3_destination_url, mode="append", compression="zlib")
