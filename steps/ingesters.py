@@ -381,7 +381,7 @@ class CalcPartBenchmark:
         )
 
         logger.warning(f"Emptying prefix: {dest_prefix}")
-        self.empty_s3_prefix(dest_prefix)
+        self.empty_s3_prefix(configuration.configuration_file.s3_published_bucket, dest_prefix)
 
         logger.info("starting pyspark processing")
 
