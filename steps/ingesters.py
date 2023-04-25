@@ -354,14 +354,19 @@ class CalcPartBenchmark:
         self._hive_session = hive_session
         self.destination_prefix = None
 
+    @staticmethod
+    def empty_s3_prefix(published_bucket, prefix) -> None:
+        s3_resource = boto3.resource("s3")
+        bucket = s3_resource.Bucket(published_bucket)
+        bucket.objects.filter(Prefix=prefix).delete()
+
     def read_dir(self, file_path):
         return self._spark_session.sparkContext.textFile(file_path)
 
     def append_daily(self):
         configuration = self._configuration
-
-        logger.info("starting pyspark processing")
         export_date = configuration.export_date  # format "2022-10-01"
+        dest_prefix = "corporate_data_ingestion/calculation_parts/combined_daily_data/"
 
         s3_source_url = "s3://{bucket}/{prefix}/{export_date}/{collection}".format(
             bucket=configuration.configuration_file.s3_published_bucket,
@@ -371,16 +376,20 @@ class CalcPartBenchmark:
         )
         s3_destination_url = "s3://{bucket}/{prefix}".format(
             bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/combined_daily_data/"
+            prefix=dest_prefix,
         )
 
-        # expected_columns = ["id_key", "id_part", "dbType", "json"]
+        logger.warning(f"Emptying prefix: {dest_prefix}")
+        self.empty_s3_prefix(dest_prefix)
+
+        logger.info("starting pyspark processing")
+        columns = ["id_key", "id_part", "dbType", "json"]
 
         df = self._spark_session.read.orc(s3_source_url) \
             .withColumnRenamed("id_m", "id_key") \
             .withColumnRenamed("dbtype", "dbType") \
             .withColumnRenamed("val", "json") \
-            .select("id_key", "id_part", "dbType", "json") \
+            .select([col(column_name).cast("string") for column_name in columns]) \
             .repartition("id_part").sortWithinPartitions("id_key")
 
         df.write.partitionBy("id_part").orc(s3_destination_url, mode="append", compression="zlib")
