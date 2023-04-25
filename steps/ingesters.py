@@ -340,6 +340,13 @@ class CalculationPartsIngester(BaseIngester):
 
 
 class CalcPartBenchmark:
+    # Processes and publishes data
+    def run(self):
+        self.append_daily()
+        # self.ingest_snapshot()
+        # self.reduce_snapshot()
+        # self.merge_daily_import_into_monthly_tables()
+
     def __init__(self, configuration, collection_name, spark_session, hive_session):
         self._configuration = configuration
         self._collection_name = collection_name
@@ -349,6 +356,34 @@ class CalcPartBenchmark:
 
     def read_dir(self, file_path):
         return self._spark_session.sparkContext.textFile(file_path)
+
+    def append_daily(self):
+        configuration = self._configuration
+
+        logger.info("starting pyspark processing")
+        export_date = configuration.export_date  # format "2022-10-01"
+
+        s3_source_url = "s3://{bucket}/{prefix}/{export_date}/{collection}".format(
+            bucket=configuration.configuration_file.s3_published_bucket,
+            prefix="corporate_data_ingestion/json/daily",
+            export_date=export_date,
+            collection="calculator/calculationParts"
+        )
+        s3_destination_url = "s3://{bucket}/{prefix}".format(
+            bucket=configuration.configuration_file.s3_published_bucket,
+            prefix="corporate_data_ingestion/calculation_parts/combined_daily_data/"
+        )
+
+        # expected_columns = ["id_key", "id_part", "dbType", "json"]
+
+        df = self._spark_session.read.orc(s3_source_url) \
+            .withColumnRenamed("id_m", "id_key") \
+            .withColumnRenamed("dbtype", "dbType") \
+            .withColumnRenamed("val", "json") \
+            .select("id_key", "id_part", "dbType", "json") \
+            .repartition("id_part").sortWithinPartitions("id_key")
+
+        df.write.partitionBy("id_part").orc(s3_destination_url, mode="append", compression="zlib")
 
     def ingest_snapshot(self):
         configuration = self._configuration
@@ -453,12 +488,6 @@ class CalcPartBenchmark:
         hive_session.execute_sql_statement_with_interpolation(
             sql_statement=statement
         )
-
-    # Processes and publishes data
-    def run(self):
-        self.ingest_snapshot()
-        # self.reduce_snapshot()
-        # self.merge_daily_import_into_monthly_tables()
 
     def record_daily_statistics(self, table_name, statistics_table_name, db_name):
         """ Generate and record daily merge statistics for the table name given as parameter """
