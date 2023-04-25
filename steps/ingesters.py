@@ -380,9 +380,6 @@ class CalcPartBenchmark:
             prefix=dest_prefix,
         )
 
-        logger.warning(f"Emptying prefix: {dest_prefix}")
-        self.empty_s3_prefix(dest_prefix)
-
         logger.info("starting pyspark processing")
 
         schema = StructType([
