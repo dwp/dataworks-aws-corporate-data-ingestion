@@ -5,9 +5,10 @@ import boto3
 import json
 import datetime as dt
 
+from pyspark.sql.types import StructType, StructField, StringType
+
 from data import UCMessage
 from utils import Utils
-from pyspark.sql.functions import col
 
 logger = logging.getLogger("ingesters")
 
@@ -354,14 +355,19 @@ class CalcPartBenchmark:
         self._hive_session = hive_session
         self.destination_prefix = None
 
+    @staticmethod
+    def empty_s3_prefix(published_bucket, prefix) -> None:
+        s3_resource = boto3.resource("s3")
+        bucket = s3_resource.Bucket(published_bucket)
+        bucket.objects.filter(Prefix=prefix).delete()
+
     def read_dir(self, file_path):
         return self._spark_session.sparkContext.textFile(file_path)
 
     def append_daily(self):
         configuration = self._configuration
-
-        logger.info("starting pyspark processing")
         export_date = configuration.export_date  # format "2022-10-01"
+        dest_prefix = "corporate_data_ingestion/calculation_parts/combined_daily_data/"
 
         s3_source_url = "s3://{bucket}/{prefix}/{export_date}/{collection}".format(
             bucket=configuration.configuration_file.s3_published_bucket,
@@ -371,12 +377,23 @@ class CalcPartBenchmark:
         )
         s3_destination_url = "s3://{bucket}/{prefix}".format(
             bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/combined_daily_data/"
+            prefix=dest_prefix,
         )
 
-        # expected_columns = ["id_key", "id_part", "dbType", "json"]
+        logger.warning(f"Emptying prefix: {dest_prefix}")
+        self.empty_s3_prefix(dest_prefix)
 
-        df = self._spark_session.read.orc(s3_source_url) \
+        logger.info("starting pyspark processing")
+
+        schema = StructType([
+            StructField("id", StringType(), nullable=False),
+            StructField("id_m", StringType(), nullable=False),
+            StructField("val", StringType(), nullable=False),
+            StructField("dbtype", StringType(), nullable=False),
+            StructField("id_part", StringType(), nullable=False),
+        ])
+
+        df = self._spark_session.read.schema(schema).orc(s3_source_url) \
             .withColumnRenamed("id_m", "id_key") \
             .withColumnRenamed("dbtype", "dbType") \
             .withColumnRenamed("val", "json") \
