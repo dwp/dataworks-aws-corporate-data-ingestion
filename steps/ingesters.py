@@ -6,6 +6,8 @@ import json
 import datetime as dt
 
 from pyspark.sql.types import StructType, StructField, StringType
+from pyspark.sql.window import Window
+from pyspark.sql.functions import row_number
 
 from data import UCMessage
 from utils import Utils
@@ -343,6 +345,7 @@ class CalculationPartsIngester(BaseIngester):
 class CalcPartBenchmark:
     # Processes and publishes data
     def run(self):
+        # self.dedup_monthly()
         self.append_daily()
         # self.ingest_snapshot()
         # self.reduce_snapshot()
@@ -364,6 +367,41 @@ class CalcPartBenchmark:
     def read_dir(self, file_path):
         return self._spark_session.sparkContext.textFile(file_path)
 
+    def dedup_monthly(self):
+        configuration = self._configuration
+        # export_date = configuration.export_date  # format "2022-10-01"
+        source_prefix = "corporate_data_ingestion/calculation_parts/combined_daily_data/"
+        dest_prefix = "corporate_data_ingestion/calculation_parts/combined_daily_data_dedup/"
+
+        s3_source_url = "s3://{bucket}/{prefix}".format(
+            bucket=configuration.configuration_file.s3_published_bucket,
+            prefix=source_prefix,
+        )
+        s3_destination_url = "s3://{bucket}/{prefix}".format(
+            bucket=configuration.configuration_file.s3_published_bucket,
+            prefix=dest_prefix,
+        )
+
+        logger.warning(f"Emptying prefix: {dest_prefix}")
+        self.empty_s3_prefix(configuration.configuration_file.s3_published_bucket, dest_prefix)
+
+        logger.info("starting pyspark processing")
+
+        schema = StructType([
+            StructField("id_key", StringType(), nullable=False),
+            StructField("id_part", StringType(), nullable=False),
+            StructField("dbType", StringType(), nullable=False),
+            StructField("json", StringType(), nullable=False),
+        ])
+
+        window_spec = Window.partitionBy("id_part", "id_key").orderBy("dbType")
+
+        df = self._spark_session.read.schema(schema).orc(s3_source_url) \
+            .repartition("id_part") \
+            .withColumn("row_number", row_number().over(window_spec))
+
+        df.filter(df.row_number == 1).write.partitionBy("id_part").orc(s3_destination_url, mode="append", compression="zlib")
+
     def append_daily(self):
         configuration = self._configuration
         export_date = configuration.export_date  # format "2022-10-01"
@@ -381,7 +419,8 @@ class CalcPartBenchmark:
         )
 
         logger.warning(f"Emptying prefix: {dest_prefix}")
-        self.empty_s3_prefix(configuration.configuration_file.s3_published_bucket, dest_prefix)
+        if export_date == "2022-10-01":
+            self.empty_s3_prefix(configuration.configuration_file.s3_published_bucket, dest_prefix)
 
         logger.info("starting pyspark processing")
 
