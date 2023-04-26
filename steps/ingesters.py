@@ -345,8 +345,8 @@ class CalculationPartsIngester(BaseIngester):
 class CalcPartBenchmark:
     # Processes and publishes data
     def run(self):
-        # self.dedup_monthly()
-        self.append_daily()
+        self.dedup_monthly()
+        # self.append_daily()
         # self.ingest_snapshot()
         # self.reduce_snapshot()
         # self.merge_daily_import_into_monthly_tables()
