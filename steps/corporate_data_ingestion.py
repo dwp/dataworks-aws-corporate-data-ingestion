@@ -159,8 +159,8 @@ def main():
             "data:businessAudit": BusinessAuditIngester,
             "calculator:calculationParts": CalculationPartsIngester,
             # "calculator:calculationPartsBenchmark": CalcPartBenchmark,
-            "CalculationPartsDeduplicate": CalculationPartsDeduplicate,
-            "CalculationPartsAppend": CalculationPartsAppend,
+            "calculator:calculationPartsDeduplicate": CalculationPartsDeduplicate,
+            "calculator:calculationPartsAppend": CalculationPartsAppend,
         }
 
         with ThreadPoolExecutor(max_workers=configuration.concurrency) as executor:
