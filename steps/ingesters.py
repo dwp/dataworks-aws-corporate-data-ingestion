@@ -345,7 +345,8 @@ class CalculationPartsIngester(BaseIngester):
 class CalcPartBenchmark:
     # Processes and publishes data
     def run(self):
-        self.dedup_monthly()
+        raise NotImplementedError
+        # self.dedup_monthly()
         # self.append_daily()
         # self.ingest_snapshot()
         # self.reduce_snapshot()
@@ -736,3 +737,13 @@ class CalcPartBenchmark:
         """
         hive_session.execute_sql_statement_with_interpolation(sql_statement=append_to_monthly_transaction_start)
         self.record_daily_statistics(monthly_transaction_start_table_name, daily_statistics_table_name, db_name)
+
+
+class CalculationPartsDeduplicate(CalcPartBenchmark):
+    def run(self):
+        self.dedup_monthly()
+
+
+class CalculationPartsAppend(CalcPartBenchmark):
+    def run(self):
+        self.append_daily()
