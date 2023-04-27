@@ -345,8 +345,9 @@ class CalculationPartsIngester(BaseIngester):
 class CalcPartBenchmark:
     # Processes and publishes data
     def run(self):
+        raise NotImplementedError
         # self.dedup_monthly()
-        self.append_daily()
+        # self.append_daily()
         # self.ingest_snapshot()
         # self.reduce_snapshot()
         # self.merge_daily_import_into_monthly_tables()
@@ -418,8 +419,8 @@ class CalcPartBenchmark:
             prefix=dest_prefix,
         )
 
-        logger.warning(f"Emptying prefix: {dest_prefix}")
         if export_date == "2022-10-01":
+            logger.warning(f"Emptying prefix: {dest_prefix}")
             self.empty_s3_prefix(configuration.configuration_file.s3_published_bucket, dest_prefix)
 
         logger.info("starting pyspark processing")
@@ -736,3 +737,13 @@ class CalcPartBenchmark:
         """
         hive_session.execute_sql_statement_with_interpolation(sql_statement=append_to_monthly_transaction_start)
         self.record_daily_statistics(monthly_transaction_start_table_name, daily_statistics_table_name, db_name)
+
+
+class CalculationPartsDeduplicate(CalcPartBenchmark):
+    def run(self):
+        self.dedup_monthly()
+
+
+class CalculationPartsAppend(CalcPartBenchmark):
+    def run(self):
+        self.append_daily()
