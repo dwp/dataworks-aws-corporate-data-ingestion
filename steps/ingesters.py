@@ -415,7 +415,7 @@ class CalcPartBenchmark:
             combined_df
             .filter(combined_df.row_number == 1)
             .write.partitionBy("id_part")
-            .orc(output_prefix, mode="append", compression="zlib")
+            .orc(output_prefix, mode="overwrite", compression="zlib")
         )
 
     def dedup_monthly(self):
