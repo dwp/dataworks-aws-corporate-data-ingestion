@@ -236,8 +236,8 @@ locals {
     development = 2
     qa          = 2
     integration = 2
-    preprod     = local.spark_executor_cores.preprod/2
-    production  = local.spark_executor_cores.production/2
+    preprod     = local.spark_executor_cores.preprod / 2
+    production  = local.spark_executor_cores.production / 2
   }
 
   spark_kyro_buffer = {
