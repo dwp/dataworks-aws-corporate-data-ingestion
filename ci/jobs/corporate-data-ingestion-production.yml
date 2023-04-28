@@ -10,12 +10,10 @@ jobs:
             passed:
               - dataworks-aws-corporate-data-ingestion-preprod
           - get: emr-launcher-release
-            version: { tag: ((emr-launcher-version.production)) }
             trigger: true
             passed:
               - dataworks-aws-corporate-data-ingestion-preprod
           - get: emr-relauncher-release
-            version: { tag: ((emr-relauncher-version.production)) }
             trigger: true
             passed:
               - dataworks-aws-corporate-data-ingestion-preprod
