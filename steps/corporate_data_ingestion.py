@@ -36,7 +36,6 @@ def get_spark_session() -> SparkSession:
         .config("spark.hadoop.fs.s3.maxRetries", "20")
         .config("spark.rpc.numRetries", "10")
         .config("spark.task.maxFailures", "10")
-        .config("spark.scheduler.mode", "FAIR")
         .config("spark.hadoop.mapreduce.fileoutputcommitter.algorithm.version", "2")
         .config("spark.hadoop.hive.exec.dynamic.partition", "true")
         .config("spark.hadoop.hive.exec.dynamic.partition.mode", "nonstrict")
