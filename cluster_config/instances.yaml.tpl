@@ -50,5 +50,6 @@ Instances:
         - VolumeSpecification:
             SizeInGB: ${instance_core_ebs_size_in_gb}
             VolumeType: "gp3"
+            Throughput: 500
           VolumesPerInstance: 1
       InstanceType: "${instance_type_core_one}"

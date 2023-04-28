@@ -6,10 +6,8 @@ jobs:
           trigger: true
           version: every
         - get: emr-launcher-release
-          version: { tag: ((emr-launcher-version.qa)) }
           trigger: false
         - get: emr-relauncher-release
-          version: { tag: ((emr-relauncher-version.qa)) }
           trigger: false
         - get: al2-emr-ami
           trigger: true

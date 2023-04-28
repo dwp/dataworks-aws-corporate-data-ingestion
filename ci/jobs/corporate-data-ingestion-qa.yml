@@ -9,10 +9,8 @@ jobs:
           - get: dataworks-aws-corporate-data-ingestion
             trigger: true
           - get: emr-launcher-release
-            version: { tag: ((emr-launcher-version.qa)) }
             trigger: true
           - get: emr-relauncher-release
-            version: { tag: ((emr-relauncher-version.qa)) }
             trigger: true
           - get: dataworks-behavioural-framework
             trigger: false
