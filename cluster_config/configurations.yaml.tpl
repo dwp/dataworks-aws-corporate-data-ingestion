@@ -44,7 +44,6 @@ Configurations:
     "spark.eventLog.rolling.enabled": "true"
     "spark.history.fs.eventLog.rolling.maxFilesToRetain": "5"
 
-
 - Classification: "spark-hive-site"
   Properties:
     "hive.txn.manager": "org.apache.hadoop.hive.ql.lockmgr.DbTxnManager"
