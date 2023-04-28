@@ -456,7 +456,7 @@ class CalcPartBenchmark:
     def append_daily(self):
         configuration = self._configuration
         export_date = configuration.export_date  # format "2022-10-01"
-        dest_prefix = "corporate_data_ingestion/calculation_parts/combined_daily_data/"
+        dest_prefix = "corporate_data_ingestion/calculation_parts/combined_daily_data_october_to_march/"
 
         s3_source_url = "s3://{bucket}/{prefix}/{export_date}/{collection}".format(
             bucket=configuration.configuration_file.s3_published_bucket,
