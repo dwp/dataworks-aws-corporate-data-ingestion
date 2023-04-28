@@ -30,6 +30,7 @@ Configurations:
     "spark.executor.memoryOverhead": "${spark_yarn_executor_memory_overhead}g"
     "spark.driver.memory": "${spark_driver_memory}g"
     "spark.driver.cores": "${spark_driver_cores}"
+    "spark.task.cpus": "${spark_task_cpus}"
     "spark.executor.instances": "${spark_executor_instances}"
     "spark.default.parallelism": "${spark_default_parallelism}"
     "spark.sql.shuffle.partitions": "${spark_sql_shuffle_partitions}"
