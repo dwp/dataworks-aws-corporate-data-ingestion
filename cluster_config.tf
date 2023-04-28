@@ -95,6 +95,7 @@ resource "aws_s3_object" "configurations" {
       spark_executor_memory               = local.spark_executor_memory[local.environment]
       spark_driver_memory                 = local.spark_driver_memory[local.environment]
       spark_driver_cores                  = local.spark_driver_cores[local.environment]
+      spark_task_cpus                     = local.spark_task_cpus[local.environment]
       spark_default_parallelism           = local.spark_default_parallelism[local.environment]
       spark_sql_shuffle_partitions        = local.spark_sql_shuffle_partitions[local.environment]
       spark_yarn_executor_memory_overhead = local.spark_yarn_executor_memory_overhead[local.environment]
