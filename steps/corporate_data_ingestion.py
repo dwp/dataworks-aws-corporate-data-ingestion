@@ -16,7 +16,7 @@ from data import ConfigurationFile, Configuration
 from dynamodb import DynamoDBHelper
 from hive import HiveService
 from ingesters import BaseIngester, BusinessAuditIngester, CalculationPartsIngester, CalcPartBenchmark, \
-    CalculationPartsDeduplicate, CalculationPartsAppend
+    CalculationPartsDeduplicate, CalculationPartsAppend, CalculationPartsMergeSnapshot
 from logger import setup_logging
 
 DEFAULT_AWS_REGION = "eu-west-2"
@@ -161,6 +161,7 @@ def main():
             # "calculator:calculationPartsBenchmark": CalcPartBenchmark,
             "calculator:calculationPartsDeduplicate": CalculationPartsDeduplicate,
             "calculator:calculationPartsAppend": CalculationPartsAppend,
+            "calculator:CalculationPartsMergeSnapshot": CalculationPartsMergeSnapshot,
         }
 
         with ThreadPoolExecutor(max_workers=configuration.concurrency) as executor:
