@@ -5,7 +5,7 @@ import boto3
 import json
 import datetime as dt
 
-from pyspark.sql.types import StructType, StructField, StringType
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 from pyspark.sql.window import Window
 from pyspark.sql.functions import row_number
 
@@ -346,11 +346,6 @@ class CalcPartBenchmark:
     # Processes and publishes data
     def run(self):
         raise NotImplementedError
-        # self.dedup_monthly()
-        # self.append_daily()
-        # self.ingest_snapshot()
-        # self.reduce_snapshot()
-        # self.merge_daily_import_into_monthly_tables()
 
     def __init__(self, configuration, collection_name, spark_session, hive_session):
         self._configuration = configuration
@@ -367,6 +362,61 @@ class CalcPartBenchmark:
 
     def read_dir(self, file_path):
         return self._spark_session.sparkContext.textFile(file_path)
+
+    def merge_snapshot(self):
+        configuration = self._configuration
+
+        snapshot_location = "s3://{bucket}/{prefix}".format(
+            bucket=configuration.configuration_file.s3_published_bucket,
+            prefix="corporate_data_ingestion/calculation_parts/snapshot/"
+        )
+        daily_deduped_prefix = "s3://{bucket}/{prefix}".format(
+            bucket=configuration.configuration_file.s3_published_bucket,
+            prefix="corporate_data_ingestion/calculation_parts/combined_daily_data_dedup/"
+        )
+        output_prefix = "s3://{bucket}/{prefix}".format(
+            bucket=configuration.configuration_file.s3_published_bucket,
+            prefix="corporate_data_ingestion/calculation_parts/full_merge/"
+        )
+
+        snapshot_schema = StructType([
+            StructField("id_key", StringType(), nullable=False),
+            StructField("dbType", StringType(), nullable=False),
+            StructField("json", StringType(), nullable=False),
+            StructField("id_part", StringType(), nullable=False),
+        ])
+
+        daily_schema = StructType([
+            StructField("id_key", StringType(), nullable=False),
+            StructField("dbType", StringType(), nullable=False),
+            StructField("json", StringType(), nullable=False),
+            StructField("row_number", IntegerType(), nullable=False),
+            StructField("id_part", StringType(), nullable=False),
+        ])
+
+        snapshot_df = (
+            self._spark_session.read.schema(snapshot_schema).orc(snapshot_location)
+            .select("id_key", "id_part", "dbType", "json")
+        )
+
+        deduped_daily_df = (
+            self._spark_session.read.schema(daily_schema).orc(daily_deduped_prefix)
+            .select("id_key", "id_part", "dbType", "json")
+        )
+
+        window_spec = Window.partitionBy("id_part", "id_key").orderBy("dbType")
+        combined_df = (
+            snapshot_df.union(deduped_daily_df)
+            .repartition("id_part")
+            .withColumn("row_number", row_number().over(window_spec))
+        )
+
+        (
+            combined_df
+            .filter(combined_df.row_number == 1)
+            .write.partitionBy("id_part")
+            .orc(output_prefix, mode="append", compression="zlib")
+        )
 
     def dedup_monthly(self):
         configuration = self._configuration
@@ -747,3 +797,8 @@ class CalculationPartsDeduplicate(CalcPartBenchmark):
 class CalculationPartsAppend(CalcPartBenchmark):
     def run(self):
         self.append_daily()
+
+
+class CalculationPartsMergeSnapshot(CalcPartBenchmark):
+    def run(self):
+        self.merge_snapshot()
