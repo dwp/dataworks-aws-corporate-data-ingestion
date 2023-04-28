@@ -41,6 +41,8 @@ Configurations:
     "spark.network.timeout": "800s"
     "spark.executor.heartbeatInterval": "60s"
     "spark.sql.autoBroadcastJoinThreshold": "-1"
+    "spark.eventLog.rolling.enabled": "true"
+    "spark.history.fs.eventLog.rolling.maxFilesToRetain": "5"
 
 - Classification: "spark-hive-site"
   Properties:
