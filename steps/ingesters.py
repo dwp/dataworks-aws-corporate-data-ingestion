@@ -363,7 +363,7 @@ class CalcPartBenchmark:
     def read_dir(self, file_path):
         return self._spark_session.sparkContext.textFile(file_path)
 
-    def merge_snapshot(self):
+    def merge_snapshot_dedupe(self):
         configuration = self._configuration
 
         snapshot_location = "s3://{bucket}/{prefix}".format(
@@ -376,7 +376,7 @@ class CalcPartBenchmark:
         )
         output_prefix = "s3://{bucket}/{prefix}".format(
             bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/full_merge/"
+            prefix="corporate_data_ingestion/calculation_parts/full_merge_1/"
         )
 
         snapshot_schema = StructType([
@@ -418,10 +418,65 @@ class CalcPartBenchmark:
             .orc(output_prefix, mode="overwrite", compression="zlib")
         )
 
+    def merge_snapshot_fast(self):
+        configuration = self._configuration
+
+        snapshot_location = "s3://{bucket}/{prefix}".format(
+            bucket=configuration.configuration_file.s3_published_bucket,
+            prefix="corporate_data_ingestion/calculation_parts/snapshot/"
+        )
+        daily_prefix = "s3://{bucket}/{prefix}".format(
+            bucket=configuration.configuration_file.s3_published_bucket,
+            prefix="corporate_data_ingestion/calculation_parts/combined_daily_data_october_to_march/"
+        )
+        output_prefix = "s3://{bucket}/{prefix}".format(
+            bucket=configuration.configuration_file.s3_published_bucket,
+            prefix="corporate_data_ingestion/calculation_parts/full_merge_2/"
+        )
+
+        snapshot_schema = StructType([
+            StructField("id_key", StringType(), nullable=False),
+            StructField("dbType", StringType(), nullable=False),
+            StructField("json", StringType(), nullable=False),
+            StructField("id_part", StringType(), nullable=False),
+        ])
+
+        daily_schema = StructType([
+            StructField("id_key", StringType(), nullable=False),
+            StructField("dbType", StringType(), nullable=False),
+            StructField("json", StringType(), nullable=False),
+            StructField("row_number", IntegerType(), nullable=False),
+            StructField("id_part", StringType(), nullable=False),
+        ])
+
+        snapshot_df = (
+            self._spark_session.read.schema(snapshot_schema).orc(snapshot_location)
+            .select("id_key", "id_part", "dbType", "json")
+        )
+
+        deduped_daily_df = (
+            self._spark_session.read.schema(daily_schema).orc(daily_prefix)
+            .select("id_key", "id_part", "dbType", "json")
+        )
+
+        window_spec = Window.partitionBy("id_part", "id_key").orderBy("dbType")
+        combined_df = (
+            snapshot_df.union(deduped_daily_df)
+            .repartition("id_part")
+            .withColumn("row_number", row_number().over(window_spec))
+        )
+
+        (
+            combined_df
+            .filter(combined_df.row_number == 1)
+            .write.partitionBy("id_part")
+            .orc(output_prefix, mode="overwrite", compression="zlib")
+        )
+
     def dedup_monthly(self):
         configuration = self._configuration
         # export_date = configuration.export_date  # format "2022-10-01"
-        source_prefix = "corporate_data_ingestion/calculation_parts/combined_daily_data/"
+        source_prefix = "corporate_data_ingestion/calculation_parts/combined_daily_data_october_to_march/"
         dest_prefix = "corporate_data_ingestion/calculation_parts/combined_daily_data_dedup/"
 
         s3_source_url = "s3://{bucket}/{prefix}".format(
@@ -451,7 +506,11 @@ class CalcPartBenchmark:
             .repartition("id_part") \
             .withColumn("row_number", row_number().over(window_spec))
 
-        df.filter(df.row_number == 1).write.partitionBy("id_part").orc(s3_destination_url, mode="append", compression="zlib")
+        df.filter(df.row_number == 1).write.partitionBy("id_part").orc(
+            s3_destination_url,
+            mode="overwrite",
+            compression="zlib"
+        )
 
     def append_daily(self):
         configuration = self._configuration
@@ -516,282 +575,11 @@ class CalcPartBenchmark:
             .write.partitionBy("id_part").orc(s3_destination_url, mode="overwrite", compression="zlib")
         )
 
-    def reduce_snapshot(self):
-        hive_session = self._hive_session
-
-        create_sql_statement = f"""
-            CREATE TABLE IF NOT EXISTS dwx_audit_transition.calculation_parts_snapshot (id_key STRING, json STRING) PARTITIONED BY (dbType STRING, id_part STRING)
-            STORED AS orc TBLPROPERTIES ('orc.compress'='ZLIB')
-        """
-        hive_session.execute_sql_statement_with_interpolation(
-            sql_statement=create_sql_statement
-        )
-
-        insert_sql_statement = f"""
-            INSERT INTO dwx_audit_transition.calculation_parts_snapshot PARTITION (dbType, id_part)
-            SELECT id_key, json, dbType, id_part
-            FROM dwx_audit_transition.calculation_parts_snapshot_temporary
-            DISTRIBUTE BY id_part
-            SORT BY id_part DESC, id_key DESC;
-        """
-
-        hive_session.execute_sql_statement_with_interpolation(
-            sql_statement=insert_sql_statement
-        )
-
-    def benchmark_reconciliation(self):
-        hive_session = self._hive_session
-
-        # Create intermediate table
-        create_tables = f"""
-                    DROP TABLE IF EXISTS dwx_audit_transition.int_calc_parts_latest_unmatched;
-                    CREATE TABLE dwx_audit_transition.int_calc_parts_latest_unmatched ( id_key string, dbtype STRING, json STRING);
-                """
-        hive_session.execute_sql_statement_with_interpolation(
-            sql_statement=create_tables
-        )
-
-        # Get orphan INSERT records from full snapshot by checking against DELETE records from a batch of daily records
-        statement = f"""
-                TRUNCATE TABLE dwx_audit_transition.int_calc_parts_latest_unmatched;
-                INSERT INTO dwx_audit_transition.int_calc_parts_latest_unmatched
-                SELECT distinct i.id_key, i.dbtype, i.json
-                FROM dwx_audit_transition.calc_parts_snapshot_enriched_insert_only i
-                LEFT JOIN dwx_audit_transition.int_calc_parts_range_final d
-                ON i.id_key = d.id_key
-                AND d.id_key IS null;
-        """
-        hive_session.execute_sql_statement_with_interpolation(
-            sql_statement=statement
-        )
-
-        # Empty and repopulate calc_parts_snapshot_enriched_insert_only with orphans INSERT exclusively
-        statement = f"""
-                TRUNCATE TABLE dwx_audit_transition.calc_parts_snapshot_enriched_insert_only;
-                INSERT INTO dwx_audit_transition.calc_parts_snapshot_enriched_insert_only
-                SELECT id_key, dbtype, json
-                FROM dwx_audit_transition.int_calc_parts_latest_unmatched;
-        """
-        hive_session.execute_sql_statement_with_interpolation(
-            sql_statement=statement
-        )
-
-        # Add daily INSERT records to dwx_audit_transition.calc_parts_snapshot_enriched_insert_only
-        statement = f"""
-                INSERT INTO dwx_audit_transition.calc_parts_snapshot_enriched_insert_only
-                SELECT id_key, db_type, json
-                FROM dwx_audit_transition.int_calc_parts_range_insert;
-        """
-        hive_session.execute_sql_statement_with_interpolation(
-            sql_statement=statement
-        )
-
-        # Append daily DELETE records to snapshot DELETE records
-        statement = f"""
-                INSERT INTO dwx_audit_transition.calc_parts_snapshot_enriched_delete_only
-                SELECT id_key, db_type, json
-                FROM dwx_audit_transition.int_calc_parts_range_final;
-        """
-        hive_session.execute_sql_statement_with_interpolation(
-            sql_statement=statement
-        )
-
-    def record_daily_statistics(self, table_name, statistics_table_name, db_name):
-        """ Generate and record daily merge statistics for the table name given as parameter """
-
-        export_date = (dt.datetime.strptime(self._configuration.export_date, "%Y-%m-%d") - dt.timedelta(days=1)).strftime("%Y_%m")
-
-        record_statistics = f"""
-            INSERT INTO {db_name}.{statistics_table_name}
-            SELECT
-                FROM_UNIXTIME(UNIX_TIMESTAMP()) AS datetime,
-                '{export_date}' AS date_processed,
-                '{table_name}' AS table_name,
-                db_type,
-                MIN(last_date) AS min_date,
-                MAX(last_date) AS max_date,
-                COUNT(id_key) AS record_count
-            FROM {db_name}.{table_name} GROUP BY db_type
-        """
-        self._hive_session.execute_sql_statement_with_interpolation(sql_statement=record_statistics)
-
-    def merge_daily_import_into_monthly_tables(self):
-        """ Merge daily import into monthly tables. Both day and month values are derived from 'export_date' parameter
-        """
-        logger.info("Starting merge daily Calculation Parts ingest into monthly tables")
-        hive_session = self._hive_session
-        db_name = "dwx_audit_transition"
-
-        prefix_date = (
-                dt.datetime.strptime(self._configuration.export_date, "%Y-%m-%d") - dt.timedelta(days=1)).strftime(
-            "%Y_%m_%d")
-        collection_name = "calculator:calculationParts"  # Collection name hardcoded here because a different collection_name is used to select this ingester during testing
-
-        published_bucket = self._configuration.configuration_file.s3_published_bucket
-
-        source_prefix = path.join(
-            self._configuration.destination_s3_prefix.lstrip("/"),
-            self._configuration.export_date,
-            *collection_name.split(":"),
-        )
-
-        s3_source_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=source_prefix.lstrip("/"))
-
-        # Create external table over daily location in S3
-        external_table_name = f"external_calculation_parts_daily_{prefix_date}"
-        create_external_table = f"""CREATE EXTERNAL TABLE IF NOT EXISTS {db_name}.{external_table_name} (val STRING)
-                                    STORED AS TEXTFILE LOCATION '{s3_source_url}'"""
-
-        hive_session.execute_sql_statement_with_interpolation(sql_statement=create_external_table)
-
-        # Create monthly permanent tables
-        monthly_transaction_complete_table_name = f"calculation_parts_{prefix_date[:-3]}_transaction_complete"
-        monthly_transaction_start_table_name = f"calculation_parts_{prefix_date[:-3]}_transaction_start"
-        daily_statistics_table_name = f"calculation_parts_{prefix_date[:-3]}_statistics"
-        create_permanent_tables = f"""
-        CREATE TABLE IF NOT EXISTS {db_name}.{monthly_transaction_complete_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
-        CREATE TABLE IF NOT EXISTS {db_name}.{monthly_transaction_start_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
-        CREATE TABLE IF NOT EXISTS {db_name}.{daily_statistics_table_name} (datetime STRING, date_processed STRING, table_name STRING, db_type STRING, min_date STRING, max_date STRING, record_count STRING);
-        """
-        hive_session.execute_sql_statement_with_interpolation(sql_statement=create_permanent_tables)
-
-        # Create temporary tables
-        transaction_complete_table_name = "calculation_parts_transaction_complete"
-        transaction_start_table_name = "calculation_parts_transaction_start"
-        transaction_end_table_name = "calculation_parts_transaction_end"
-        transaction_unmatched_table_name = "calculation_parts_transaction_unmatched"
-        control_table_name = "calculation_parts_control"
-        daily_table_name = f"calculation_parts_{prefix_date}"
-
-        create_temporary_tables = f"""
-        DROP TABLE IF EXISTS {db_name}.{transaction_complete_table_name};
-        CREATE TABLE {db_name}.{transaction_complete_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
-
-        DROP TABLE IF EXISTS {db_name}.{transaction_start_table_name};
-        CREATE TABLE {db_name}.{transaction_start_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
-
-        DROP TABLE IF EXISTS {db_name}.{transaction_end_table_name};
-        CREATE TABLE {db_name}.{transaction_end_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
-
-        DROP TABLE IF EXISTS {db_name}.{transaction_unmatched_table_name};
-        CREATE TABLE {db_name}.{transaction_unmatched_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
-
-        DROP TABLE IF EXISTS {db_name}.{control_table_name};
-        CREATE TABLE {db_name}.{control_table_name} (id_key STRING, delete_count STRING, insert_count STRING, record_count STRING, last_date STRING, db_type STRING);
-
-        DROP TABLE IF EXISTS {db_name}.{daily_table_name};
-        CREATE TABLE {db_name}.{daily_table_name} (id_key STRING, id_prefix STRING, db_type STRING, last_date STRING, json STRING);
-        """
-        hive_session.execute_sql_statement_with_interpolation(sql_statement=create_temporary_tables)
-
-        # Populate daily table
-        populate_daily_table = f"""
-            INSERT INTO {db_name}.{daily_table_name}
-            SELECT
-                CONCAT(GET_JSON_OBJECT(val, '$._id.id'), '_', GET_JSON_OBJECT(val, '$._id.type')) AS id_key
-                ,SUBSTR(GET_JSON_OBJECT(val, '$._id.id'), 0, 2) AS id_prefix
-                ,CASE WHEN GET_JSON_OBJECT(val, '$._removedDateTime') IS null THEN 'INSERT' ELSE 'DELETE' END AS db_type
-                ,SUBSTR(COALESCE(GET_JSON_OBJECT(val, '$._removedDateTime.d_date'), GET_JSON_OBJECT(val, '$.createdDateTime.d_date')), 0, 10) AS last_date
-                ,null AS json
-            FROM {db_name}.{external_table_name}
-        """
-        hive_session.execute_sql_statement_with_interpolation(sql_statement=populate_daily_table)
-
-        # Populate 'control' table
-        populate_control_table = f"""
-                INSERT INTO {db_name}.{control_table_name}
-                SELECT
-                    id_key
-                    ,SUM(CASE WHEN db_type='DELETE' THEN 1 ELSE 0 END) AS delete_count
-                    ,SUM(CASE WHEN db_type='INSERT' THEN 1 ELSE 0 END) AS insert_count
-                    ,COUNT(*) AS record_count
-                    ,'' AS last_date
-                    ,'' AS db_type
-                FROM {db_name}.{daily_table_name}
-                GROUP BY id_key
-        """
-        hive_session.execute_sql_statement_with_interpolation(sql_statement=populate_control_table)
-        self.record_daily_statistics(control_table_name, daily_statistics_table_name, db_name)
-
-        # Gather completed transactions (pairs of INSERT and DELETE records)
-        populate_transaction_complete_table = f"""
-            INSERT INTO {db_name}.{transaction_complete_table_name}
-            SELECT DISTINCT s.* FROM {db_name}.{daily_table_name} s
-            INNER JOIN {db_name}.{control_table_name} c
-            ON c.id_key = s.id_key
-            WHERE s.db_type='DELETE'
-            AND c.delete_count>=1
-            AND c.insert_count>=1
-        """
-        hive_session.execute_sql_statement_with_interpolation(sql_statement=populate_transaction_complete_table)
-        self.record_daily_statistics(transaction_complete_table_name, daily_statistics_table_name, db_name)
-
-        # Gather orphan DELETE records (confirmation that a previously opened transaction is now closed)
-        populate_transaction_end_table = f"""
-            INSERT INTO {db_name}.{transaction_end_table_name}
-            SELECT DISTINCT s.* FROM {db_name}.{daily_table_name} s
-            INNER JOIN {db_name}.{control_table_name} c
-            ON c.id_key = s.id_key
-            WHERE s.db_type='DELETE'
-            AND c.delete_count>=1
-            AND c.insert_count==0
-        """
-        hive_session.execute_sql_statement_with_interpolation(sql_statement=populate_transaction_end_table)
-        self.record_daily_statistics(transaction_end_table_name, daily_statistics_table_name, db_name)
-
-        # Gather orphan INSERT records (confirmation that a record has been opened but not completed yet)
-        populate_transaction_start_table = f"""
-            INSERT INTO {db_name}.{transaction_start_table_name}
-            SELECT DISTINCT s.* FROM {db_name}.{daily_table_name} s
-            LEFT JOIN {db_name}.{control_table_name} c
-            ON c.id_key = s.id_key
-            WHERE s.db_type='INSERT'
-            AND c.delete_count==0
-            AND c.insert_count>=1
-        """
-        hive_session.execute_sql_statement_with_interpolation(sql_statement=populate_transaction_start_table)
-        self.record_daily_statistics(transaction_start_table_name, daily_statistics_table_name, db_name)
-
-        # Append to monthly completed transaction
-        append_completed_transaction = f"""
-            INSERT INTO {db_name}.{monthly_transaction_complete_table_name}
-            SELECT * FROM {db_name}.{transaction_complete_table_name};
-
-            INSERT INTO {db_name}.{monthly_transaction_complete_table_name}
-            SELECT * FROM {db_name}.{transaction_end_table_name};
-        """
-        hive_session.execute_sql_statement_with_interpolation(sql_statement=append_completed_transaction)
-        self.record_daily_statistics(monthly_transaction_complete_table_name, daily_statistics_table_name, db_name)
-
-        # Rebuild transaction_start_table filtering out the INSERT records
-        # without matching DELETE after processing of current day
-        rebuild_transaction_start_table = f"""
-            INSERT INTO {db_name}.{transaction_unmatched_table_name}
-            SELECT i.* FROM {db_name}.{monthly_transaction_start_table_name} i
-            LEFT JOIN {db_name}.{transaction_end_table_name} d
-            ON i.id_key = d.id_key
-            WHERE d.id_key IS null;
-
-            TRUNCATE TABLE {db_name}.{monthly_transaction_start_table_name};
-
-            INSERT INTO {db_name}.{monthly_transaction_start_table_name}
-            SELECT * FROM {db_name}.{transaction_unmatched_table_name};
-        """
-        hive_session.execute_sql_statement_with_interpolation(sql_statement=rebuild_transaction_start_table)
-        self.record_daily_statistics(monthly_transaction_start_table_name, daily_statistics_table_name, db_name)
-
-        # Append new INSERT records to monthly_transaction_start table
-        append_to_monthly_transaction_start = f"""
-            INSERT INTO {db_name}.{monthly_transaction_start_table_name}
-            SELECT * FROM {db_name}.{transaction_start_table_name};
-        """
-        hive_session.execute_sql_statement_with_interpolation(sql_statement=append_to_monthly_transaction_start)
-        self.record_daily_statistics(monthly_transaction_start_table_name, daily_statistics_table_name, db_name)
-
 
 class CalculationPartsDeduplicate(CalcPartBenchmark):
     def run(self):
         self.dedup_monthly()
+        self.merge_snapshot_dedupe()
 
 
 class CalculationPartsAppend(CalcPartBenchmark):
@@ -801,4 +589,4 @@ class CalculationPartsAppend(CalcPartBenchmark):
 
 class CalculationPartsMergeSnapshot(CalcPartBenchmark):
     def run(self):
-        self.merge_snapshot()
+        self.merge_snapshot_fast()
