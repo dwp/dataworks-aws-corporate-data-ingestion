@@ -157,7 +157,6 @@ def main():
         ingesters = {
             "data:businessAudit": BusinessAuditIngester,
             "calculator:calculationParts": CalculationPartsIngester,
-            # "calculator:calculationPartsBenchmark": CalcPartBenchmark,
             "calculator:calculationPartsDeduplicate": CalculationPartsDeduplicate,
             "calculator:calculationPartsAppend": CalculationPartsAppend,
             "calculator:CalculationPartsMergeSnapshot": CalculationPartsMergeSnapshot,
