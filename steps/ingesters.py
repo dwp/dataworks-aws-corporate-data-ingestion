@@ -365,6 +365,10 @@ class CalcPartBenchmark:
 
     def merge_snapshot_dedupe(self):
         configuration = self._configuration
+        self.empty_s3_prefix(
+            published_bucket=configuration.configuration_file.s3_published_bucket,
+            prefix="corporate_data_ingestion/calculation_parts/full_merge_1/"
+        )
 
         snapshot_location = "s3://{bucket}/{prefix}".format(
             bucket=configuration.configuration_file.s3_published_bucket,
@@ -407,62 +411,7 @@ class CalcPartBenchmark:
         window_spec = Window.partitionBy("id_part", "id_key").orderBy("dbType")
         combined_df = (
             snapshot_df.union(deduped_daily_df)
-            .repartition("id_part")
-            .withColumn("row_number", row_number().over(window_spec))
-        )
-
-        (
-            combined_df
-            .filter(combined_df.row_number == 1)
-            .write.partitionBy("id_part")
-            .orc(output_prefix, mode="overwrite", compression="zlib")
-        )
-
-    def merge_snapshot_fast(self):
-        configuration = self._configuration
-
-        snapshot_location = "s3://{bucket}/{prefix}".format(
-            bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/snapshot/"
-        )
-        daily_prefix = "s3://{bucket}/{prefix}".format(
-            bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/combined_daily_data_october_to_march/"
-        )
-        output_prefix = "s3://{bucket}/{prefix}".format(
-            bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/full_merge_2/"
-        )
-
-        snapshot_schema = StructType([
-            StructField("id_key", StringType(), nullable=False),
-            StructField("dbType", StringType(), nullable=False),
-            StructField("json", StringType(), nullable=False),
-            StructField("id_part", StringType(), nullable=False),
-        ])
-
-        daily_schema = StructType([
-            StructField("id_key", StringType(), nullable=False),
-            StructField("dbType", StringType(), nullable=False),
-            StructField("json", StringType(), nullable=False),
-            StructField("row_number", IntegerType(), nullable=False),
-            StructField("id_part", StringType(), nullable=False),
-        ])
-
-        snapshot_df = (
-            self._spark_session.read.schema(snapshot_schema).orc(snapshot_location)
-            .select("id_key", "id_part", "dbType", "json")
-        )
-
-        deduped_daily_df = (
-            self._spark_session.read.schema(daily_schema).orc(daily_prefix)
-            .select("id_key", "id_part", "dbType", "json")
-        )
-
-        window_spec = Window.partitionBy("id_part", "id_key").orderBy("dbType")
-        combined_df = (
-            snapshot_df.union(deduped_daily_df)
-            .repartition("id_part")
+            .repartitionByRange(512, "id_part", "id_key")
             .withColumn("row_number", row_number().over(window_spec))
         )
 
@@ -579,7 +528,6 @@ class CalcPartBenchmark:
 class CalculationPartsDeduplicate(CalcPartBenchmark):
     def run(self):
         self.dedup_monthly()
-        self.merge_snapshot_dedupe()
 
 
 class CalculationPartsAppend(CalcPartBenchmark):
@@ -589,4 +537,4 @@ class CalculationPartsAppend(CalcPartBenchmark):
 
 class CalculationPartsMergeSnapshot(CalcPartBenchmark):
     def run(self):
-        self.merge_snapshot_fast()
+        self.merge_snapshot_dedupe()
