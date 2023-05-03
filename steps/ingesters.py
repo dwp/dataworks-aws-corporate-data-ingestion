@@ -411,7 +411,7 @@ class CalcPartBenchmark:
         window_spec = Window.partitionBy("id_part", "id_key").orderBy("dbType")
         combined_df = (
             snapshot_df.union(deduped_daily_df)
-            .repartitionByRange(2048, "id_part", "id_key")
+            .repartitionByRange(4096, "id_part", "id_key")
             .withColumn("row_number", row_number().over(window_spec))
         )
 
