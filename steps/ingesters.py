@@ -367,7 +367,7 @@ class CalcPartBenchmark:
         configuration = self._configuration
         self.empty_s3_prefix(
             published_bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/full_merge_1/"
+            prefix="corporate_data_ingestion/calculation_parts/full_merge_2/"
         )
 
         snapshot_location = "s3://{bucket}/{prefix}".format(
@@ -380,7 +380,7 @@ class CalcPartBenchmark:
         )
         output_prefix = "s3://{bucket}/{prefix}".format(
             bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/full_merge_1/"
+            prefix="corporate_data_ingestion/calculation_parts/full_merge_2/"
         )
 
         snapshot_schema = StructType([
@@ -411,7 +411,7 @@ class CalcPartBenchmark:
         window_spec = Window.partitionBy("id_part", "id_key").orderBy("dbType")
         combined_df = (
             snapshot_df.union(deduped_daily_df)
-            .repartitionByRange(512, "id_part", "id_key")
+            .repartitionByRange(2048, "id_part", "id_key")
             .withColumn("row_number", row_number().over(window_spec))
         )
 
