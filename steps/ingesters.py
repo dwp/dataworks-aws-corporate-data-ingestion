@@ -527,6 +527,11 @@ class CalcPartBenchmark:
     def publish_calculation_parts_textfile(self):
         configuration = self._configuration
 
+        self.empty_s3_prefix(
+            published_bucket=configuration.configuration_file,
+            prefix="corporate_data_ingestion/calculation_parts/230417/"
+        )
+
         logger.info("starting pyspark processing")
         s3_source_url = "s3://{bucket}/{prefix}".format(
             bucket=configuration.configuration_file.s3_published_bucket,
