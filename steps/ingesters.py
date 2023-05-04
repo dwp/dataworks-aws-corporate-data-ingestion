@@ -527,6 +527,11 @@ class CalcPartBenchmark:
     def publish_calculation_parts_textfile(self):
         configuration = self._configuration
 
+        self.empty_s3_prefix(
+            published_bucket=configuration.configuration_file,
+            prefix="corporate_data_ingestion/calculation_parts/230417/"
+        )
+
         logger.info("starting pyspark processing")
         s3_source_url = "s3://{bucket}/{prefix}".format(
             bucket=configuration.configuration_file.s3_published_bucket,
@@ -535,7 +540,7 @@ class CalcPartBenchmark:
 
         s3_destination_url = "s3://{bucket}/{prefix}".format(
             bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/230417/"
+            prefix="corporate_data_ingestion/calculation_parts/230417/calculator/calculationParts"
         )
         schema = StructType([
             StructField("id_key", StringType(), nullable=False),
@@ -546,7 +551,10 @@ class CalcPartBenchmark:
         ])
 
         df = self._spark_session.read.schema(schema).orc(s3_source_url)
-        df.rdd.map(lambda x: x["json"]).repartition(4096).saveAsTextFile(s3_destination_url)
+        df.rdd.map(lambda x: x["json"]).repartition(8192).saveAsTextFile(
+            s3_destination_url,
+            compressionCodecClass="com.hadoop.compression.lzo.LzopCodec"
+        )
 
 
 class CalculationPartsDeduplicate(CalcPartBenchmark):
