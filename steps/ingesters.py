@@ -528,7 +528,7 @@ class CalcPartBenchmark:
         configuration = self._configuration
 
         self.empty_s3_prefix(
-            published_bucket=configuration.configuration_file,
+            published_bucket=configuration.configuration_file.s3_published_bucket,
             prefix="corporate_data_ingestion/calculation_parts/230417/"
         )
 
