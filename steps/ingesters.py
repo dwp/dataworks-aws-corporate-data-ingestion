@@ -524,6 +524,30 @@ class CalcPartBenchmark:
             .write.partitionBy("id_part").orc(s3_destination_url, mode="overwrite", compression="zlib")
         )
 
+    def publish_calculation_parts_textfile(self):
+        configuration = self._configuration
+
+        logger.info("starting pyspark processing")
+        s3_source_url = "s3://{bucket}/{prefix}".format(
+            bucket=configuration.configuration_file.s3_published_bucket,
+            prefix="corporate_data_ingestion/calculation_parts/full_merge_2/"
+        )
+
+        s3_destination_url = "s3://{bucket}/{prefix}".format(
+            bucket=configuration.configuration_file.s3_published_bucket,
+            prefix="corporate_data_ingestion/calculation_parts/230417/"
+        )
+        schema = StructType([
+            StructField("id_key", StringType(), nullable=False),
+            StructField("dbType", StringType(), nullable=False),
+            StructField("json", StringType(), nullable=False),
+            StructField("row_number", IntegerType(), nullable=False),
+            StructField("id_part", StringType(), nullable=False),
+        ])
+
+        df = self._spark_session.read.schema(schema).orc(s3_source_url)
+        df.rdd.map(lambda x: x["json"]).repartition(4096).saveAsTextFile(s3_destination_url)
+
 
 class CalculationPartsDeduplicate(CalcPartBenchmark):
     def run(self):
@@ -538,3 +562,8 @@ class CalculationPartsAppend(CalcPartBenchmark):
 class CalculationPartsMergeSnapshot(CalcPartBenchmark):
     def run(self):
         self.merge_snapshot_dedupe()
+
+
+class CalculationPartsPublish(CalcPartBenchmark):
+    def run(self):
+        self.publish_calculation_parts_textfile()

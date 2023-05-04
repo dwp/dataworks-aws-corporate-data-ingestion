@@ -15,7 +15,7 @@ from pyspark.sql import SparkSession
 from data import ConfigurationFile, Configuration
 from dynamodb import DynamoDBHelper
 from hive import HiveService
-from ingesters import BaseIngester, BusinessAuditIngester, CalculationPartsIngester, CalcPartBenchmark, \
+from ingesters import BaseIngester, BusinessAuditIngester, CalculationPartsIngester, CalculationPartsPublish, \
     CalculationPartsDeduplicate, CalculationPartsAppend, CalculationPartsMergeSnapshot
 from logger import setup_logging
 
@@ -160,6 +160,7 @@ def main():
             "calculator:calculationPartsDeduplicate": CalculationPartsDeduplicate,
             "calculator:calculationPartsAppend": CalculationPartsAppend,
             "calculator:CalculationPartsMergeSnapshot": CalculationPartsMergeSnapshot,
+            "calculator:CalculationPartsPublish": CalculationPartsPublish,
         }
 
         with ThreadPoolExecutor(max_workers=configuration.concurrency) as executor:
