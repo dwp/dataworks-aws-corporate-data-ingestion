@@ -540,7 +540,7 @@ class CalcPartBenchmark:
 
         s3_destination_url = "s3://{bucket}/{prefix}".format(
             bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/230417/"
+            prefix="corporate_data_ingestion/calculation_parts/230417/calculator/calculationParts"
         )
         schema = StructType([
             StructField("id_key", StringType(), nullable=False),
