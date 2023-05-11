@@ -36,6 +36,10 @@ resource "aws_s3_object" "download_scripts_sh" {
         for python_util_file in aws_s3_object.python_utils :
         format("s3://%s/%s", data.terraform_remote_state.common.outputs.config_bucket.id, python_util_file.key)
       ]
+      calculation_parts_sql_files = [
+        for sql_file in data.aws_s3_object.calculation_parts_sql :
+        format("s3://%s/%s", data.terraform_remote_state.common.outputs.config_bucket.id, sql_file.key)
+      ]
   })
   tags = {
     Name = "download_scripts_sh"
