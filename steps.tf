@@ -42,3 +42,19 @@ resource "aws_s3_object" "snapshot_updater_file" {
     }
   )
 }
+
+data "aws_s3_object" "calculation_parts_sql" {
+  for_each = {
+    "child_calculation_build" : "component/uc_repos/aws-uc-lab/child_calculation/build/child_calculation.sql",
+    "child_calculation_views" : "component/uc_repos/aws-uc-lab/child_calculation/views/child_calculation_views.sql",
+    "housing_calculator_build" : "component/uc_repos/aws-uc-lab/housing_calculator/build/housing_calculator.sql",
+    "housing_calculator_views" : "component/uc_repos/aws-uc-lab/housing_calculator/views/housing_calculator_views.sql",
+  }
+  bucket = data.terraform_remote_state.common.outputs.config_bucket.id
+  key    = each.value
+
+  tags = {
+    Name : each.key
+  }
+}
+
