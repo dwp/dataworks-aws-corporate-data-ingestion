@@ -540,7 +540,7 @@ class CalcPartBenchmark:
 
         s3_destination_url = "s3://{bucket}/{prefix}".format(
             bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/230417/"
+            prefix="corporate_data_ingestion/calculation_parts/230417/attempt_1/"
         )
         schema = StructType([
             StructField("id_key", StringType(), nullable=False),
@@ -551,21 +551,15 @@ class CalcPartBenchmark:
         ])
 
         df = self._spark_session.read.schema(schema).orc(s3_source_url)
-        (
-            df
-            .repartitionByRange(40000, "id_part", "id_key")
-            .rdd
-            .map(lambda x: x["json"])
-            .saveAsTextFile(
-                s3_destination_url,
-                compressionCodecClass="com.hadoop.compression.lzo.LzopCodec"
-            )
+        df.rdd.map(lambda x: x["json"]).repartition(8192).saveAsTextFile(
+            s3_destination_url,
+            compressionCodecClass="com.hadoop.compression.lzo.LzopCodec"
         )
 
     def publish_calculation_parts_sql(self):
         snapshot_location = "s3://{bucket}/{prefix}".format(
             bucket=self._configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/230417/",
+            prefix="corporate_data_ingestion/calculation_parts/230417/attempt_1/",
         )
         sql_root = "/opt/emr/calculation_parts_sql/"
         hive_vars = {
