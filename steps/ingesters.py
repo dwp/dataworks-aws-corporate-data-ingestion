@@ -551,7 +551,7 @@ class CalcPartBenchmark:
         ])
 
         df = self._spark_session.read.schema(schema).orc(s3_source_url)
-        df.select("json").rdd.repartition(55000).saveAsTextFile(
+        df.rdd.map(lambda x: x["json"]).repartition(55000).saveAsTextFile(
             s3_destination_url,
             compressionCodecClass="com.hadoop.compression.lzo.LzopCodec"
         )
