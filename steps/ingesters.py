@@ -551,9 +551,15 @@ class CalcPartBenchmark:
         ])
 
         df = self._spark_session.read.schema(schema).orc(s3_source_url)
-        df.rdd.map(lambda x: x["json"]).repartition(55000).saveAsTextFile(
-            s3_destination_url,
-            compressionCodecClass="com.hadoop.compression.lzo.LzopCodec"
+        (
+            df
+            .repartitionByRange(40000, "id_part", "id_key")
+            .rdd
+            .map(lambda x: x["json"])
+            .saveAsTextFile(
+                s3_destination_url,
+                compressionCodecClass="com.hadoop.compression.lzo.LzopCodec"
+            )
         )
 
     def publish_calculation_parts_sql(self):
