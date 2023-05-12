@@ -7,7 +7,7 @@ import datetime as dt
 
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 from pyspark.sql.window import Window
-from pyspark.sql.functions import row_number
+from pyspark.sql.functions import row_number, from_json, col
 
 from data import UCMessage, Configuration
 from utils import Utils
@@ -556,30 +556,28 @@ class CalcPartBenchmark:
             compressionCodecClass="com.hadoop.compression.lzo.LzopCodec"
         )
 
-    def publish_calculation_parts_sql(self):
+    def publish_calculation_parts_to_table(self):
         snapshot_location = "s3://{bucket}/{prefix}".format(
             bucket=self._configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/230417/attempt_1/",
+            prefix="corporate_data_ingestion/calculation_parts/full_merge_2/",
         )
-        sql_root = "/opt/emr/calculation_parts_sql/"
-        hive_vars = {
-            "${hivevar:HDFS_DIR}/calculator/calculationParts": snapshot_location,
-            "${hivevar:stage_dbout}": "uc_lab_staging",
-            "${hivevar:dbout}": "uc_lab",
-            "${hivevar:serde}": "org.openx.data.jsonserde.JsonSerDe",
-        }
 
-        for sql_filename in [
-            "child_calculation.sql",
-            "child_calculation_views.sql",
-            "housing_calculator.sql",
-            "housing_calculator_views.sql",
-        ]:
-            file_path = path.join(sql_root, sql_filename)
-            self._hive_session.execute_sql_statement_with_interpolation(
-                file=file_path,
-                interpolation_dict=hive_vars
-            )
+        logger.info("starting pyspark processing")
+
+        schema = StructType([
+            StructField("id_key", StringType(), nullable=False),
+            StructField("dbType", StringType(), nullable=False),
+            StructField("json", StringType(), nullable=False),
+            StructField("row_number", IntegerType(), nullable=False),
+            StructField("id_part", StringType(), nullable=False),
+        ])
+
+        json_schema = self._spark_session.table("dwx_audit_transition.test_publish_calc_parts").schema
+
+        df = self._spark_session.read.schema(schema).orc(snapshot_location)
+        (
+            df.select(from_json("json", json_schema).alias("json")).select("json.*").write.saveAsTable("dwx_audit_transition.temp_src_calculator_parts")
+        )
 
 
 class CalculationPartsDeduplicate(CalcPartBenchmark):
@@ -599,5 +597,4 @@ class CalculationPartsMergeSnapshot(CalcPartBenchmark):
 
 class CalculationPartsPublish(CalcPartBenchmark):
     def run(self):
-        self.publish_calculation_parts_textfile()
-        self.publish_calculation_parts_sql()
+        self.publish_calculation_parts_to_table()
