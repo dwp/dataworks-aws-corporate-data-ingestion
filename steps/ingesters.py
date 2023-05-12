@@ -540,7 +540,7 @@ class CalcPartBenchmark:
 
         s3_destination_url = "s3://{bucket}/{prefix}".format(
             bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/230417/calculator/calculationParts"
+            prefix="corporate_data_ingestion/calculation_parts/230417/"
         )
         schema = StructType([
             StructField("id_key", StringType(), nullable=False),
@@ -551,15 +551,15 @@ class CalcPartBenchmark:
         ])
 
         df = self._spark_session.read.schema(schema).orc(s3_source_url)
-        df.rdd.map(lambda x: x["json"]).repartition(8192).saveAsTextFile(
+        df.select("json").rdd.repartition(55000).saveAsTextFile(
             s3_destination_url,
             compressionCodecClass="com.hadoop.compression.lzo.LzopCodec"
         )
 
-    def public_calculation_parts_sql(self):
+    def publish_calculation_parts_sql(self):
         snapshot_location = "s3://{bucket}/{prefix}".format(
             bucket=self._configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/230417/calculator/calculationParts/",
+            prefix="corporate_data_ingestion/calculation_parts/230417/",
         )
         sql_root = "/opt/emr/calculation_parts_sql/"
         hive_vars = {
@@ -582,7 +582,6 @@ class CalcPartBenchmark:
             )
 
 
-
 class CalculationPartsDeduplicate(CalcPartBenchmark):
     def run(self):
         self.dedup_monthly()
@@ -600,4 +599,5 @@ class CalculationPartsMergeSnapshot(CalcPartBenchmark):
 
 class CalculationPartsPublish(CalcPartBenchmark):
     def run(self):
-        self.public_calculation_parts_sql()
+        self.publish_calculation_parts_textfile()
+        self.publish_calculation_parts_sql()
