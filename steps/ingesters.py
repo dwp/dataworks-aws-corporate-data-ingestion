@@ -579,7 +579,7 @@ class CalcPartBenchmark:
             df
             .select(from_json("json", json_schema).alias("json"))
             .select("json.*").coalesce(4000)
-            .write.mode("overwrite").saveAsTable("dwx_audit_transition.temp_src_calculator_parts")
+            .write.mode("overwrite").saveAsTable("dwx_audit_transition.temp_src_calculator_parts_2")
         )
 
 
