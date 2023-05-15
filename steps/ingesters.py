@@ -576,7 +576,10 @@ class CalcPartBenchmark:
 
         df = self._spark_session.read.schema(schema).orc(snapshot_location)
         (
-            df.select(from_json("json", json_schema).alias("json")).select("json.*").write.saveAsTable("dwx_audit_transition.temp_src_calculator_parts")
+            df
+            .select(from_json("json", json_schema).alias("json"))
+            .select("json.*")
+            .write.mode("overwrite").saveAsTable("dwx_audit_transition.temp_src_calculator_parts")
         )
 
 
