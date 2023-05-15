@@ -580,7 +580,7 @@ class CalcPartBenchmark:
             .repartitionByRange(8192, "id_part", "id_key")
             .select(from_json("json", json_schema).alias("json"), "id_part", "id_key")
             .repartitionByRange(1024, "id_part", "id_key").select("json.*")
-            .write.mode("overwrite").saveAsTable("dwx_audit_transition.temp_src_calculator_parts_2")
+            .write.mode("overwrite").saveAsTable("dwx_audit_transition.temp_src_calculator_parts_3")
         )
 
 
