@@ -15,8 +15,10 @@ from pyspark.sql import SparkSession
 from data import ConfigurationFile, Configuration
 from dynamodb import DynamoDBHelper
 from hive import HiveService
-from ingesters import BaseIngester, BusinessAuditIngester, CalculationPartsIngester, CalculationPartsPublish, \
-    CalculationPartsDeduplicate, CalculationPartsAppend, CalculationPartsMergeSnapshot
+from ingesters import BaseIngester, BusinessAuditIngester, CalculationPartsIngester, \
+    CalculationPartsDeduplicate, CalculationPartsAppend, CalculationPartsMergeSnapshot, \
+    CalculationPartsPublishCalculatorParts, CalculationPartsPublishHousingCalculator, \
+    CalculationPartsPublishChildcareEntitlement
 from logger import setup_logging
 
 DEFAULT_AWS_REGION = "eu-west-2"
@@ -160,7 +162,9 @@ def main():
             "calculator:calculationPartsDeduplicate": CalculationPartsDeduplicate,
             "calculator:calculationPartsAppend": CalculationPartsAppend,
             "calculator:CalculationPartsMergeSnapshot": CalculationPartsMergeSnapshot,
-            "calculator:CalculationPartsPublish": CalculationPartsPublish,
+            "calculator:PublishCalculatorParts": CalculationPartsPublishCalculatorParts,
+            "calculator:PublishHousingCalculator": CalculationPartsPublishHousingCalculator,
+            "calculator:PublishChildcareEntitlement": CalculationPartsPublishChildcareEntitlement,
         }
 
         with ThreadPoolExecutor(max_workers=configuration.concurrency) as executor:
