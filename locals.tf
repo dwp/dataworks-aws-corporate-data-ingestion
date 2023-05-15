@@ -191,11 +191,11 @@ locals {
 
   # 5 cores per executor is "usually sensible"
   spark_executor_cores = {
-    development = 4
-    qa          = 4
-    integration = 4
-    preprod     = 4
-    production  = 4
+    development = 5
+    qa          = 5
+    integration = 5
+    preprod     = 5
+    production  = 5
   }
 
   # Memory per executor = available memory / num executors
