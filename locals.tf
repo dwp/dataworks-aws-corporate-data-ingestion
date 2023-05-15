@@ -233,11 +233,11 @@ locals {
   }
 
   spark_task_cpus = {
-    development = 2
-    qa          = 2
-    integration = 2
-    preprod     = local.spark_executor_cores.preprod / 2
-    production  = local.spark_executor_cores.production / 2
+    development = 1
+    qa          = 1
+    integration = 1
+    preprod     = 1
+    production  = 1
   }
 
   spark_kyro_buffer = {
