@@ -556,7 +556,7 @@ class CalcPartBenchmark:
             compressionCodecClass="com.hadoop.compression.lzo.LzopCodec"
         )
 
-    def publish_calculation_parts_to_table(self):
+    def publish_calculation_parts_to_table(self, table):
         snapshot_location = "s3://{bucket}/{prefix}".format(
             bucket=self._configuration.configuration_file.s3_published_bucket,
             prefix="corporate_data_ingestion/calculation_parts/full_merge_2/",
@@ -572,17 +572,15 @@ class CalcPartBenchmark:
             StructField("id_part", StringType(), nullable=False),
         ])
 
-        for table in ["temp_src_calculator_parts", "src_calculator_calculationparts_housing_calculation",
-                      "temp_src_childcare_entitlement"]:
-            json_schema = self._spark_session.table(f"dwx_audit_transition.{table}").schema
+        json_schema = self._spark_session.table(f"dwx_audit_transition.{table}").schema
 
-            df = self._spark_session.read.schema(schema).orc(snapshot_location)
-            (
-                df
-                    .select(from_json("json", json_schema).alias("json"), "id_part", "id_key")
-                    .repartitionByRange(1024, "id_part", "id_key").select("json.*")
-                    .write.mode("overwrite").saveAsTable(f"dwx_audit_transition.{table}")
-            )
+        df = self._spark_session.read.schema(schema).orc(snapshot_location)
+        (
+            df
+                .select(from_json("json", json_schema).alias("json"), "id_part", "id_key")
+                .repartitionByRange(1024, "id_part", "id_key").select("json.*")
+                .write.mode("overwrite").saveAsTable(f"dwx_audit_transition.{table}")
+        )
 
 
 class CalculationPartsDeduplicate(CalcPartBenchmark):
@@ -600,6 +598,16 @@ class CalculationPartsMergeSnapshot(CalcPartBenchmark):
         self.merge_snapshot_dedupe()
 
 
-class CalculationPartsPublish(CalcPartBenchmark):
+class CalculationPartsPublishCalculatorParts(CalcPartBenchmark):
     def run(self):
-        self.publish_calculation_parts_to_table()
+        self.publish_calculation_parts_to_table(table="temp_src_calculator_parts")
+
+
+class CalculationPartsPublishHousingCalculator(CalcPartBenchmark):
+    def run(self):
+        self.publish_calculation_parts_to_table(table="src_calculator_calculationparts_housing_calculation")
+
+
+class CalculationPartsPublishChildcareEntitlement(CalcPartBenchmark):
+    def run(self):
+        self.publish_calculation_parts_to_table(table="temp_src_childcare_entitlement")
