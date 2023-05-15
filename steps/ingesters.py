@@ -577,9 +577,10 @@ class CalcPartBenchmark:
         df = self._spark_session.read.schema(schema).orc(snapshot_location)
         (
             df
-            .select(from_json("json", json_schema).alias("json"))
-            .select("json.*").coalesce(4000)
-            .write.mode("overwrite").saveAsTable("dwx_audit_transition.temp_src_calculator_parts_2")
+            .repartitionByRange(8192, "id_part", "id_key")
+            .select(from_json("json", json_schema).alias("json"), "id_part", "id_key")
+            .repartitionByRange(1024, "id_part", "id_key").select("json.*")
+            .write.mode("overwrite").saveAsTable("dwx_audit_transition.temp_src_calculator_parts_3")
         )
 
 
