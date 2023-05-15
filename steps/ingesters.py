@@ -572,16 +572,17 @@ class CalcPartBenchmark:
             StructField("id_part", StringType(), nullable=False),
         ])
 
-        json_schema = self._spark_session.table("dwx_audit_transition.test_publish_calc_parts").schema
+        for table in ["temp_src_calculator_parts", "src_calculator_calculationparts_housing_calculation",
+                      "temp_src_childcare_entitlement"]:
+            json_schema = self._spark_session.table(f"dwx_audit_transition.{table}").schema
 
-        df = self._spark_session.read.schema(schema).orc(snapshot_location)
-        (
-            df
-            .repartitionByRange(8192, "id_part", "id_key")
-            .select(from_json("json", json_schema).alias("json"), "id_part", "id_key")
-            .repartitionByRange(1024, "id_part", "id_key").select("json.*")
-            .write.mode("overwrite").saveAsTable("dwx_audit_transition.temp_src_calculator_parts_3")
-        )
+            df = self._spark_session.read.schema(schema).orc(snapshot_location)
+            (
+                df
+                    .select(from_json("json", json_schema).alias("json"), "id_part", "id_key")
+                    .repartitionByRange(1024, "id_part", "id_key").select("json.*")
+                    .write.mode("overwrite").saveAsTable(f"dwx_audit_transition.{table}")
+            )
 
 
 class CalculationPartsDeduplicate(CalcPartBenchmark):
