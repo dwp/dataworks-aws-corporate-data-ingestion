@@ -4,14 +4,14 @@
 sudo mkdir -p /var/log/dataworks-aws-corporate-data-ingestion
 sudo mkdir -p /opt/emr/steps
 sudo mkdir -p /opt/emr/audit_sql
-sudo mkdir -p /opt/emr/calculation_parts_sql
+sudo mkdir -p /opt/emr/calculation_parts_ddl
 sudo mkdir -p /opt/shared
 sudo mkdir -p /var/ci
 sudo chown hadoop:hadoop /var/log/dataworks-aws-corporate-data-ingestion
 sudo chown hadoop:hadoop /opt/emr
 sudo chown hadoop:hadoop /opt/emr/steps
 sudo chown hadoop:hadoop /opt/emr/audit_sql
-sudo chown hadoop:hadoop /opt/emr/calculation_parts_sql
+sudo chown hadoop:hadoop /opt/emr/calculation_parts_ddl
 sudo chown hadoop:hadoop /opt/shared
 sudo chown hadoop:hadoop /var/ci
 export LOG_LEVEL="${dataworks_aws_corporate_data_ingestion_log_level}"
@@ -56,8 +56,8 @@ chmod u+x /opt/emr/logging.sh
     aws s3 cp --recursive "${scripts_location}/audit_sql/" /opt/emr/audit_sql/
 
     log_wrapper_message "Downloading calculationParts sql files"
-%{ for sql_key in calculation_parts_sql_files ~}
-    aws s3 cp "${sql_key}" /opt/emr/calculation_parts_sql/
+%{ for ddl_key in calculation_parts_ddl_files ~}
+    aws s3 cp "${ddl_key}" /opt/emr/calculation_parts_ddl/
 %{ endfor ~}
 
     log_wrapper_message "Downloading snapshot updater files"

@@ -43,12 +43,11 @@ resource "aws_s3_object" "snapshot_updater_file" {
   )
 }
 
-data "aws_s3_object" "calculation_parts_sql" {
+data "aws_s3_object" "calculation_parts_ddl" {
   for_each = {
-    "child_calculation_build" : "component/uc_repos/aws-uc-lab/child_calculation/build/child_calculation.sql",
-    "child_calculation_views" : "component/uc_repos/aws-uc-lab/child_calculation/views/child_calculation_views.sql",
-    "housing_calculator_build" : "component/uc_repos/aws-uc-lab/housing_calculator/build/housing_calculator.sql",
-    "housing_calculator_views" : "component/uc_repos/aws-uc-lab/housing_calculator/views/housing_calculator_views.sql",
+    "src_calculator_parts" : "component/uc_repos/aws-uc-lab/child_calculation/build/src_calculator_parts_ddl",
+    "src_childcare_entitlement" : "component/uc_repos/aws-uc-lab/child_calculation/build/src_childcare_entitlement_ddl",
+    "src_calculator_calculationparts_housing_calculation" : "component/uc_repos/aws-uc-lab/housing_calculator/build/src_calculator_calculationparts_housing_calculation_ddl",
   }
   bucket = data.terraform_remote_state.common.outputs.config_bucket.id
   key    = each.value
