@@ -41,6 +41,7 @@ def get_spark_session() -> SparkSession:
         .config("spark.hadoop.mapreduce.fileoutputcommitter.algorithm.version", "2")
         .config("spark.hadoop.hive.exec.dynamic.partition", "true")
         .config("spark.hadoop.hive.exec.dynamic.partition.mode", "nonstrict")
+        .config("spark.sql.orc.impl", "hive")
         .appName("corporate-data-ingestion-spike")
         .enableHiveSupport()
         .getOrCreate()
