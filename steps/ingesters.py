@@ -355,9 +355,10 @@ class CalcPartBenchmark:
         self.destination_prefix = None
 
     @staticmethod
-    def empty_s3_prefix(published_bucket, prefix) -> None:
+    def empty_s3_prefix(bucket, prefix) -> None:
+        logger.warning(f"EMPTYING S3 PREFIX (bucket ending {bucket[-3:]}: {prefix} ")
         s3_resource = boto3.resource("s3")
-        bucket = s3_resource.Bucket(published_bucket)
+        bucket = s3_resource.Bucket(bucket)
         bucket.objects.filter(Prefix=prefix).delete()
 
     def read_dir(self, file_path):
@@ -365,32 +366,26 @@ class CalcPartBenchmark:
 
     def merge_snapshot_dedupe(self):
         configuration = self._configuration
+        output_prefix = "corporate_data_ingestion/calculation_parts/full_merge_3/"
         self.empty_s3_prefix(
-            published_bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/full_merge_2/"
+            bucket=configuration.configuration_file.s3_published_bucket,
+            prefix=output_prefix
         )
 
         snapshot_location = "s3://{bucket}/{prefix}".format(
             bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/snapshot/"
+            prefix="corporate_data_ingestion/calculation_parts/full_merge_2/"
         )
         daily_deduped_prefix = "s3://{bucket}/{prefix}".format(
             bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/combined_daily_data_dedup/"
+            prefix="corporate_data_ingestion/calculation_parts/combined_daily_data_april_dedup/"
         )
-        output_prefix = "s3://{bucket}/{prefix}".format(
+        output_location = "s3://{bucket}/{prefix}".format(
             bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/full_merge_2/"
+            prefix=output_prefix
         )
 
-        snapshot_schema = StructType([
-            StructField("id_key", StringType(), nullable=False),
-            StructField("dbType", StringType(), nullable=False),
-            StructField("json", StringType(), nullable=False),
-            StructField("id_part", StringType(), nullable=False),
-        ])
-
-        daily_schema = StructType([
+        schema = StructType([
             StructField("id_key", StringType(), nullable=False),
             StructField("dbType", StringType(), nullable=False),
             StructField("json", StringType(), nullable=False),
@@ -399,12 +394,12 @@ class CalcPartBenchmark:
         ])
 
         snapshot_df = (
-            self._spark_session.read.schema(snapshot_schema).orc(snapshot_location)
+            self._spark_session.read.schema(schema).orc(snapshot_location)
             .select("id_key", "id_part", "dbType", "json")
         )
 
         deduped_daily_df = (
-            self._spark_session.read.schema(daily_schema).orc(daily_deduped_prefix)
+            self._spark_session.read.schema(schema).orc(daily_deduped_prefix)
             .select("id_key", "id_part", "dbType", "json")
         )
 
@@ -419,14 +414,13 @@ class CalcPartBenchmark:
             combined_df
             .filter(combined_df.row_number == 1)
             .write.partitionBy("id_part")
-            .orc(output_prefix, mode="overwrite", compression="zlib")
+            .orc(output_location, mode="overwrite", compression="zlib")
         )
 
     def dedup_monthly(self):
         configuration = self._configuration
-        # export_date = configuration.export_date  # format "2022-10-01"
-        source_prefix = "corporate_data_ingestion/calculation_parts/combined_daily_data_october_to_march/"
-        dest_prefix = "corporate_data_ingestion/calculation_parts/combined_daily_data_dedup/"
+        source_prefix = "corporate_data_ingestion/calculation_parts/combined_daily_data_april/"
+        dest_prefix = "corporate_data_ingestion/calculation_parts/combined_daily_data_april_dedup/"
 
         s3_source_url = "s3://{bucket}/{prefix}".format(
             bucket=configuration.configuration_file.s3_published_bucket,
@@ -464,7 +458,7 @@ class CalcPartBenchmark:
     def append_daily(self):
         configuration = self._configuration
         export_date = configuration.export_date  # format "2022-10-01"
-        dest_prefix = "corporate_data_ingestion/calculation_parts/combined_daily_data_october_to_march/"
+        dest_prefix = "corporate_data_ingestion/calculation_parts/combined_daily_data_april/"
 
         s3_source_url = "s3://{bucket}/{prefix}/{export_date}/{collection}".format(
             bucket=configuration.configuration_file.s3_published_bucket,
@@ -476,10 +470,6 @@ class CalcPartBenchmark:
             bucket=configuration.configuration_file.s3_published_bucket,
             prefix=dest_prefix,
         )
-
-        if export_date == "2022-10-01":
-            logger.warning(f"Emptying prefix: {dest_prefix}")
-            self.empty_s3_prefix(configuration.configuration_file.s3_published_bucket, dest_prefix)
 
         logger.info("starting pyspark processing")
 
@@ -528,7 +518,7 @@ class CalcPartBenchmark:
         configuration = self._configuration
 
         self.empty_s3_prefix(
-            published_bucket=configuration.configuration_file.s3_published_bucket,
+            bucket=configuration.configuration_file.s3_published_bucket,
             prefix="corporate_data_ingestion/calculation_parts/230417/"
         )
 
@@ -587,16 +577,12 @@ class CalcPartBenchmark:
 class CalculationPartsDeduplicate(CalcPartBenchmark):
     def run(self):
         self.dedup_monthly()
+        self.merge_snapshot_dedupe()
 
 
 class CalculationPartsAppend(CalcPartBenchmark):
     def run(self):
         self.append_daily()
-
-
-class CalculationPartsMergeSnapshot(CalcPartBenchmark):
-    def run(self):
-        self.merge_snapshot_dedupe()
 
 
 class CalculationPartsPublishCalculatorParts(CalcPartBenchmark):
