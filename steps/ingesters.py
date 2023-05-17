@@ -549,7 +549,7 @@ class CalcPartBenchmark:
     def publish_calculation_parts_to_table(self, table: str, ddl: str):
         snapshot_location = "s3://{bucket}/{prefix}".format(
             bucket=self._configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/full_merge_2/",
+            prefix="corporate_data_ingestion/calculation_parts/full_merge_3/",
         )
 
         logger.info("starting pyspark processing")
