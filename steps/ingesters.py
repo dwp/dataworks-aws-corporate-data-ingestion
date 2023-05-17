@@ -577,16 +577,12 @@ class CalcPartBenchmark:
 class CalculationPartsDeduplicate(CalcPartBenchmark):
     def run(self):
         self.dedup_monthly()
+        self.merge_snapshot_dedupe()
 
 
 class CalculationPartsAppend(CalcPartBenchmark):
     def run(self):
         self.append_daily()
-
-
-class CalculationPartsMergeSnapshot(CalcPartBenchmark):
-    def run(self):
-        self.merge_snapshot_dedupe()
 
 
 class CalculationPartsPublishCalculatorParts(CalcPartBenchmark):

@@ -16,7 +16,7 @@ from data import ConfigurationFile, Configuration
 from dynamodb import DynamoDBHelper
 from hive import HiveService
 from ingesters import BaseIngester, BusinessAuditIngester, CalculationPartsIngester, \
-    CalculationPartsDeduplicate, CalculationPartsAppend, CalculationPartsMergeSnapshot, \
+    CalculationPartsDeduplicate, CalculationPartsAppend, \
     CalculationPartsPublishCalculatorParts, CalculationPartsPublishHousingCalculator, \
     CalculationPartsPublishChildcareEntitlement
 from logger import setup_logging
@@ -162,7 +162,6 @@ def main():
             "calculator:calculationParts": CalculationPartsIngester,
             "calculator:calculationPartsDeduplicate": CalculationPartsDeduplicate,
             "calculator:calculationPartsAppend": CalculationPartsAppend,
-            "calculator:CalculationPartsMergeSnapshot": CalculationPartsMergeSnapshot,
             "calculator:PublishCalculatorParts": CalculationPartsPublishCalculatorParts,
             "calculator:PublishHousingCalculator": CalculationPartsPublishHousingCalculator,
             "calculator:PublishChildcareEntitlement": CalculationPartsPublishChildcareEntitlement,
