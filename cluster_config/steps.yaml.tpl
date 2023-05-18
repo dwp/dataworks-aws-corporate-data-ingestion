@@ -1,5 +1,8 @@
 ---
 BootstrapActions:
+- Name: "run-log4j-patch"
+  ScriptBootstrapAction:
+    Path: "s3://${s3_config_bucket}/component/corporate-data-ingestion/patch-log4j-emr-6.4.0-v2.sh"
 - Name: "download_scripts"
   ScriptBootstrapAction:
     Path: "s3://${s3_config_bucket}/component/corporate-data-ingestion/download_scripts.sh"
