@@ -97,7 +97,7 @@ resource "aws_s3_object" "status_metrics_sh" {
 resource "aws_s3_object" "logging_script" {
   bucket  = data.terraform_remote_state.common.outputs.config_bucket.id
   key     = "component/${local.emr_cluster_name}/logging.sh"
-  content = file("${path.module}/bootstrap_actions/logging.sh")
+  content = templatefile("${path.module}/bootstrap_actions/logging.sh")
   tags = {
     Name = "logging_script"
   }
