@@ -1,4 +1,5 @@
 import datetime as dt
+from typing import Dict, Optional
 
 from botocore.client import BaseClient
 
@@ -38,21 +39,20 @@ class DynamoDBHelper:
 
         return
 
-    def update_status(self, status, export_date):
+    def update_status(self, status, export_date, extra: Optional[Dict] = None):
         """update the DYNAMO_TABLE with the latest status for the data_product"""
         if not self.get_status():
             """Create the row with required fields"""
-            self.client.put_item(
-                TableName=self.DYNAMO_TABLE,
-                Item={
-                    **self.KEY,
-                    "Run_Id": {"S": "0"},
-                    "Status": {"S": status},
-                    "Cluster_Id": {"S": self.cluster_id},
-                    "Date": {"S": export_date},
-                    "TimeToExist": {"N": str((dt.datetime.now() + dt.timedelta(weeks=52 * 2)).timestamp())},
-                },
-            )
+            data = {
+                **self.KEY,
+                "Run_Id": {"S": "0"},
+                "Status": {"S": status},
+                "Cluster_Id": {"S": self.cluster_id},
+                "Date": {"S": export_date},
+                "TimeToExist": {"N": str((dt.datetime.now() + dt.timedelta(weeks=52 * 2)).timestamp())},
+            }
+            data.update(extra if extra else {})
+            self.client.put_item(TableName=self.DYNAMO_TABLE, Item=data)
         else:
             """Update existing row with status_field"""
             self.client.update_item(
