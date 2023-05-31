@@ -33,8 +33,10 @@ resource "aws_cloudwatch_event_target" "run_daily_export_monday_to_saturday" {
             "${each.value["source_s3_prefix"]}",
             "--destination_s3_prefix",
             "${each.value["destination_s3_prefix"]}",
-            "--collection_names",
-            "${each.value["collection_names"]}",
+            "--db",
+            "${each.value["db"]}",
+            "--collection",
+            "${each.value["collection"]}",
             "--concurrency",
             "${each.value["concurrency"]}"
           ]
@@ -68,8 +70,10 @@ resource "aws_cloudwatch_event_target" "run_daily_export_sunday" {
             "${each.value["source_s3_prefix"]}",
             "--destination_s3_prefix",
             "${each.value["destination_s3_prefix"]}",
-            "--collection_names",
-            "${each.value["collection_names"]}",
+            "--db",
+            "${each.value["db"]}",
+            "--collection",
+            "${each.value["collection"]}",
             "--concurrency",
             "${each.value["concurrency"]}"
           ]

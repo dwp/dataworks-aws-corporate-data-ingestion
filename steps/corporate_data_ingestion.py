@@ -54,8 +54,8 @@ def get_arguments() -> argparse.Namespace:
     parser.add_argument("--destination_s3_prefix", required=True)
     parser.add_argument("--start_date", required=False, help="format %Y-%m-%d, uses previous day if not provided")
     parser.add_argument("--end_date", required=False, help="format %Y-%m-%d, uses previous day if not provided")
-    parser.add_argument("--collection_name", required=False, help="name of the collection to process")
-    parser.add_argument("--db_name", required=False, help="name of the collection database")
+    parser.add_argument("--collection", required=False, help="name of the collection to process")
+    parser.add_argument("--db", required=False, help="name of the collection database")
     parser.add_argument("--table_name", required=False, help="name of the collection in mongodb")
     parser.add_argument(
         "--concurrency", required=False, default="5", help="Concurrent collections processed, default=5"
@@ -69,7 +69,6 @@ def get_arguments() -> argparse.Namespace:
 
 
 def process_collection(configuration: Configuration, spark_session, hive_session, dynamodb_client):
-    # for collection_name, ingestion_class in zip(collection_names, ingestion_classes):
     dynamodb_helper = DynamoDBHelper(
         client=dynamodb_client,
         correlation_id=configuration.correlation_id,
@@ -95,7 +94,7 @@ def process_collection(configuration: Configuration, spark_session, hive_session
         dynamodb_helper.update_status(dynamodb_helper.IN_PROGRESS, export_date)
         logger.info(f"Initialising ingester for collection: {collection_name} - [{export_date}]")
         ingester = ingesters_map.get(configuration.collection_name, BaseIngester)(
-            configuration, spark_session, hive_session
+            configuration, spark_session, hive_session, dynamodb_helper,
         )
         logger.info(f"{ingester.__class__.__name__}::{collection_name}::{export_date}:: ingester initialised")
         logger.info(f"{ingester.__class__.__name__}::{collection_name}::{export_date}:: ingester running")
@@ -138,8 +137,8 @@ def main():
         )
         logger.info("Hive session: initialised")
 
-        if args.collection_name:
-            collections = json.loads(args.collection)
+        if args.collection and args.db:
+            collections = {f"{args.db}:{args.collection}": {"db": args.db, "table": args.collection}}
         else:
             collection_file = """
             {

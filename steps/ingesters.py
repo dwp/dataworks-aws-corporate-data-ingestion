@@ -10,7 +10,7 @@ from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 from pyspark.sql.window import Window
 
 from data import UCMessage, Configuration
-from steps.dynamodb import DynamoDBHelper
+from dynamodb import DynamoDBHelper
 from utils import Utils
 
 logger = logging.getLogger("ingesters")
@@ -23,7 +23,7 @@ class BaseIngester:
         self._spark_session = spark_session
         self._hive_session = hive_session
         self.dynamodb_helper = dynamodb_helper
-        self.destination_prefix = None
+        self.daily_output_prefix = None
 
     def read_dir(self, file_path):
         return self._spark_session.sparkContext.textFile(file_path)
@@ -46,8 +46,8 @@ class BaseIngester:
 
 
 class BusinessAuditIngester(BaseIngester):
-    def __init__(self, configuration, spark_session, hive_session):
-        super().__init__(configuration, spark_session, hive_session)
+    def __init__(self, configuration, spark_session, hive_session, dynamodb_helper):
+        super().__init__(configuration, spark_session, hive_session, dynamodb_helper)
         self.intermediate_db_name = "uc_dw_auditlog"
         self.user_db_name = "uc"
 
@@ -127,7 +127,7 @@ class BusinessAuditIngester(BaseIngester):
             raise
 
     def run(self):
-        super(BusinessAuditIngester, self).run()
+        self.decrypt_and_process()
         self.execute_hive_statements()
 
     def execute_hive_statements(self):
@@ -379,16 +379,17 @@ class CalculationPartsIngester(BaseIngester):
             self._configuration.table_name,
         )
 
-        destination_prefix = path.join(
-            self._configuration.destination_s3_prefix.lstrip("/"),
+        daily_output_prefix = path.join(
+            # Overridden until BaseIngester is updated
+            "corporate_data_ingestion/orc/daily/",
             self._configuration.db_name,
             self._configuration.table_name,
         )
-        self.destination_prefix = destination_prefix
+        self.daily_output_prefix = daily_output_prefix
         published_bucket = self._configuration.configuration_file.s3_published_bucket
 
         s3_source_url = "s3://{bucket}/{prefix}".format(bucket=corporate_bucket, prefix=source_prefix.lstrip("/"))
-        s3_destination_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=destination_prefix)
+        daily_output_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=daily_output_prefix)
 
         # begin processing
         try:
@@ -438,7 +439,7 @@ class CalculationPartsIngester(BaseIngester):
                 .repartitionByRange("id_part", "id")
                 .sortWithinPartitions("id")
                 .write.partitionBy("export_year", "export_month", "export_day", "id_part")
-                .orc(s3_destination_url, mode="overwrite", compression="zlib")
+                .orc(daily_output_url, mode="overwrite", compression="zlib")
             )
             logger.info("Initial pyspark ingestion completed")
 
