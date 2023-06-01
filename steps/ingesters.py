@@ -305,6 +305,8 @@ class CalculationPartsIngester(BaseIngester):
         )
         daily_output_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=daily_output_prefix)
 
+        latest_cdi_export_s3_url = path.join("s3://", published_bucket, latest_cdi_export_s3_prefix)
+
         export_output_prefix = path.join(
             "corporate_data_ingestion/exports/calculator/calculationParts/", f"{self._configuration.export_date}/"
         )
@@ -349,7 +351,7 @@ class CalculationPartsIngester(BaseIngester):
         )
 
         # read most recent export
-        df_cdi_output = self._spark_session.read.schema(schema_cdi_output).orc(latest_cdi_export_s3_prefix)
+        df_cdi_output = self._spark_session.read.schema(schema_cdi_output).orc(latest_cdi_export_s3_url)
 
         # Union and find latest record for each ID
         window_spec = Window.partitionBy("id_part", "id_key").orderBy("db_type")
