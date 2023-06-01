@@ -261,8 +261,7 @@ class BusinessAuditIngester(BaseIngester):
 class CalculationPartsIngester(BaseIngester):
     def run(self):
         self.decrypt_and_process()
-        # Runs every week on Friday - todo: replace with export_date instead of `now`
-        if dt.datetime.now().weekday() == 4:
+        if self._configuration.force_collection_update:
             self.update()
 
     def update(self):

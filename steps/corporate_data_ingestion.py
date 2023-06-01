@@ -60,6 +60,10 @@ def get_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--concurrency", required=False, default="5", help="Concurrent collections processed, default=5"
     )
+    parser.add_argument(
+        "--force_collection_update", required=False, default=False,
+        help="force the update of the collection given as argument",
+        action="store_true")
     args, unrecognized_args = parser.parse_known_args()
 
     if len(unrecognized_args) > 0:
@@ -164,6 +168,7 @@ def main():
                 concurrency=int(args.concurrency),
                 cluster_id=os.environ.get("EMR_CLUSTER_ID", "NOT_SET"),
                 configuration_file=configuration_file,
+                force_collection_update=args.force_collection_update,
             )
             process_collection(configuration, spark_session, hive_session, dynamo_db_client)
 

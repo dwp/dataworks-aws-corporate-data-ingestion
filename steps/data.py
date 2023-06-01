@@ -34,6 +34,7 @@ class Configuration:
     concurrency: int
     configuration_file: ConfigurationFile
     cluster_id: str
+    force_collection_update: bool = False
     export_date: str = ""  # format: "%Y-%m-%d"
 
 
