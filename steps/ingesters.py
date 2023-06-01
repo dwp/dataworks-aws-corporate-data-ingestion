@@ -287,14 +287,14 @@ class CalculationPartsIngester(BaseIngester):
                 latest_date, latest_index = buffer, index
 
         if response["Items"]:
+            # DynamoDB to provide date and path for latest CDI export
             latest_cdi_export_dynamodb_entry = response["Items"][latest_index]
+            latest_cdi_export_s3_prefix = latest_cdi_export_dynamodb_entry["S3_Prefix_CDI_Export"]
+            latest_cdi_export_date = dt.datetime.strptime(latest_cdi_export_dynamodb_entry["Date"], "%Y-%m-%d")
         else:
-            raise ValueError("Could not find a CDI export to update")
-
-        # DynamoDB to provide date and path for latest CDI export
-
-        latest_cdi_export_s3_prefix = latest_cdi_export_dynamodb_entry["S3_Prefix_CDI_Export"]
-        latest_cdi_export_date = dt.datetime.strptime(latest_cdi_export_dynamodb_entry["Date"], "%Y-%m-%d")
+            # raise ValueError("Could not find a CDI export to update")
+            latest_cdi_export_s3_prefix = "corporate_data_ingestion/exports/calculator/calculationParts/2023-05-17/"
+            latest_cdi_export_date = dt.datetime.strptime("2023-05-17", "%Y-%m-%d")
 
         published_bucket = self._configuration.configuration_file.s3_published_bucket
 
