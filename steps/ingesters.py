@@ -348,6 +348,7 @@ class CalculationPartsIngester(BaseIngester):
                 & (col("export_month") > latest_cdi_export_date.month)
                 & (col("export_day") > latest_cdi_export_date.day)
             )
+            .select(col("id"), col("id_part"), col("db_type"), col("val"))
         )
 
         # read most recent export
