@@ -342,9 +342,9 @@ class CalculationPartsIngester(BaseIngester):
             self._spark_session.read.schema(schema_dailies)
             .orc(daily_output_url)
             .filter(
-                col("export_year") > latest_cdi_export_date.year,
-                col("export_month") > latest_cdi_export_date.month,
-                col("export_day") > latest_cdi_export_date.day,
+                (col("export_year") > latest_cdi_export_date.year)
+                & (col("export_month") > latest_cdi_export_date.month)
+                & (col("export_day") > latest_cdi_export_date.day)
             )
         )
 
