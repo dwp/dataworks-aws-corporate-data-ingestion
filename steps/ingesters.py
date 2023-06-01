@@ -427,6 +427,7 @@ class CalculationPartsIngester(BaseIngester):
                 )
 
             # Persist records to JSONL in S3
+            self._spark_session.conf.set("spark.sql.sources.partitionOverwriteMode", "dynamic")
             logger.info("starting pyspark processing")
             pyspark_df = (
                 self.read_dir(s3_source_url)
