@@ -362,7 +362,7 @@ class CalculationPartsIngester(BaseIngester):
                 4096, "id_part", "id"
             )  # todo: remove number of partitions and influence via spark config
             .withColumn("row_number", row_number().over(window_spec))
-            .filter(df_cdi_output.row_number == 1)
+            .filter(col("row_number") == 1)
             .write.partitionBy("id_part")
             .orc(export_output_url, mode="overwrite", compression="zlib")
         )
