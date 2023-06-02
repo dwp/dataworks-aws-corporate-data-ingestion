@@ -355,11 +355,11 @@ class CalculationPartsIngester(BaseIngester):
         df_cdi_output = self._spark_session.read.schema(schema_cdi_output).orc(latest_cdi_export_s3_url)
 
         # Union and find latest record for each ID
-        window_spec = Window.partitionBy("id_part", "id_key").orderBy("db_type")
+        window_spec = Window.partitionBy("id_part", "id").orderBy("db_type")
         (
             df_cdi_output.union(df_dailies)
             .repartitionByRange(
-                4096, "id_part", "id_key"
+                4096, "id_part", "id"
             )  # todo: remove number of partitions and influence via spark config
             .withColumn("row_number", row_number().over(window_spec))
             .filter(df_cdi_output.row_number == 1)
