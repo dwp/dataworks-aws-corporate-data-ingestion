@@ -312,6 +312,11 @@ class CalculationPartsIngester(BaseIngester):
         )
         export_output_url = path.join(f"s3://{published_bucket}", export_output_prefix)
 
+        json_export_output_prefix = path.join("corporate_data_ingestion/json/export/calculator/calculationParts/",
+                                              f"{self._configuration.export_date}/")
+        json_export_output_url = path.join(f"s3://{published_bucket}", json_export_output_prefix)
+        self.empty_s3_prefix(published_bucket, json_export_output_prefix)
+
         self.dynamodb_helper.update_status(
             status=self.dynamodb_helper.IN_PROGRESS,
             export_date=self._configuration.export_date,
@@ -356,15 +361,19 @@ class CalculationPartsIngester(BaseIngester):
 
         # Union and find latest record for each ID
         window_spec = Window.partitionBy("id_part", "id").orderBy("db_type")
-        (
+        export_df = (
             df_cdi_output.union(df_dailies)
             .repartitionByRange(
                 4096, "id_part", "id"
             )  # todo: remove number of partitions and influence via spark config
             .withColumn("row_number", row_number().over(window_spec))
             .filter(col("row_number") == 1)
-            .write.partitionBy("id_part")
-            .orc(export_output_url, mode="overwrite", compression="zlib")
+            .cache()
+        )
+        export_df.write.partitionBy("id_part").orc(export_output_url, mode="overwrite", compression="zlib")
+        export_df.rdd.map(lambda x: x["val"]).saveAsTextFile(
+            json_export_output_url,
+            compressionCodecClass="com.hadoop.compression.lzo.LzopCodec"
         )
 
     def decrypt_and_process(self):
