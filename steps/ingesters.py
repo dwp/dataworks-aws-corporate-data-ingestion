@@ -5,7 +5,7 @@ from os import path
 
 import boto3
 from boto3.dynamodb.conditions import Attr
-from pyspark.sql.functions import row_number, col
+from pyspark.sql.functions import row_number, col, from_json
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 from pyspark.sql.window import Window
 
@@ -263,6 +263,51 @@ class CalculationPartsIngester(BaseIngester):
         self.decrypt_and_process()
         if self._configuration.force_collection_update:
             self.update()
+            self.export_to_hive_table()
+
+    def export_to_hive_table(self):
+        tables_to_publish = [
+            {
+                "table_name": "src_calculator_parts",
+                "ddl": "src_calculator_parts_ddl"
+            },
+            {
+                "table_name": "src_childcare_entitlement",
+                "ddl": "src_childcare_entitlement_ddl"}
+            ,
+            {
+                "table_name": "src_calculator_calculationparts_housing_calculation",
+                "ddl": "src_calculator_calculationparts_housing_calculation_ddl"
+            },
+        ]
+
+        published_bucket = self._configuration.configuration_file.s3_published_bucket
+        export_output_prefix = path.join(
+            "corporate_data_ingestion/exports/calculator/calculationParts/",
+            f"{self._configuration.export_date}/"
+        )
+        export_output_url = path.join(f"s3://{published_bucket}", export_output_prefix)
+
+        schema_cdi_output = StructType(
+            [
+                StructField("id", StringType(), nullable=False),
+                StructField("id_part", StringType(), nullable=False),
+                StructField("db_type", StringType(), nullable=False),
+                StructField("val", StringType(), nullable=False),
+            ]
+        )
+
+        source_df = self._spark_session.read.schema(schema_cdi_output).orc(export_output_url).cache()
+        for table_dict in tables_to_publish:
+            with open(f"/opt/emr/calculation_parts_ddl/{table_dict['ddl']}", "r") as f:
+                json_schema = f.read()
+
+            (
+                source_df
+                .select(from_json("val", json_schema).alias("val"), "id_part", "id")
+                .repartitionByRange(1024, "id_part", "id").select("val.*")
+                .write.format("orc").mode("overwrite").saveAsTable(f"dwx_audit_transition.{table_dict['table_name']}")
+            )
 
     def update(self):
         # Retrieves latest  CDI export entry from dynamodb
@@ -312,11 +357,6 @@ class CalculationPartsIngester(BaseIngester):
         )
         export_output_url = path.join(f"s3://{published_bucket}", export_output_prefix)
 
-        json_export_output_prefix = path.join("corporate_data_ingestion/json/export/calculator/calculationParts/",
-                                              f"{self._configuration.export_date}/")
-        json_export_output_url = path.join(f"s3://{published_bucket}", json_export_output_prefix)
-        self.empty_s3_prefix(published_bucket, json_export_output_prefix)
-
         self.dynamodb_helper.update_status(
             status=self.dynamodb_helper.IN_PROGRESS,
             export_date=self._configuration.export_date,
@@ -361,19 +401,15 @@ class CalculationPartsIngester(BaseIngester):
 
         # Union and find latest record for each ID
         window_spec = Window.partitionBy("id_part", "id").orderBy("db_type")
-        export_df = (
+        (
             df_cdi_output.union(df_dailies)
             .repartitionByRange(
                 4096, "id_part", "id"
             )  # todo: remove number of partitions and influence via spark config
             .withColumn("row_number", row_number().over(window_spec))
             .filter(col("row_number") == 1)
-            .cache()
-        )
-        export_df.write.partitionBy("id_part").orc(export_output_url, mode="overwrite", compression="zlib")
-        export_df.rdd.map(lambda x: x["val"]).saveAsTextFile(
-            json_export_output_url,
-            compressionCodecClass="com.hadoop.compression.lzo.LzopCodec"
+            .write.partitionBy("id_part")
+            .orc(export_output_url, mode="overwrite", compression="zlib")
         )
 
     def decrypt_and_process(self):
