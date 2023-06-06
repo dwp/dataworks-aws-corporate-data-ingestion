@@ -28,6 +28,7 @@ logger = getLogger("corporate-data-ingestion")
 
 
 def get_spark_session() -> SparkSession:
+    """gets spark_session with configuration"""
     spark = (
         SparkSession.builder.master("yarn")
         .config("spark.storage.blockManagerSlaveTimeoutMs", "500000")
@@ -50,8 +51,8 @@ def get_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Receive args provided to spark submit job")
     # Parse command line inputs and set defaults
     parser.add_argument("--correlation_id", default=str(uuid.uuid4()))
-    parser.add_argument("--source_s3_prefix", required=True)
-    parser.add_argument("--destination_s3_prefix", required=True)
+    parser.add_argument("--source_s3_prefix", required=False)
+    parser.add_argument("--destination_s3_prefix", required=False)
     parser.add_argument("--start_date", required=False, help="format %Y-%m-%d, uses previous day if not provided")
     parser.add_argument("--end_date", required=False, help="format %Y-%m-%d, uses previous day if not provided")
     parser.add_argument("--collection", required=False, help="name of the collection to process")
@@ -73,6 +74,7 @@ def get_arguments() -> argparse.Namespace:
 
 
 def process_collection(configuration: Configuration, spark_session, hive_session, dynamodb_client):
+    """Initialise collection-specific ingesters, initialise helpers, run ingestion code """
     dynamodb_helper = DynamoDBHelper(
         client=dynamodb_client,
         correlation_id=configuration.correlation_id,
@@ -112,6 +114,7 @@ def process_collection(configuration: Configuration, spark_session, hive_session
 
 
 def main():
+    """Get args, set configuration and launch collection processing"""
     try:
         job_start_time = dt.datetime.now()
         today_str = job_start_time.date().strftime("%Y-%m-%d")
