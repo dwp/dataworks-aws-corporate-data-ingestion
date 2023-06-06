@@ -481,7 +481,6 @@ class CalculationPartsIngester(BaseIngester):
                 )
 
             # Persist records to JSONL in S3
-            self._spark_session.conf.set("spark.sql.sources.partitionOverwriteMode", "dynamic")
             logger.info("starting pyspark processing")
             pyspark_df = (
                 self.read_dir(s3_source_url)
@@ -493,7 +492,8 @@ class CalculationPartsIngester(BaseIngester):
                 .toDF(["id", "id_part", "export_year", "export_month", "export_day", "db_type", "val"])
                 .repartitionByRange("id_part", "id")
                 .sortWithinPartitions("id")
-                .write.partitionBy("export_year", "export_month", "export_day", "id_part")
+                .write.option("partitionOverwriteMode", "dynamic")
+                .partitionBy("export_year", "export_month", "export_day", "id_part")
                 .orc(daily_output_url, mode="overwrite", compression="zlib")
             )
             logger.info("Initial pyspark ingestion completed")
