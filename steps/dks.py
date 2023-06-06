@@ -116,7 +116,7 @@ class DKSService:
             return plaintext_key
 
 
-class MessageCryptoHelper(object):
+class MessageCryptoHelper:
     def __init__(self, data_key_service: DKSService, correlation_id: str):
         self.data_key_service = data_key_service
         self.correlation_id = correlation_id
