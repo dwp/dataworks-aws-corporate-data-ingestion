@@ -32,17 +32,6 @@ resource "aws_s3_object" "python_utils" {
   content  = file("${path.module}/steps/${each.key}")
 }
 
-resource "aws_s3_object" "snapshot_updater_file" {
-  bucket = data.terraform_remote_state.common.outputs.config_bucket.id
-  key    = "component/${local.emr_cluster_name}/snapshot_updater/snapshot_updater.sql"
-  content = templatefile("${path.module}/steps/snapshot_updater/snapshot_updater.sql",
-    {
-      s3_published_bucket = data.terraform_remote_state.common.outputs.published_bucket.id
-
-    }
-  )
-}
-
 data "aws_s3_object" "calculation_parts_ddl" {
   for_each = {
     "src_calculator_parts" : "component/uc_repos/aws-uc-lab/child_calculation/build/src_calculator_parts_ddl",
