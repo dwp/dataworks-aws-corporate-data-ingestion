@@ -18,6 +18,8 @@ logger = logging.getLogger("ingesters")
 
 
 class BaseIngester:
+    DEFAULT_K2HB_S3_ROOT_PREFIX = "corporate_storage/ucfs_main"
+
     def __init__(self, configuration: Configuration, spark_session, hive_session, dynamodb_helper: DynamoDBHelper):
         self._configuration = configuration
         self._collection_name = configuration.collection_name
@@ -47,10 +49,14 @@ class BaseIngester:
 
 
 class BusinessAuditIngester(BaseIngester):
+    DEFAULT_K2HB_S3_ROOT_PREFIX = "corporate_storage/ucfs_audit/"
+    DEFAULT_CDI_DAILY_PREFIX = "corporate_data_ingestion/json/daily/"
+
     def __init__(self, configuration, spark_session, hive_session, dynamodb_helper):
         super().__init__(configuration, spark_session, hive_session, dynamodb_helper)
         self.intermediate_db_name = "uc_dw_auditlog"
         self.user_db_name = "uc"
+        self.destination_prefix = None
 
     # Processes and publishes data
     def decrypt_and_process(self):
@@ -59,15 +65,17 @@ class BusinessAuditIngester(BaseIngester):
         collection_name = self._collection_name
 
         corporate_bucket = self._configuration.configuration_file.s3_corporate_bucket
-        source_prefix = path.join(
-            self._configuration.source_s3_prefix,
+        # Use source prefix from configuration if set, otherwise use default
+        source_prefix = self._configuration.source_s3_prefix.lstrip("/") or path.join(
+            self.DEFAULT_K2HB_S3_ROOT_PREFIX,
             *prefix_date.split("-"),
             *collection_name.split(":"),
         )
 
         published_bucket = self._configuration.configuration_file.s3_published_bucket
-        destination_prefix = path.join(
-            self._configuration.destination_s3_prefix.lstrip("/"),
+        # Use destination prefix from configuration if set, otherwise use default
+        destination_prefix = self._configuration.destination_s3_prefix.lstrip("/") or path.join(
+            self.DEFAULT_CDI_DAILY_PREFIX,
             self._configuration.export_date,
             *collection_name.split(":"),
         )
@@ -260,6 +268,8 @@ class BusinessAuditIngester(BaseIngester):
 
 
 class CalculationPartsIngester(BaseIngester):
+    DEFAULT_CDI_DAILY_PREFIX = "corporate_data_ingestion/orc/daily/"
+
     def run(self):
         self.decrypt_and_process()
         if self._configuration.force_collection_update:
@@ -426,21 +436,23 @@ class CalculationPartsIngester(BaseIngester):
         collection_name = self._collection_name
 
         corporate_bucket = self._configuration.configuration_file.s3_corporate_bucket
-        source_prefix = path.join(
-            self._configuration.source_s3_prefix,
+        # Use source prefix from configuration if set, otherwise use default
+        source_prefix = self._configuration.source_s3_prefix.lstrip("/") or path.join(
+            self.DEFAULT_K2HB_S3_ROOT_PREFIX,
             *prefix_date.split("-"),
             self._configuration.db_name,
             self._configuration.table_name,
         )
 
-        daily_output_prefix = path.join(
-            # Overridden until BaseIngester is updated
-            "corporate_data_ingestion/orc/daily/",
+        # Use source prefix from configuration if set, otherwise use default
+        # << CalcParts uses date-partitioned storage, and therefore doesn't specify the export-date in the path
+        daily_output_prefix = self._configuration.destination_s3_prefix.lstrip("/") or path.join(
+            self.DEFAULT_CDI_DAILY_PREFIX,
             self._configuration.db_name,
             self._configuration.table_name,
         )
-        self.daily_output_prefix = daily_output_prefix
         published_bucket = self._configuration.configuration_file.s3_published_bucket
+        self.daily_output_prefix = daily_output_prefix
 
         s3_source_url = "s3://{bucket}/{prefix}".format(bucket=corporate_bucket, prefix=source_prefix.lstrip("/"))
         daily_output_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=daily_output_prefix)
