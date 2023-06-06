@@ -8,6 +8,7 @@ from boto3.dynamodb.conditions import Attr
 from pyspark.sql.functions import row_number, col, from_json
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 from pyspark.sql.window import Window
+from pyspark.storagelevel import StorageLevel
 
 from data import UCMessage, Configuration
 from dynamodb import DynamoDBHelper
@@ -297,7 +298,13 @@ class CalculationPartsIngester(BaseIngester):
             ]
         )
 
-        source_df = self._spark_session.read.schema(schema_cdi_output).orc(export_output_url).cache()
+        source_df = (
+            self._spark_session
+            .read
+            .schema(schema_cdi_output)
+            .orc(export_output_url)
+            .persist(storageLevel=StorageLevel.DISK_ONLY)
+        )
         for table_dict in tables_to_publish:
             with open(f"/opt/emr/calculation_parts_ddl/{table_dict['ddl']}", "r") as f:
                 json_schema = f.read()
