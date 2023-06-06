@@ -368,52 +368,6 @@ meta:
         inputs:
           - name: dataworks-aws-corporate-data-ingestion
 
-
-    start-snapshot-updater:
-      task: start-corporate-data-ingestion
-      .: (( inject meta.plan.terraform-common-config ))
-      config:
-        platform: linux
-        image_resource:
-          type: docker-image
-          source:
-            repository: ((dataworks.docker_awscli_repository))
-            version: ((dataworks.docker_awscli_version))
-            tag: ((dataworks.docker_awscli_version))
-        run:
-          path: sh
-          args:
-            - -exc
-            - |
-              source /assume-role
-              aws sns publish --topic-arn "arn:aws:sns:eu-west-2:$AWS_ACC:corporate_data_ingestion_cw_trigger_sns" --message "$(cat <<EOF
-              {
-                "s3_overrides": null,
-                "overrides": {
-                  "Steps": [{
-                    "Name": "snapshot-updater::$EXPORT_START_DATE",
-                    "ActionOnFailure": "CONTINUE",
-                    "HadoopJarStep": {
-                      "Jar": "command-runner.jar",
-                      "Args": [
-                        "hive-script",
-                        "--run-hive-script",
-                        "--args",
-                        "-f",
-                        "/opt/emr/snapshot_updater/snapshot_updater.sql"
-                      ]
-                    }}]
-                },
-                "extend": null,
-                "additional_step_args": null
-              }
-              EOF
-              )"
-          dir: dataworks-aws-corporate-data-ingestion
-        inputs:
-          - name: dataworks-aws-corporate-data-ingestion
-
-
     start-backup:
       task: start-backup
       .: (( inject meta.plan.terraform-common-config ))
