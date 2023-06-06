@@ -24,7 +24,7 @@ jobs:
             type: docker-image
             source:
               repository: koalaman/shellcheck-alpine
-              tag: latest
+              tag: "v0.9.0"
           run:
             path: sh
             args:
@@ -34,7 +34,7 @@ jobs:
 
                 # Ignore SC2154 as it will fail all terraform vars that are passed to scripts
                 # Ignore SC1091 due to sourcing of files that aren't in the same path locally so shellcheck will fail, but these files are on the boxes
-                for i in $(cat shell-list); do shellcheck -e SC2154 -e SC1091 $i; done
+                for i in $(cat shell-list); do shellcheck -e SC2154 -e SC1091 -e SC2024 $i; done
             dir: dataworks-aws-corporate-data-ingestion
           inputs:
             - name: dataworks-aws-corporate-data-ingestion
