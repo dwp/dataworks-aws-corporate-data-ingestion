@@ -26,13 +26,15 @@ class Configuration:
     run_timestamp: str  # format: "%Y-%m-%d_%H-%M-%S"
     start_date: str  # format: "%Y-%m-%d"
     end_date: str  # format: "%Y-%m-%d"
-    collection_names: List[str]
-    override_ingestion_class: str
+    collection_name: str
+    db_name: str
+    table_name: str
     source_s3_prefix: str
     destination_s3_prefix: str
     concurrency: int
     configuration_file: ConfigurationFile
     cluster_id: str
+    force_collection_update: bool = False
     export_date: str = ""  # format: "%Y-%m-%d"
 
 

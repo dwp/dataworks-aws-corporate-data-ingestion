@@ -288,7 +288,8 @@ locals {
     businessAudit = {
       source_s3_prefix      = "corporate_storage/ucfs_audit"
       destination_s3_prefix = "corporate_data_ingestion/json/daily"
-      collection_names      = "data:businessAudit"
+      db                    = "data"
+      collection            = "businessAudit"
       concurrency           = "1"
     }
   }
