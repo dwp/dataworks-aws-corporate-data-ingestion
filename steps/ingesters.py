@@ -1,33 +1,56 @@
+import datetime as dt
+import json
 import logging
 from os import path
 
 import boto3
-import json
-import datetime as dt
-
+from boto3.dynamodb.conditions import Attr
+from pyspark.sql.functions import row_number, col, from_json
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 from pyspark.sql.window import Window
-from pyspark.sql.functions import row_number, from_json
+from pyspark.storagelevel import StorageLevel
 
 from data import UCMessage, Configuration
+from dynamodb import DynamoDBHelper
 from utils import Utils
 
 logger = logging.getLogger("ingesters")
 
 
 class BaseIngester:
-    def __init__(self, configuration, collection_name, spark_session, hive_session):
+    def __init__(self, configuration: Configuration, spark_session, hive_session, dynamodb_helper: DynamoDBHelper):
         self._configuration = configuration
-        self._collection_name = collection_name
+        self._collection_name = configuration.collection_name
         self._spark_session = spark_session
         self._hive_session = hive_session
-        self.destination_prefix = None
+        self.dynamodb_helper = dynamodb_helper
+        self.daily_output_prefix = None
 
     def read_dir(self, file_path):
         return self._spark_session.sparkContext.textFile(file_path)
 
     def run(self):
-        self.decrypt_and_process()
+        raise NotImplementedError
+
+    def update(self):
+        raise NotImplementedError
+
+    def execute_hive_statements(self):
+        raise NotImplementedError
+
+    # Empty S3 destination prefix before publishing
+    @staticmethod
+    def empty_s3_prefix(bucket, prefix) -> None:
+        s3_resource = boto3.resource("s3")
+        bucket = s3_resource.Bucket(bucket)
+        bucket.objects.filter(Prefix=prefix).delete()
+
+
+class BusinessAuditIngester(BaseIngester):
+    def __init__(self, configuration, spark_session, hive_session, dynamodb_helper):
+        super().__init__(configuration, spark_session, hive_session, dynamodb_helper)
+        self.intermediate_db_name = "uc_dw_auditlog"
+        self.user_db_name = "uc"
 
     # Processes and publishes data
     def decrypt_and_process(self):
@@ -68,7 +91,7 @@ class BaseIngester:
             )
 
             logger.info(f"Emptying destination prefix: '{destination_prefix}'")
-            self.empty_s3_prefix(published_bucket=published_bucket, prefix=destination_prefix)
+            self.empty_s3_prefix(bucket=published_bucket, prefix=destination_prefix)
 
             # empty dict sent to each container for caching
             dks_key_cache = {}
@@ -77,13 +100,13 @@ class BaseIngester:
             logger.info("starting pyspark processing")
             (
                 self.read_dir(s3_source_url)
-                .map(lambda x: UCMessage(x, collection_name))
-                .map(lambda uc_message: decryption_helper.decrypt_dbObject(uc_message, dks_key_cache))
-                .map(UCMessage.transform)
-                .map(UCMessage.validate)
-                .map(UCMessage.sanitise)
-                .map(lambda x: x.utf8_decrypted_record)
-                .saveAsTextFile(
+                    .map(lambda x: UCMessage(x, collection_name))
+                    .map(lambda uc_message: decryption_helper.decrypt_dbObject(uc_message, dks_key_cache))
+                    .map(UCMessage.transform)
+                    .map(UCMessage.validate)
+                    .map(UCMessage.sanitise)
+                    .map(lambda x: x.utf8_decrypted_record)
+                    .saveAsTextFile(
                     s3_destination_url,
                     compressionCodecClass="com.hadoop.compression.lzo.LzopCodec",
                 )
@@ -104,25 +127,8 @@ class BaseIngester:
             )
             raise
 
-    def execute_hive_statements(self):
-        raise NotImplementedError
-
-    # Empty S3 destination prefix before publishing
-    @staticmethod
-    def empty_s3_prefix(published_bucket, prefix) -> None:
-        s3_resource = boto3.resource("s3")
-        bucket = s3_resource.Bucket(published_bucket)
-        bucket.objects.filter(Prefix=prefix).delete()
-
-
-class BusinessAuditIngester(BaseIngester):
-    def __init__(self, configuration, collection_name, spark_session, hive_session):
-        super().__init__(configuration, collection_name, spark_session, hive_session)
-        self.intermediate_db_name = "uc_dw_auditlog"
-        self.user_db_name = "uc"
-
     def run(self):
-        super(BusinessAuditIngester, self).run()
+        self.decrypt_and_process()
         self.execute_hive_statements()
 
     def execute_hive_statements(self):
@@ -254,29 +260,190 @@ class BusinessAuditIngester(BaseIngester):
 
 
 class CalculationPartsIngester(BaseIngester):
+    def run(self):
+        self.decrypt_and_process()
+        if self._configuration.force_collection_update:
+            self.update()
+            self.export_to_hive_table()
+
+    def export_to_hive_table(self):
+        tables_to_publish = [
+            {
+                "table_name": "src_calculator_parts",
+                "ddl": "src_calculator_parts_ddl"
+            },
+            {
+                "table_name": "src_childcare_entitlement",
+                "ddl": "src_childcare_entitlement_ddl"}
+            ,
+            {
+                "table_name": "src_calculator_calculationparts_housing_calculation",
+                "ddl": "src_calculator_calculationparts_housing_calculation_ddl"
+            },
+        ]
+
+        published_bucket = self._configuration.configuration_file.s3_published_bucket
+        export_output_prefix = path.join(
+            "corporate_data_ingestion/exports/calculator/calculationParts/",
+            f"{self._configuration.export_date}/"
+        )
+        export_output_url = path.join(f"s3://{published_bucket}", export_output_prefix)
+
+        schema_cdi_output = StructType(
+            [
+                StructField("id", StringType(), nullable=False),
+                StructField("id_part", StringType(), nullable=False),
+                StructField("db_type", StringType(), nullable=False),
+                StructField("val", StringType(), nullable=False),
+            ]
+        )
+
+        source_df = (
+            self._spark_session
+            .read
+            .schema(schema_cdi_output)
+            .orc(export_output_url)
+            .persist(storageLevel=StorageLevel.DISK_ONLY)
+        )
+        for table_dict in tables_to_publish:
+            with open(f"/opt/emr/calculation_parts_ddl/{table_dict['ddl']}", "r") as f:
+                json_schema = f.read()
+
+            (
+                source_df
+                .select(from_json("val", json_schema).alias("val"), "id_part", "id")
+                .repartitionByRange(1024, "id_part", "id").select("val.*")
+                .write.format("orc").mode("overwrite").saveAsTable(f"dwx_audit_transition.{table_dict['table_name']}")
+            )
+
+    def update(self):
+        # Retrieves latest  CDI export entry from dynamodb
+        latest_cdi_export_dynamodb_entry = None
+        dynamodb = boto3.resource("dynamodb")
+        table = dynamodb.Table("data_pipeline_metadata")
+        response = table.scan(
+            FilterExpression=(
+                Attr("DataProduct").contains("CDI")
+                & Attr("S3_Prefix_CDI_Export").exists()
+                & Attr("Status").eq("COMPLETED")
+            )
+        )
+
+        latest_date, latest_index, buffer = None, None, None
+        for index, item in enumerate(response["Items"]):
+            try:
+                buffer = dt.datetime.strptime(item["Date"], "%Y-%m-%d")
+            except ValueError as e:
+                print(f"error: {str(e)}")
+            if latest_date is None or buffer > latest_date:
+                latest_date, latest_index = buffer, index
+
+        if response["Items"]:
+            # DynamoDB to provide date and path for latest CDI export
+            latest_cdi_export_dynamodb_entry = response["Items"][latest_index]
+            latest_cdi_export_s3_prefix = latest_cdi_export_dynamodb_entry["S3_Prefix_CDI_Export"]
+            latest_cdi_export_date = dt.datetime.strptime(latest_cdi_export_dynamodb_entry["Date"], "%Y-%m-%d")
+        else:
+            # raise ValueError("Could not find a CDI export to update")
+            latest_cdi_export_s3_prefix = "corporate_data_ingestion/exports/calculator/calculationParts/2023-05-17/"
+            latest_cdi_export_date = dt.datetime.strptime("2023-05-17", "%Y-%m-%d")
+
+        published_bucket = self._configuration.configuration_file.s3_published_bucket
+
+        daily_output_prefix = path.join(
+            self._configuration.destination_s3_prefix.lstrip("/"),
+            self._configuration.db_name,
+            self._configuration.table_name,
+        )
+        daily_output_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=daily_output_prefix)
+
+        latest_cdi_export_s3_url = path.join("s3://", published_bucket, latest_cdi_export_s3_prefix)
+
+        export_output_prefix = path.join(
+            "corporate_data_ingestion/exports/calculator/calculationParts/", f"{self._configuration.export_date}/"
+        )
+        export_output_url = path.join(f"s3://{published_bucket}", export_output_prefix)
+
+        self.dynamodb_helper.update_status(
+            status=self.dynamodb_helper.IN_PROGRESS,
+            export_date=self._configuration.export_date,
+            extra={"S3_Prefix_CDI_Export": {"S": export_output_prefix}},
+        )
+
+        schema_dailies = StructType(
+            [
+                StructField("id", StringType(), nullable=False),
+                StructField("id_part", StringType(), nullable=False),
+                StructField("export_year", IntegerType(), nullable=False),
+                StructField("export_month", IntegerType(), nullable=False),
+                StructField("export_day", IntegerType(), nullable=False),
+                StructField("db_type", StringType(), nullable=False),
+                StructField("val", StringType(), nullable=False),
+            ]
+        )
+
+        schema_cdi_output = StructType(
+            [
+                StructField("id", StringType(), nullable=False),
+                StructField("id_part", StringType(), nullable=False),
+                StructField("db_type", StringType(), nullable=False),
+                StructField("val", StringType(), nullable=False),
+            ]
+        )
+
+        # Read daily data since last export
+        df_dailies = (
+            self._spark_session.read.schema(schema_dailies)
+            .orc(daily_output_url)
+            .filter(
+                (col("export_year") > latest_cdi_export_date.year)
+                & (col("export_month") > latest_cdi_export_date.month)
+                & (col("export_day") > latest_cdi_export_date.day)
+            )
+            .select(col("id"), col("id_part"), col("db_type"), col("val"))
+        )
+
+        # read most recent export
+        df_cdi_output = self._spark_session.read.schema(schema_cdi_output).orc(latest_cdi_export_s3_url)
+
+        # Union and find latest record for each ID
+        window_spec = Window.partitionBy("id_part", "id").orderBy("db_type")
+        (
+            df_cdi_output.union(df_dailies)
+            .repartitionByRange(
+                4096, "id_part", "id"
+            )  # todo: remove number of partitions and influence via spark config
+            .withColumn("row_number", row_number().over(window_spec))
+            .filter(col("row_number") == 1)
+            .write.partitionBy("id_part")
+            .orc(export_output_url, mode="overwrite", compression="zlib")
+        )
+
     def decrypt_and_process(self):
         correlation_id = self._configuration.correlation_id
-        prefix_date = (dt.datetime.strptime(self._configuration.export_date, "%Y-%m-%d") - dt.timedelta(days=1)).strftime("%Y-%m-%d")
+        export_date = self._configuration.export_date
+        prefix_date = (dt.datetime.strptime(export_date, "%Y-%m-%d") - dt.timedelta(days=1)).strftime("%Y-%m-%d")
         collection_name = self._collection_name
 
         corporate_bucket = self._configuration.configuration_file.s3_corporate_bucket
         source_prefix = path.join(
             self._configuration.source_s3_prefix,
             *prefix_date.split("-"),
-            *collection_name.split(":"),
+            self._configuration.db_name,
+            self._configuration.table_name,
         )
 
+        daily_output_prefix = path.join(
+            # Overridden until BaseIngester is updated
+            "corporate_data_ingestion/orc/daily/",
+            self._configuration.db_name,
+            self._configuration.table_name,
+        )
+        self.daily_output_prefix = daily_output_prefix
         published_bucket = self._configuration.configuration_file.s3_published_bucket
-        destination_prefix = path.join(
-            self._configuration.destination_s3_prefix.lstrip("/"),
-            self._configuration.export_date,
-            *collection_name.split(":"),
-        )
-        self.destination_prefix = destination_prefix
 
-        # define source and destination s3 URIs
         s3_source_url = "s3://{bucket}/{prefix}".format(bucket=corporate_bucket, prefix=source_prefix.lstrip("/"))
-        s3_destination_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=destination_prefix)
+        daily_output_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=daily_output_prefix)
 
         # begin processing
         try:
@@ -291,39 +458,43 @@ class CalculationPartsIngester(BaseIngester):
                 dks_miss_acc=dks_miss_accumulator,
             )
 
-            logger.info(f"Emptying destination prefix: '{destination_prefix}'")
-            self.empty_s3_prefix(published_bucket=published_bucket, prefix=destination_prefix)
-
             # empty dict sent to each container for caching
             dks_key_cache = {}
 
             def to_row(x: UCMessage):
                 id_str = x.id
                 id_json = json.loads(id_str)
-                id_m = f"{id_json.get('id')}_{id_json.get('type')}"
-                id_part = id_json.get('id')[:2]
+                id_part = id_json.get("id")[:2]
+                export_date_list = export_date.split("-")
+                export_year = export_date_list[0]
+                export_month = export_date_list[1]
+                export_day = export_date_list[2]
 
                 return (
                     id_str,
-                    id_m,
                     id_part,
+                    int(export_year),
+                    int(export_month),
+                    int(export_day),
                     "INSERT" if not x.is_delete else "DELETE",
                     x.utf8_decrypted_record,
                 )
 
             # Persist records to JSONL in S3
+            self._spark_session.conf.set("spark.sql.sources.partitionOverwriteMode", "dynamic")
             logger.info("starting pyspark processing")
-            (
+            pyspark_df = (
                 self.read_dir(s3_source_url)
                 .map(lambda x: UCMessage(x, collection_name))
                 .map(lambda uc_message: decryption_helper.decrypt_dbObject(uc_message, dks_key_cache))
                 .map(UCMessage.validate)
                 .map(UCMessage.sanitise)
                 .map(to_row)
-                .toDF(['id', 'id_m', 'id_part', 'dbtype', 'val'])
-                .repartition("dbtype", "id_part")
-                .sort("id")
-                .write.partitionBy("dbtype", "id_part").orc(s3_destination_url, mode="overwrite", compression="zlib")
+                .toDF(["id", "id_part", "export_year", "export_month", "export_day", "db_type", "val"])
+                .repartitionByRange("id_part", "id")
+                .sortWithinPartitions("id")
+                .write.partitionBy("export_year", "export_month", "export_day", "id_part")
+                .orc(daily_output_url, mode="overwrite", compression="zlib")
             )
             logger.info("Initial pyspark ingestion completed")
 
@@ -334,276 +505,11 @@ class CalculationPartsIngester(BaseIngester):
             logger.info(f"DKS Hits: {dks_hits}")
             logger.info(f"DKS Misses: {dks_misses}")
 
+            return pyspark_df
+
         except Exception as err:
             logger.error(
                 f"""Unexpected error occurred processing collection named {self._collection_name} """
                 f""" for correlation id: {correlation_id} "{str(err)}" """
             )
             raise
-
-
-class CalcPartBenchmark:
-    # Processes and publishes data
-    def run(self):
-        raise NotImplementedError
-
-    def __init__(self, configuration: Configuration, collection_name, spark_session, hive_session):
-        self._configuration = configuration
-        self._collection_name = collection_name
-        self._spark_session = spark_session
-        self._hive_session = hive_session
-        self.destination_prefix = None
-
-    @staticmethod
-    def empty_s3_prefix(bucket, prefix) -> None:
-        logger.warning(f"EMPTYING S3 PREFIX (bucket ending {bucket[-3:]}: {prefix} ")
-        s3_resource = boto3.resource("s3")
-        bucket = s3_resource.Bucket(bucket)
-        bucket.objects.filter(Prefix=prefix).delete()
-
-    def read_dir(self, file_path):
-        return self._spark_session.sparkContext.textFile(file_path)
-
-    def merge_snapshot_dedupe(self):
-        configuration = self._configuration
-        output_prefix = "corporate_data_ingestion/calculation_parts/full_merge_3/"
-        self.empty_s3_prefix(
-            bucket=configuration.configuration_file.s3_published_bucket,
-            prefix=output_prefix
-        )
-
-        snapshot_location = "s3://{bucket}/{prefix}".format(
-            bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/full_merge_2/"
-        )
-        daily_deduped_prefix = "s3://{bucket}/{prefix}".format(
-            bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/combined_daily_data_april_dedup/"
-        )
-        output_location = "s3://{bucket}/{prefix}".format(
-            bucket=configuration.configuration_file.s3_published_bucket,
-            prefix=output_prefix
-        )
-
-        schema = StructType([
-            StructField("id_key", StringType(), nullable=False),
-            StructField("dbType", StringType(), nullable=False),
-            StructField("json", StringType(), nullable=False),
-            StructField("row_number", IntegerType(), nullable=False),
-            StructField("id_part", StringType(), nullable=False),
-        ])
-
-        snapshot_df = (
-            self._spark_session.read.schema(schema).orc(snapshot_location)
-            .select("id_key", "id_part", "dbType", "json")
-        )
-
-        deduped_daily_df = (
-            self._spark_session.read.schema(schema).orc(daily_deduped_prefix)
-            .select("id_key", "id_part", "dbType", "json")
-        )
-
-        window_spec = Window.partitionBy("id_part", "id_key").orderBy("dbType")
-        combined_df = (
-            snapshot_df.union(deduped_daily_df)
-            .repartitionByRange(4096, "id_part", "id_key")
-            .withColumn("row_number", row_number().over(window_spec))
-        )
-
-        (
-            combined_df
-            .filter(combined_df.row_number == 1)
-            .write.partitionBy("id_part")
-            .orc(output_location, mode="overwrite", compression="zlib")
-        )
-
-    def dedup_monthly(self):
-        configuration = self._configuration
-        source_prefix = "corporate_data_ingestion/calculation_parts/combined_daily_data_april/"
-        dest_prefix = "corporate_data_ingestion/calculation_parts/combined_daily_data_april_dedup/"
-
-        s3_source_url = "s3://{bucket}/{prefix}".format(
-            bucket=configuration.configuration_file.s3_published_bucket,
-            prefix=source_prefix,
-        )
-        s3_destination_url = "s3://{bucket}/{prefix}".format(
-            bucket=configuration.configuration_file.s3_published_bucket,
-            prefix=dest_prefix,
-        )
-
-        logger.warning(f"Emptying prefix: {dest_prefix}")
-        self.empty_s3_prefix(configuration.configuration_file.s3_published_bucket, dest_prefix)
-
-        logger.info("starting pyspark processing")
-
-        schema = StructType([
-            StructField("id_key", StringType(), nullable=False),
-            StructField("id_part", StringType(), nullable=False),
-            StructField("dbType", StringType(), nullable=False),
-            StructField("json", StringType(), nullable=False),
-        ])
-
-        window_spec = Window.partitionBy("id_part", "id_key").orderBy("dbType")
-
-        df = self._spark_session.read.schema(schema).orc(s3_source_url) \
-            .repartition("id_part") \
-            .withColumn("row_number", row_number().over(window_spec))
-
-        df.filter(df.row_number == 1).write.partitionBy("id_part").orc(
-            s3_destination_url,
-            mode="overwrite",
-            compression="zlib"
-        )
-
-    def append_daily(self):
-        configuration = self._configuration
-        export_date = configuration.export_date  # format "2022-10-01"
-        dest_prefix = "corporate_data_ingestion/calculation_parts/combined_daily_data_april/"
-
-        s3_source_url = "s3://{bucket}/{prefix}/{export_date}/{collection}".format(
-            bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/json/daily",
-            export_date=export_date,
-            collection="calculator/calculationParts"
-        )
-        s3_destination_url = "s3://{bucket}/{prefix}".format(
-            bucket=configuration.configuration_file.s3_published_bucket,
-            prefix=dest_prefix,
-        )
-
-        logger.info("starting pyspark processing")
-
-        schema = StructType([
-            StructField("id", StringType(), nullable=False),
-            StructField("id_m", StringType(), nullable=False),
-            StructField("val", StringType(), nullable=False),
-            StructField("dbtype", StringType(), nullable=False),
-            StructField("id_part", StringType(), nullable=False),
-        ])
-
-        df = self._spark_session.read.schema(schema).orc(s3_source_url) \
-            .withColumnRenamed("id_m", "id_key") \
-            .withColumnRenamed("dbtype", "dbType") \
-            .withColumnRenamed("val", "json") \
-            .select("id_key", "id_part", "dbType", "json") \
-            .repartition("id_part").sortWithinPartitions("id_key")
-
-        df.write.partitionBy("id_part").orc(s3_destination_url, mode="append", compression="zlib")
-
-    def ingest_snapshot(self):
-        configuration = self._configuration
-
-        logger.info("starting pyspark processing")
-        s3_source_url = "s3://{bucket}/{prefix}".format(bucket=configuration.configuration_file.s3_published_bucket,
-                                                        prefix="analytical-dataset/archive/11_2022_backup/calculationParts/")
-
-        s3_destination_url = "s3://{bucket}/{prefix}".format(bucket=configuration.configuration_file.s3_published_bucket,
-                                                             prefix="corporate_data_ingestion/calculation_parts/snapshot/")
-
-        df = self.read_dir(s3_source_url)
-        (
-            df.map(json.loads)
-            .map(lambda x: (f'{x.get("_id").get("id")}_{x.get("_id").get("type")}',
-                            f'{x.get("_id").get("id")}'[0:2],
-                            "INSERT" if x.get("_removedDateTime") is None else "DELETE",
-                            json.dumps(x, ensure_ascii=False, separators=(',', ':'))
-                            ))
-            .toDF(["id_key", "id_part", "dbType", "json"])
-            .repartition("id_part")
-            .sortWithinPartitions("id_key")
-            .write.partitionBy("id_part").orc(s3_destination_url, mode="overwrite", compression="zlib")
-        )
-
-    def publish_calculation_parts_textfile(self):
-        configuration = self._configuration
-
-        self.empty_s3_prefix(
-            bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/230417/"
-        )
-
-        logger.info("starting pyspark processing")
-        s3_source_url = "s3://{bucket}/{prefix}".format(
-            bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/full_merge_2/"
-        )
-
-        s3_destination_url = "s3://{bucket}/{prefix}".format(
-            bucket=configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/230417/attempt_1/"
-        )
-        schema = StructType([
-            StructField("id_key", StringType(), nullable=False),
-            StructField("dbType", StringType(), nullable=False),
-            StructField("json", StringType(), nullable=False),
-            StructField("row_number", IntegerType(), nullable=False),
-            StructField("id_part", StringType(), nullable=False),
-        ])
-
-        df = self._spark_session.read.schema(schema).orc(s3_source_url)
-        df.rdd.map(lambda x: x["json"]).repartition(8192).saveAsTextFile(
-            s3_destination_url,
-            compressionCodecClass="com.hadoop.compression.lzo.LzopCodec"
-        )
-
-    def publish_calculation_parts_to_table(self, table: str, ddl: str):
-        snapshot_location = "s3://{bucket}/{prefix}".format(
-            bucket=self._configuration.configuration_file.s3_published_bucket,
-            prefix="corporate_data_ingestion/calculation_parts/full_merge_3/",
-        )
-
-        logger.info("starting pyspark processing")
-
-        schema = StructType([
-            StructField("id_key", StringType(), nullable=False),
-            StructField("dbType", StringType(), nullable=False),
-            StructField("json", StringType(), nullable=False),
-            StructField("row_number", IntegerType(), nullable=False),
-            StructField("id_part", StringType(), nullable=False),
-        ])
-
-        with open(f"/opt/emr/calculation_parts_ddl/{ddl}", "r") as f:
-            json_schema = f.read()
-
-        df = self._spark_session.read.schema(schema).orc(snapshot_location)
-        (
-            df
-            .select(from_json("json", json_schema).alias("json"), "id_part", "id_key")
-            .repartitionByRange(1024, "id_part", "id_key").select("json.*")
-            .write.format("orc").mode("overwrite").saveAsTable(f"dwx_audit_transition.{table}")
-        )
-
-
-class CalculationPartsDeduplicate(CalcPartBenchmark):
-    def run(self):
-        self.dedup_monthly()
-        self.merge_snapshot_dedupe()
-
-
-class CalculationPartsAppend(CalcPartBenchmark):
-    def run(self):
-        self.append_daily()
-
-
-class CalculationPartsPublishCalculatorParts(CalcPartBenchmark):
-    def run(self):
-        self.publish_calculation_parts_to_table(
-            table="src_calculator_parts",
-            ddl="src_calculator_parts_ddl",
-        )
-
-
-class CalculationPartsPublishHousingCalculator(CalcPartBenchmark):
-    def run(self):
-        self.publish_calculation_parts_to_table(
-            table="src_calculator_calculationparts_housing_calculation",
-            ddl="src_calculator_calculationparts_housing_calculation_ddl",
-        )
-
-
-class CalculationPartsPublishChildcareEntitlement(CalcPartBenchmark):
-    def run(self):
-        self.publish_calculation_parts_to_table(
-            table="src_childcare_entitlement",
-            ddl="src_childcare_entitlement_ddl"
-        )
