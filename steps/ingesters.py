@@ -328,13 +328,12 @@ class CalculationPartsIngester(BaseIngester):
                 source_df
                 .select(from_json("val", json_schema).alias("val"), "id_part", "id")
                 .repartitionByRange(1024, "id_part", "id").select("val.*")
-                .write.format("orc").mode("overwrite").saveAsTable(f"dwx_audit_transition.{table_dict['table_name']}")
+                .write.format("orc").mode("overwrite").saveAsTable(f"uc_lab_staging.{table_dict['table_name']}")
             )
             logger.info(f"Published table: {table_dict['table_name']}")
 
     def update(self):
         # Retrieves latest  CDI export entry from dynamodb
-        latest_cdi_export_dynamodb_entry = None
         dynamodb = boto3.resource("dynamodb")
         table = dynamodb.Table("data_pipeline_metadata")
         response = table.scan(
