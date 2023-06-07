@@ -26,7 +26,6 @@ class BaseIngester:
         self._spark_session = spark_session
         self._hive_session = hive_session
         self.dynamodb_helper = dynamodb_helper
-        self.daily_output_prefix = None
 
     def read_dir(self, file_path):
         return self._spark_session.sparkContext.textFile(file_path)
@@ -66,7 +65,7 @@ class BusinessAuditIngester(BaseIngester):
 
         corporate_bucket = self._configuration.configuration_file.s3_corporate_bucket
         # Use source prefix from configuration if set, otherwise use default
-        source_prefix = self._configuration.source_s3_prefix.lstrip("/") or path.join(
+        source_prefix = self._configuration.source_s3_prefix or path.join(
             self.DEFAULT_K2HB_S3_ROOT_PREFIX,
             *prefix_date.split("-"),
             *collection_name.split(":"),
@@ -74,7 +73,7 @@ class BusinessAuditIngester(BaseIngester):
 
         published_bucket = self._configuration.configuration_file.s3_published_bucket
         # Use destination prefix from configuration if set, otherwise use default
-        destination_prefix = self._configuration.destination_s3_prefix.lstrip("/") or path.join(
+        destination_prefix = self._configuration.destination_s3_prefix or path.join(
             self.DEFAULT_CDI_DAILY_PREFIX,
             self._configuration.export_date,
             *collection_name.split(":"),
@@ -83,7 +82,7 @@ class BusinessAuditIngester(BaseIngester):
 
         # define source and destination s3 URIs
         s3_source_url = "s3://{bucket}/{prefix}".format(bucket=corporate_bucket, prefix=source_prefix.lstrip("/"))
-        s3_destination_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=destination_prefix)
+        s3_destination_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=destination_prefix.lstrip("/"))
 
         # begin processing
         try:
@@ -269,6 +268,7 @@ class BusinessAuditIngester(BaseIngester):
 
 class CalculationPartsIngester(BaseIngester):
     DEFAULT_CDI_DAILY_PREFIX = "corporate_data_ingestion/orc/daily/"
+    DEFAULT_CDI_EXPORT_PREFIX = "corporate_data_ingestion/exports/"
 
     def run(self):
         self.decrypt_and_process()
@@ -294,8 +294,9 @@ class CalculationPartsIngester(BaseIngester):
 
         published_bucket = self._configuration.configuration_file.s3_published_bucket
         export_output_prefix = path.join(
-            "corporate_data_ingestion/exports/calculator/calculationParts/",
-            f"{self._configuration.export_date}/"
+            self.DEFAULT_CDI_EXPORT_PREFIX,
+            "calculator/calculationParts/",
+            self._configuration.export_date,
         )
         export_output_url = path.join(f"s3://{published_bucket}", export_output_prefix)
 
@@ -308,6 +309,9 @@ class CalculationPartsIngester(BaseIngester):
             ]
         )
 
+        logger.info("Publishing calculationParts tables")
+        logger.info(f"Export path: {export_output_url}")
+
         source_df = (
             self._spark_session
             .read
@@ -316,6 +320,7 @@ class CalculationPartsIngester(BaseIngester):
             .persist(storageLevel=StorageLevel.DISK_ONLY)
         )
         for table_dict in tables_to_publish:
+            logger.info(f"Publishing table: {table_dict['table_name']}")
             with open(f"/opt/emr/calculation_parts_ddl/{table_dict['ddl']}", "r") as f:
                 json_schema = f.read()
 
@@ -325,6 +330,7 @@ class CalculationPartsIngester(BaseIngester):
                 .repartitionByRange(1024, "id_part", "id").select("val.*")
                 .write.format("orc").mode("overwrite").saveAsTable(f"dwx_audit_transition.{table_dict['table_name']}")
             )
+            logger.info(f"Published table: {table_dict['table_name']}")
 
     def update(self):
         # Retrieves latest  CDI export entry from dynamodb
@@ -358,19 +364,22 @@ class CalculationPartsIngester(BaseIngester):
             latest_cdi_export_s3_prefix = "corporate_data_ingestion/exports/calculator/calculationParts/2023-05-17/"
             latest_cdi_export_date = dt.datetime.strptime("2023-05-17", "%Y-%m-%d")
 
-        published_bucket = self._configuration.configuration_file.s3_published_bucket
-
-        daily_output_prefix = path.join(
-            self._configuration.destination_s3_prefix.lstrip("/"),
+        # Use destination prefix from configuration if set, otherwise use default
+        # << CalcParts uses date-partitioned storage, and therefore doesn't specify the export-date in the path
+        daily_output_prefix = self._configuration.destination_s3_prefix or path.join(
+            self.DEFAULT_CDI_DAILY_PREFIX,
             self._configuration.db_name,
             self._configuration.table_name,
         )
-        daily_output_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=daily_output_prefix)
+        published_bucket = self._configuration.configuration_file.s3_published_bucket
+        daily_output_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=daily_output_prefix.lstrip("/"))
 
+        # Latest CDI export from dynamoDB entry
         latest_cdi_export_s3_url = path.join("s3://", published_bucket, latest_cdi_export_s3_prefix)
-
         export_output_prefix = path.join(
-            "corporate_data_ingestion/exports/calculator/calculationParts/", f"{self._configuration.export_date}/"
+            self.DEFAULT_CDI_EXPORT_PREFIX,
+            "calculator/calculationParts/",
+            self._configuration.export_date,
         )
         export_output_url = path.join(f"s3://{published_bucket}", export_output_prefix)
 
@@ -401,6 +410,13 @@ class CalculationPartsIngester(BaseIngester):
             ]
         )
 
+        logger.info("Starting Merge")
+        logger.info(f"Most recent export dated: {latest_cdi_export_date}")
+        logger.info(f"Most recent export prefix: {latest_cdi_export_s3_prefix}")
+        logger.info(f"Partitioned daily data in prefix: {daily_output_prefix}")
+        logger.info(f"Partitioned daily data filtered for: 'export date > {daily_output_prefix}'")
+        logger.info(f"New export output prefix: {export_output_prefix}")
+
         # Read daily data since last export
         df_dailies = (
             self._spark_session.read.schema(schema_dailies)
@@ -429,6 +445,8 @@ class CalculationPartsIngester(BaseIngester):
             .orc(export_output_url, mode="overwrite", compression="zlib")
         )
 
+        logger.info("Completed Merge")
+
     def decrypt_and_process(self):
         correlation_id = self._configuration.correlation_id
         export_date = self._configuration.export_date
@@ -437,25 +455,24 @@ class CalculationPartsIngester(BaseIngester):
 
         corporate_bucket = self._configuration.configuration_file.s3_corporate_bucket
         # Use source prefix from configuration if set, otherwise use default
-        source_prefix = self._configuration.source_s3_prefix.lstrip("/") or path.join(
+        source_prefix = self._configuration.source_s3_prefix or path.join(
             self.DEFAULT_K2HB_S3_ROOT_PREFIX,
             *prefix_date.split("-"),
             self._configuration.db_name,
             self._configuration.table_name,
         )
 
-        # Use source prefix from configuration if set, otherwise use default
+        # Use destination prefix from configuration if set, otherwise use default
         # << CalcParts uses date-partitioned storage, and therefore doesn't specify the export-date in the path
-        daily_output_prefix = self._configuration.destination_s3_prefix.lstrip("/") or path.join(
+        daily_output_prefix = self._configuration.destination_s3_prefix or path.join(
             self.DEFAULT_CDI_DAILY_PREFIX,
             self._configuration.db_name,
             self._configuration.table_name,
         )
         published_bucket = self._configuration.configuration_file.s3_published_bucket
-        self.daily_output_prefix = daily_output_prefix
 
         s3_source_url = "s3://{bucket}/{prefix}".format(bucket=corporate_bucket, prefix=source_prefix.lstrip("/"))
-        daily_output_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=daily_output_prefix)
+        daily_output_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=daily_output_prefix.lstrip("/"))
 
         # begin processing
         try:
