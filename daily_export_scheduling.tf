@@ -29,16 +29,10 @@ resource "aws_cloudwatch_event_target" "run_daily_export_monday_to_saturday" {
           "Args": [
             "spark-submit",
             "/opt/emr/steps/corporate_data_ingestion.py",
-            "--source_s3_prefix",
-            "${each.value["source_s3_prefix"]}",
-            "--destination_s3_prefix",
-            "${each.value["destination_s3_prefix"]}",
             "--db",
             "${each.value["db"]}",
             "--collection",
-            "${each.value["collection"]}",
-            "--concurrency",
-            "${each.value["concurrency"]}"
+            "${each.value["collection"]}"
           ]
         }
       }]
@@ -66,16 +60,10 @@ resource "aws_cloudwatch_event_target" "run_daily_export_sunday" {
           "Args": [
             "spark-submit",
             "/opt/emr/steps/corporate_data_ingestion.py",
-            "--source_s3_prefix",
-            "${each.value["source_s3_prefix"]}",
-            "--destination_s3_prefix",
-            "${each.value["destination_s3_prefix"]}",
             "--db",
             "${each.value["db"]}",
             "--collection",
-            "${each.value["collection"]}",
-            "--concurrency",
-            "${each.value["concurrency"]}"
+            "${each.value["collection"]}"
           ]
         }
       }]

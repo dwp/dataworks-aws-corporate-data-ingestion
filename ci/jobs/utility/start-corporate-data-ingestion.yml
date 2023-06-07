@@ -10,6 +10,8 @@ jobs:
           AWS_DEFAULT_REGION: ((dataworks.aws_region))
           EXPORT_START_DATE: "2023-02-19"
           EXPORT_END_DATE: "2023-02-20"
+          DB: data
+          COLLECTION: businessAudit
 
   - name: start-corporate-data-ingestion-qa
     plan:
@@ -22,6 +24,8 @@ jobs:
           AWS_ACC: ((aws_account.qa))
           EXPORT_START_DATE: "2023-02-19"
           EXPORT_END_DATE: "2023-02-20"
+          DB: data
+          COLLECTION: businessAudit
 
   - name: start-corporate-data-ingestion-integration
     plan:
@@ -34,6 +38,8 @@ jobs:
           AWS_ACC: ((aws_account.integration))
           EXPORT_START_DATE: "2023-02-19"
           EXPORT_END_DATE: "2023-02-20"
+          DB: data
+          COLLECTION: businessAudit
 
   - name: start-corporate-data-ingestion-preprod
     plan:
@@ -46,6 +52,8 @@ jobs:
           AWS_ACC: ((aws_account.preprod))
           EXPORT_START_DATE: "2023-02-19"
           EXPORT_END_DATE: "2023-02-20"
+          DB: data
+          COLLECTION: businessAudit
 
   - name: start-corporate-data-ingestion-production
     plan:
@@ -58,3 +66,6 @@ jobs:
           AWS_ACC: ((aws_account.production))
           EXPORT_START_DATE: "2023-02-19"
           EXPORT_END_DATE: "2023-02-20"
+          DB: data
+          COLLECTION: businessAudit
+
