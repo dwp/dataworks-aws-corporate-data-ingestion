@@ -350,6 +350,11 @@ resource "aws_iam_role_policy_attachment" "dataworks_aws_corporate_data_ingestio
   policy_arn = aws_iam_policy.dataworks_aws_corporate_data_ingestion_read_write_corporate_bucket.arn
 }
 
+resource "aws_iam_role_policy_attachment" "dataworks_aws_corporate_data_ingestion_read_write_processed_bucket" {
+  role       = aws_iam_role.dataworks_aws_corporate_data_ingestion.name
+  policy_arn = aws_iam_policy.dataworks_aws_corporate_data_ingestion_read_write_processed_bucket.arn
+}
+
 resource "aws_iam_policy" "dataworks_aws_corporate_data_ingestion_metadata_change" {
   name        = "${local.emr_cluster_name}MetadataOptions"
   description = "Allow editing of Metadata Options"
