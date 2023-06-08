@@ -55,6 +55,8 @@ class DynamoDBHelper:
             self.client.put_item(TableName=self.DYNAMO_TABLE, Item=data)
         else:
             """Update existing row with status_field"""
+            data = {"Status": {"Value": {"S": status}}}
+            data.update(extra if extra else {})
             self.client.update_item(
-                TableName=self.DYNAMO_TABLE, Key=self.KEY, AttributeUpdates={"Status": {"Value": {"S": status}}}
+                TableName=self.DYNAMO_TABLE, Key=self.KEY, AttributeUpdates=data
             )

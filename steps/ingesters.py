@@ -338,7 +338,7 @@ class CalculationPartsIngester(BaseIngester):
         table = dynamodb.Table("data_pipeline_metadata")
         response = table.scan(
             FilterExpression=(
-                Attr("DataProduct").contains("CDI")
+                Attr("DataProduct").eq("CDI-calculator:calculationPArts")
                 & Attr("S3_Prefix_CDI_Export").exists()
                 & Attr("Status").eq("COMPLETED")
             )
@@ -413,7 +413,7 @@ class CalculationPartsIngester(BaseIngester):
         logger.info(f"Most recent export dated: {latest_cdi_export_date}")
         logger.info(f"Most recent export prefix: {latest_cdi_export_s3_prefix}")
         logger.info(f"Partitioned daily data in prefix: {daily_output_prefix}")
-        logger.info(f"Partitioned daily data filtered for: 'export date > {daily_output_prefix}'")
+        logger.info(f"Partitioned daily data filtered for: 'export date > {latest_cdi_export_date}'")
         logger.info(f"New export output prefix: {export_output_prefix}")
 
         # Read daily data since last export
