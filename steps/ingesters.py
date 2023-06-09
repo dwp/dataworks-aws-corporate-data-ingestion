@@ -385,7 +385,7 @@ class CalculationPartsIngester(BaseIngester):
         self.dynamodb_helper.update_status(
             status=self.dynamodb_helper.IN_PROGRESS,
             export_date=self._configuration.export_date,
-            extra={"S3_Prefix_CDI_Export": {"S": export_output_prefix}},
+            extra={"S3_Prefix_CDI_Export": {"Value": {"S": export_output_prefix}}},
         )
 
         schema_dailies = StructType(
