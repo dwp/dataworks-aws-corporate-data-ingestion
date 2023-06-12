@@ -83,3 +83,15 @@ variable "corporate_storage_s3_prefix" {
     production  = "corporate_storage/"
   }
 }
+
+variable "tanium_port_1" {
+  description = "tanium port 1"
+  type        = string
+  default     = "16563"
+}
+
+variable "tanium_port_2" {
+  description = "tanium port 2"
+  type        = string
+  default     = "16555"
+}
