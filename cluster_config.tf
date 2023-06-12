@@ -66,6 +66,18 @@ resource "aws_s3_object" "steps" {
       environment         = local.hcs_environment[local.environment]
       proxy_http_host     = data.terraform_remote_state.internal_compute.outputs.internet_proxy.host
       proxy_http_port     = data.terraform_remote_state.internal_compute.outputs.internet_proxy.port
+      install_tenable     = local.tenable_install[local.environment]
+      install_trend       = local.trend_install[local.environment]
+      install_tanium      = local.tanium_install[local.environment]
+      tanium_server_1     = local.tanium1
+      tanium_server_2     = local.tanium2
+      tanium_env          = local.tanium_env[local.environment]
+      tanium_port         = var.tanium_port_1
+      tanium_log_level    = local.tanium_log_level[local.environment]
+      tenant              = local.tenant
+      tenantid            = local.tenantid
+      token               = local.token
+      policyid            = local.policy_id[local.environment]
     }
   )
   tags = {
