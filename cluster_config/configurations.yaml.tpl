@@ -22,7 +22,7 @@ Configurations:
     "spark.driver.defaultJavaOptions": "-XX:+UseG1GC -XX:+UnlockDiagnosticVMOptions -XX:+G1SummarizeConcMark -XX:InitiatingHeapOccupancyPercent=35 -verbose:gc -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:OnOutOfMemoryError='kill -9 %p' -Dhttp.proxyHost='${proxy_http_host}' -Dhttp.proxyPort='${proxy_http_port}' -Dhttp.nonProxyHosts='${proxy_no_proxy}' -Dhttps.proxyHost='${proxy_https_host}' -Dhttps.proxyPort='${proxy_https_port}'"
     "spark.serializer": "org.apache.spark.serializer.KryoSerializer"
     "spark.kryoserializer.buffer.max": "${spark_kyro_buffer}"
-    "spark.driver.maxResultSize": "1g"
+    "spark.driver.maxResultSize": "8g"
     "spark.sql.warehouse.dir": "s3://${s3_published_bucket}/corporate_data_ingestion/hive/external"
     "spark.dynamicAllocation.enabled": "false"
     "spark.executor.cores": "${spark_executor_cores}"
