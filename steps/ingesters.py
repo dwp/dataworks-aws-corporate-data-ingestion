@@ -474,6 +474,9 @@ class CalculationPartsIngester(BaseIngester):
         s3_source_url = "s3://{bucket}/{prefix}".format(bucket=corporate_bucket, prefix=source_prefix.lstrip("/"))
         daily_output_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=daily_output_prefix.lstrip("/"))
 
+        #todo remove this
+        self.empty_s3_prefix(bucket=published_bucket, prefix=daily_output_prefix)
+
         # begin processing
         try:
             dks_hit_accumulator = self._spark_session.sparkContext.accumulator(0)
