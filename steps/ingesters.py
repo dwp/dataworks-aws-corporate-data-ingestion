@@ -390,22 +390,9 @@ class CalculationPartsIngester(BaseIngester):
             extra={"S3_Prefix_CDI_Export": {"Value": {"S": export_output_prefix}}},
         )
 
-        schema_dailies = StructType(
+        schema = StructType(
             [
                 StructField("id", StringType(), nullable=False),
-                StructField("id_part", StringType(), nullable=False),
-                StructField("export_year", IntegerType(), nullable=False),
-                StructField("export_month", IntegerType(), nullable=False),
-                StructField("export_day", IntegerType(), nullable=False),
-                StructField("db_type", StringType(), nullable=False),
-                StructField("val", StringType(), nullable=False),
-            ]
-        )
-
-        schema_cdi_output = StructType(
-            [
-                StructField("id", StringType(), nullable=False),
-                StructField("id_part", StringType(), nullable=False),
                 StructField("db_type", StringType(), nullable=False),
                 StructField("val", StringType(), nullable=False),
             ]
@@ -420,17 +407,21 @@ class CalculationPartsIngester(BaseIngester):
 
         # Read daily data since last export
         df_dailies = (
-            self._spark_session.read.schema(schema_dailies)
+            self._spark_session.read.schema(schema)
             .orc(daily_output_url)
             .filter(
                 (col("export_year") >= 2023)
                 & (col("export_month") >= 5)
             )
-            .select(col("id"), col("id_part"), col("db_type"), col("val"))
+            .select(col("id"), col("db_type"), col("val"), col("id_part"))
         )
 
         # read most recent export
-        df_cdi_output = self._spark_session.read.schema(schema_cdi_output).orc(latest_cdi_export_s3_url)
+        df_cdi_output = (
+            self._spark_session.read.schema(schema)
+            .orc(latest_cdi_export_s3_url)
+            .select(col("id"), col("db_type"), col("val"), col("id_part"))
+         )
 
         # Union and find latest record for each ID
         window_spec = Window.partitionBy("id_part", "id").orderBy("db_type")
