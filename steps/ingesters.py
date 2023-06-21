@@ -292,7 +292,7 @@ class CalculationPartsIngester(BaseIngester):
             },
         ]
 
-        self._hive_session.execute_queries([f"DROP TABLE uc_lab_staging.{item['table_name']}" for item in tables_to_publish])
+        self._hive_session.execute_queries([f"DROP TABLE IF EXISTS uc_lab_staging.{item['table_name']}" for item in tables_to_publish])
 
         published_bucket = self._configuration.configuration_file.s3_published_bucket
         export_output_prefix = path.join(
