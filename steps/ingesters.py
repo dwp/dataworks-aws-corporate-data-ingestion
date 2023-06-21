@@ -272,8 +272,12 @@ class CalculationPartsIngester(BaseIngester):
 
     def run(self):
         self.decrypt_and_process()
+
         if self._configuration.force_collection_update:
             self.update()
+            self.export_to_hive_table()
+
+        if self._configuration.force_export_to_hive:
             self.export_to_hive_table()
 
     def export_to_hive_table(self):
