@@ -89,7 +89,7 @@ resource "aws_cloudwatch_event_target" "run_daily_export_sunday" {
 }
 
 resource "aws_cloudwatch_event_target" "run_daily_export_except_friday" {
-  for_each  = local.run_daily_export_on_schedule[local.environment] == true ? local.collections_configuration : tomap({})
+  count = local.run_daily_export_on_schedule[local.environment] ? 1 : 0
   rule      = aws_cloudwatch_event_rule.utc_09_30_daily_except_friday[0].name
   target_id = aws_sns_topic.corporate_data_ingestion.name
   arn       = aws_sns_topic.corporate_data_ingestion.arn
@@ -120,7 +120,7 @@ resource "aws_cloudwatch_event_target" "run_daily_export_except_friday" {
 }
 
 resource "aws_cloudwatch_event_target" "run_update_weekly_on_friday" {
-  for_each  = local.run_daily_export_on_schedule[local.environment] == true ? local.collections_configuration : tomap({})
+  count = local.run_daily_export_on_schedule[local.environment] ? 1 : 0
   rule      = aws_cloudwatch_event_rule.utc_09_30_friday[0].name
   target_id = aws_sns_topic.corporate_data_ingestion.name
   arn       = aws_sns_topic.corporate_data_ingestion.arn
