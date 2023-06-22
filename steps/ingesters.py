@@ -344,7 +344,7 @@ class CalculationPartsIngester(BaseIngester):
         table = dynamodb.Table("data_pipeline_metadata")
         response = table.scan(
             FilterExpression=(
-                Attr("DataProduct").eq("CDI-calculator:calculationPArts")
+                Attr("DataProduct").eq("CDI-calculator:calculationParts")
                 & Attr("S3_Prefix_CDI_Export").exists()
                 & Attr("Status").eq("COMPLETED")
             )
@@ -421,15 +421,19 @@ class CalculationPartsIngester(BaseIngester):
         logger.info(f"Partitioned daily data in prefix: {daily_output_prefix}")
         logger.info(f"Partitioned daily data filtered for: 'export date > {latest_cdi_export_date}'")
         logger.info(f"New export output prefix: {export_output_prefix}")
+        cdi_year = latest_cdi_export_date.year
+        cdi_month = latest_cdi_export_date.month
+        cdi_day = latest_cdi_export_date.day
 
         # Read daily data since last export
         df_dailies = (
             self._spark_session.read.schema(schema_dailies)
             .orc(daily_output_url)
-            .filter(
-                (col("export_year") >= 2023)
-                & (col("export_month") >= 5)
-            )
+            .filter((
+                (col("export_year") > cdi_year)
+                | ((col("export_year") == cdi_year) & (col("export_month") > cdi_month))
+                | ((col("export_year") == cdi_year) & (col("export_month") == cdi_month) & (col("export_day") > cdi_day))
+            ))
             .select(col("id"), col("db_type"), col("val"), col("id_part"))
         )
 
