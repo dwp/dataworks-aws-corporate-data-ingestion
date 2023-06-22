@@ -89,7 +89,7 @@ resource "aws_cloudwatch_event_target" "run_daily_export_sunday" {
 }
 
 resource "aws_cloudwatch_event_target" "run_daily_export_except_friday" {
-  for_each  = local.run_daily_export_on_schedule[local.environment] == true ? local.collections_configuration : tomap({})
+  count     = local.run_daily_export_on_schedule[local.environment] ? 1 : 0
   rule      = aws_cloudwatch_event_rule.utc_09_30_daily_except_friday[0].name
   target_id = aws_sns_topic.corporate_data_ingestion.name
   arn       = aws_sns_topic.corporate_data_ingestion.arn
@@ -109,6 +109,38 @@ resource "aws_cloudwatch_event_target" "run_daily_export_except_friday" {
             "calculator",
             "--collection",
             "calculationParts"
+          ]
+        }
+      }]
+    },
+    "extend": null,
+    "additional_step_args": null
+  }
+  JSON
+}
+
+resource "aws_cloudwatch_event_target" "run_update_weekly_on_friday" {
+  count     = local.run_daily_export_on_schedule[local.environment] ? 1 : 0
+  rule      = aws_cloudwatch_event_rule.utc_09_30_friday[0].name
+  target_id = aws_sns_topic.corporate_data_ingestion.name
+  arn       = aws_sns_topic.corporate_data_ingestion.arn
+  input     = <<JSON
+  {
+    "s3_overrides": null,
+    "overrides": {
+      "Steps": [{
+        "Name": "corporate-data-ingestion::calculationParts::weekly-update",
+        "ActionOnFailure": "TERMINATE_CLUSTER",
+        "HadoopJarStep": {
+          "Jar": "command-runner.jar",
+          "Args": [
+            "spark-submit",
+            "/opt/emr/steps/corporate_data_ingestion.py",
+            "--db",
+            "calculator",
+            "--collection",
+            "calculationParts",
+            "--force_collection_update"
           ]
         }
       }]
