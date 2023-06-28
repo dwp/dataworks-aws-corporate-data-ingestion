@@ -41,9 +41,9 @@ The Corporate Data Ingester does the following:
 
 
 ### Logic Flow
-The easiest way to read the code is to look for the .run() method of the appropriate ingester
+The easiest way to read the code is to look for the `.run()` method of the appropriate ingester
 in `steps/ingesters.py`.  This method is called for each 'export date' passed to the application, 
-if you launch the step with start_date=2022-01-01, end_date=2022-01-07, the `.run()` method would be
+if you launch the step with `start_date=2022-01-01`, `end_date=2022-01-07`, the `.run()` method would be
 called once for each date between 01/01/22 - 07/01/22
 
 ### data.businessAudit
@@ -93,7 +93,7 @@ The following is repeated for each (`table`, `schema`)
 
 
 ### calculator.calculationParts
-CalculationParts is very large, but in terms of data received is simpler than most collections.  For each ID
+CalculationParts is very large (~10TB), but in terms of data received is simpler than most collections.  For each ID
 an INSERT record is followed by a DELETE record.  This helps shortcut the logic to find the latest record, by
 prioritising DELETE > INSERT.  For this reason, calculationParts logic code is simpler than that needed for
 a generic pipeline.
