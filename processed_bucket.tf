@@ -22,8 +22,9 @@ data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_read_writ
     ]
 
     resources = [
-      "${data.terraform_remote_state.common.outputs.processed_bucket.arn}/data/uc_lab_staging*",
+      "${data.terraform_remote_state.common.outputs.processed_bucket.arn}/data/uc_lab_staging/*",
       "${data.terraform_remote_state.common.outputs.processed_bucket.arn}/data/uc_lab_staging",
+      "${data.terraform_remote_state.common.outputs.processed_bucket.arn}/data/uc_lab_staging_$folder$"
     ]
   }
 
