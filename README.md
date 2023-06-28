@@ -15,7 +15,7 @@ Any jobs that require the use of aviator, e.g. starting and stopping clusters ne
 
 #### Start cluster
 
-This job will start an dataworks-aws-corporate-data-ingestion cluster.
+This job will start a dataworks-aws-corporate-data-ingestion cluster.
 
 #### Stop clusters
 
@@ -61,7 +61,7 @@ dataworks-aws-corporate-data-ingestion/
               start-corporate-data-ingestion.yml -> Regularly used to manually trigger the ingestion/processing of a collection
 
    cluster_config/ -> The EMR launcher lambda defined in `emr-launcher.tf` uses those file to configure the clusters. You can dynamically change the cluster configuration by supplying `s3_overrides`, `overrides`, `extend` or `additional_step_args` in the event body sent to the lambda. (More details here: https://github.com/dwp/emr-launcher#what-does-it-do).
-   modules/ -> Contains everything needed to run a one-off backup of a S3 bucket against an S3 inventory. We used this code once, as a precaution, before productionalising the pipeline for the first time.
+   modules/ -> Contains everything needed to run a one-off backup of a S3 bucket against an S3 inventory. We used this code once, as a precaution, before productionising the pipeline for the first time.
    steps/ -> Contains all the file composing the PySpark application we run on the cluster
       corporate_data_ingestion.py -> application entrypoint. Contains main function, argument parser and logic for ingesters selection, iterations and parallel scheduling of steps
       hive.py -> utily object and function to use Spark through Hive SQL
@@ -80,24 +80,24 @@ dataworks-aws-corporate-data-ingestion/
 ```
 
 ## Cluster & PySpark application configuration
-As explained earlier, the cluster is configured by the files in the folder `cluster_config`. On the other hand,
-the PySpark application running on the cluster is entirely defined in the folder `steps`. There are two ways to configure the
+The cluster is configured by the files in the folder `cluster_config`. 
+The PySpark application running on the cluster is contained in the folder `steps`. There are two ways to configure the
 behaviour of the application.
 
 1. Using steps/configuration.json
    This file is copied to S3 and its values interpolated by `steps.tf`. It is then copied to the cluster by the bootstrap
    action `bootstrap_actions/download_scripts.sh`
 
-2. Using CLI parameter. The PySpark application `steps/corporate_data_ingestion.py`parses its CLI arguments and adds them to a `Configuration` object
+2. Using CLI parameter. The PySpark application `steps/corporate_data_ingestion.py` parses its CLI arguments and adds them to a `Configuration` object
 
 In both cases, the values are stored in the `Configuration` object defined in `steps/data.py`.
 This object gets created in the main function (steps/corporate_data_ingestion.py) and is then passed to the subsequent calls including the Ingesters' `run()` methods.
 It allows a great centralisation of configuration.
 
-## Parallel execution
-The function `process_collection` parses the parameter `export_date`, instanciates an Ingester for the collection it received as
+## Execution
+The function `process_collection` parses the parameter `export_date`, instantiates an Ingester for the collection it received as
 parameter with a Configuration object that includes the `export_date` given as parameter. It then executes the `run()` method
-on the instanciated ingester thus starting the processing of the collection. (Note: when the `export_date` contains a range of
+on the instantiated ingester, starting the processing of the collection. (Note: when the `export_date` contains a range of
 dates, the `process_collection` function iterates through each date and applies the above for each one of them.)
 
 ## Ingesters
