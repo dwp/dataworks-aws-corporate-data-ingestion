@@ -77,6 +77,8 @@ The above represents a list of instructions to spark for processing the data.
 6. save to s3 as **TextFile** - no complex processing is required and so ORC doesn't
 offer a significant benefit here. It's also easier to impose schema on the JSON text data
 
+The data is stored in the `corporate_data_ingestion/json/daily/` prefix
+
 The UCMessage class/methods can be inspected in `steps/data.py`
 
 #### Execute Hive Statements
@@ -128,6 +130,8 @@ The above represents a list of instructions to spark for processing the data.
 7. Repartition the data by "id_part" (first 2 chars of the ID) and "id" - ensuring 'like' IDs are stored together
 8. Sort each partition by "id"
 9. Write out the data to S3 (to an existing ORC dataset), partitioned by export_date
+
+The data is stored in the `corporate_data_ingestion/orc/daily/` prefix
 
 #### Update
 `.run()` will conditionally call `.update()`.  This creates a new full dataset by finding and reading the previous
@@ -192,6 +196,7 @@ and ranks the records by a characteristic (DELETE > INSERT)
 5. write data to s3 as **ORC** - important that we maintain partitioning, sorting, 
 and metadata so that we can efficiently use this dataset to perform a future merge
 
+The data is stored in the `corporate_data_ingestion/exports/` prefix
 
 #### Export to Hive Table
 `.run()` will conditionally call `.export_to_hive_table()`.  This applies a schema
