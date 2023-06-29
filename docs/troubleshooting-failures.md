@@ -1,9 +1,21 @@
 # Troubleshooting Failures
 
+<!-- TOC -->
+* [Troubleshooting Failures](#troubleshooting-failures)
+    * [Summary](#summary)
+    * [Proposed troubleshooting approach](#proposed-troubleshooting-approach)
+      * [1. Check Cloudwatch](#1-check-cloudwatch)
+      * [2. Check the step logs](#2-check-the-step-logs)
+      * [3. Check the spark history server](#3-check-the-spark-history-server)
+      * [4. Check other hadoop application logs](#4-check-other-hadoop-application-logs)
+<!-- TOC -->
+
 ### Summary
-There are several places to look for logs and indications of why the cluster failed.
+There are several places to look for logs and indications of why the cluster 
+failed:
 - The pyspark application (in `steps/`) produces logs in cloudwatch
-- The spark history server surfaces statuses/statistics for spark applications, stages and tasks
+- The spark history server surfaces statuses/statistics for spark applications,
+stages and tasks
 - Spark executor logs are available via Spark history server
 - Hadoop application logs (incl. spark executor logs) are available in S3
 
@@ -14,7 +26,7 @@ There are several places to look for logs and indications of why the cluster fai
 When a step on the cluster has failed, the first place to look is cloudwatch 
 (log group `/app/corporate-data-ingestion/step_logs`)
 
-This will surface some information from spark to indicate why the failure has 
+This can provide some information from spark to indicate why the failure has 
 occurred, such as:
 ```
 2023-06-28 14:51:53,768 corporate-data-ingestion ERROR 
@@ -39,8 +51,9 @@ AnalysisException('Path does not exist: s3://<bucketredacted>/corporate_data_ing
 ```
 
 #### 2. Check the step logs
-In the EMR console, under the 'steps' tab, check the `controller, stderr, stdout` logs
-occasionally these will contain useful information at the end of the file
+In the EMR console, under the 'steps' tab, check the `controller, stderr,
+stdout` logs.  Occasionally these will contain useful information at the end 
+of the file
 
 #### 3. Check the spark history server
 If steps 1/2 don't provide clear information about the failure, you can check
@@ -51,20 +64,21 @@ The spark history server shows information in a hierarchy:
 
 Each step on the cluster will likely have its own application
 Each instruction to pyspark (i.e. action on a dataframe/RDD such as 
-`.write`, `.saveAsTextFile`) will have its own job
+`.write`, `.saveAsTextFile`) will have its own job.
 
-Each job is divided into stages and tasks by spark.  Tasks are assigned to executors, 
-and a single executor's logfile will contain the logs for several tasks
+Each job is divided into stages and tasks by spark.  Tasks are assigned to 
+executors, and a single executor's logfile will contain the logs for several
+tasks.
 
-Diving into the executor view, you can see if tasks are failing.  Identify an executor
-with failed tasks, and check the logs for that executor.
+Diving into the executor view, you can see if tasks are failing.  Identify an 
+executor with failed tasks, and check the logs for that executor.
 
 
-#### 3. Check other hadoop application logs
-If there are no failed tasks, or the previous sets of logs don't explain the behaviour,
-EMR collects logs from a number of applications on the cluster and publishes on S3.
-Check the EMR console to find the "Log destination in Amazon S3" for the cluster, 
-or navigate to the following:
+#### 4. Check other hadoop application logs
+If there are no failed tasks, or the previous sets of logs don't explain the
+behaviour, EMR collects logs from a number of applications on the cluster and
+publishes on S3.  Check the EMR console to find the "Log destination in Amazon 
+S3" for the cluster, or navigate to the following:
 > s3://`<log_bucket>`/emr/corporate-data-ingestion/`<cluster_id>`/node/`<master_ec2_instance_id>`/applications/
 
 The most interesting/useful logs are in the following subdirectories:

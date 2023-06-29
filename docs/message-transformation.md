@@ -1,14 +1,24 @@
 # Message Transformation
 
+<!-- TOC -->
+* [Message Transformation](#message-transformation)
+    * [UCMessage.validate](#ucmessagevalidate)
+      * [Date wrapping](#date-wrapping)
+      * [ID wrapping](#id-wrapping)
+      * [Setting _lastModifiedDateTime](#setting-lastmodifieddatetime)
+    * [UCMessage.sanitise](#ucmessagesanitise)
+    * [UCMessage.transform](#ucmessagetransform)
+<!-- TOC -->
+
 The UCMessage class (`steps/data.py`) has methods to 'validate', 'transform',
 and 'sanitise' the data.
 
-These methods are translated from HTME (kotlin) into pyspark to maintain the same
-output.  The names of the methods have been maintained, despite the 'validate' method
-making changes to the data.
+These methods are translated from HTME (kotlin) into pyspark to maintain the 
+same output.  The names of the methods have been maintained, despite the
+'validate' method making changes to the data.
 
-The unit tests from HTME have also been replicated and extended to ensure that the data
-is transformed in the same way.
+The unit tests from HTME have also been replicated and extended to ensure that 
+the data is transformed in the same way.
 
 ### UCMessage.validate
 This method achieves several things:
@@ -23,7 +33,8 @@ All date fields in the dbObject should look like this:
 > The date information should:
 > - be wrapped with "d_date" as the key
 > - the date information should be in UTC
-> - the date information should be in the following format: "YYYY-MM-DDTHH:MM:SS.FFFZ"
+> - the date information should be in the following format: 
+> "YYYY-MM-DDTHH:MM:SS.FFFZ"
 
 #### ID wrapping
 If the top level id field `_id` returns a JSON Primitive (not list or mapping)
@@ -54,13 +65,12 @@ collection-specific sanitising.
 
 ### UCMessage.transform
 This only applies to data.businessAudit messages because they have a different
-schema when compared to the other collections. The information that would usually 
-be at the top-level of normal collections' dbObject is hidden away in the 'context'
-element of the audit message.
+schema when compared to the other collections. The information that would
+usually be at the top-level of normal collections' dbObject is in 
+the 'context' element of the audit message.
 
 The method takes some information 
-from the top level of the dbObject, and copies it into one of the dictionaries inside
-the dbObject - the value of `$.message.dbObject.context`.
+from the top level of the dbObject, and copies it into one of the dictionaries
+inside the dbObject - the value of `$.message.dbObject.context`.
 
-It then uses that 'context' object instead of the dbObject going forwards
-
+It then uses that 'context' object instead of the dbObject going forwards.
