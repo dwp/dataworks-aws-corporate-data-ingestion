@@ -4,6 +4,22 @@ The corporate data ingestion pipeline is built to regularly ingest data from the
 The *.json.gz files are read, decompressed, decrypted and stored in the published bucket.  The cluster performs
 similar steps to the HTME and ADG infrastructure.
 
+<!-- TOC -->
+* [dataworks-aws-corporate-data-ingestion](#dataworks-aws-corporate-data-ingestion)
+  * [Concourse pipeline](#concourse-pipeline)
+    * [Admin jobs](#admin-jobs)
+      * [Start cluster](#start-cluster)
+      * [Stop clusters](#stop-clusters)
+  * [AMI tests](#ami-tests)
+  * [Code structure](#code-structure)
+  * [Cluster & PySpark application configuration](#cluster--pyspark-application-configuration)
+  * [Execution](#execution)
+  * [Ingesters](#ingesters)
+    * [How do we achieve abstraction and reusability?](#how-do-we-achieve-abstraction-and-reusability)
+    * [RDD or DataFrame?](#rdd-or-dataframe)
+    * [Further reading](#further-reading)
+<!-- TOC -->
+
 
 ## Concourse pipeline
 
@@ -142,3 +158,6 @@ in another location in S3 (published bucket). The resulting files are .ORC files
 When we need to perform more complex transformation/analysis on a collection such as running Window function to selectively remove
 duplicates or running joins, we can extend the `run()` method and use PySpark DataFrame instead. Our processing of the collection
 `CalculationParts` in a good example of the utilisation of PySpark DataFrame.
+
+### Further reading
+There is additional documentation in the `docs/` directory of this repository
