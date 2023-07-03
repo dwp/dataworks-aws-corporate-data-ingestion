@@ -45,5 +45,5 @@ caching has been implemented.
 The most important method is `decrypt_data_key()`.  This is called by the
 MessageCryptoHelper.  It does the following:
 1. Checks the cache and returns plaintext key if present; otherwise
-2. Uses the dks /decrypt endpoint to obtain a decrypted datakey
+2. Uses the dks `/decrypt` endpoint to obtain a decrypted datakey
 3. Stores in cache, and returns to MessageCryptoHelper
