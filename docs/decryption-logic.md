@@ -13,15 +13,15 @@ This documentation was written to outline the message decryption process &
 interaction with DKS
 
 ### Summary
-Data received over kafka is encrypted in a number of ways.  In S3 the files are
-encrypted with KMS keys.  This is handled using IAM and transparent to the
-cluster.
+Data in the corporate store bucket, received over kafka, is encrypted:
+- The **files** are encrypted with KMS keys.  This is handled using IAM and 
+transparent to the cluster.
+- The files contain records, and each record has an encrypted 'dbObject'.  The
+materials used to encrypt the dbObject are included in the message, and are
+themselves encrypted.
 
-Within the files, the messages contain an encrypted 'dbObject' field.  The 
-encryption materials are available within the message, and also encrypted.
-
-The DKSService, and MessageCryptoHelper in `steps/dks.py` handle interaction 
-with the DKS (Data Key Service) and decryption of the 'dbObject'.
+The DKSService and MessageCryptoHelper in `steps/dks.py` handle interaction 
+with DKS (Data Key Service) and decryption of the 'dbObject'.
 
 
 ### MessageCryptoHelper
