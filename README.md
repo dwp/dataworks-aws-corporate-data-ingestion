@@ -4,6 +4,8 @@ The corporate data ingestion pipeline is built to regularly ingest data from the
 The *.json.gz files are read, decompressed, decrypted and stored in the published bucket.  The cluster performs
 similar steps to the HTME and ADG infrastructure.
 
+![corporate-data-ingestion.png](docs%2Fcorporate-data-ingestion.png)
+
 <!-- TOC -->
 * [dataworks-aws-corporate-data-ingestion](#dataworks-aws-corporate-data-ingestion)
   * [Concourse pipeline](#concourse-pipeline)
