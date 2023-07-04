@@ -29,7 +29,7 @@ There is a concourse pipeline for dataworks-aws-corporate-data-ingestion named `
 
 ### Admin jobs
 
-Any jobs that require the use of aviator, e.g. starting and stopping clusters need to be added to the [dataworks-admin-utils repository](https://github.com/dwp/dataworks-admin-utils). An example of existing admin jobs for the `aws-clive` data product can be [seen here](https://ci.dataworks.dwp.gov.uk/teams/utility/pipelines/aws-clive)
+Any jobs that require the use of aviator, e.g. starting and stopping clusters need to be added to the [dataworks-admin-utils repository](https://github.com/dwp/dataworks-admin-utils). An example of existing admin jobs for the `aws-clive` data product can be [seen here](https://ci.dataworks.dwp.gov.uk/teams/utility/pipelines/clive-emr-admin)
 
 #### Start cluster
 
