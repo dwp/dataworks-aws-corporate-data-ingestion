@@ -314,7 +314,7 @@ locals {
         daily-run = ["utc_09_30_daily_except_sunday", "utc_10_00_sunday"]
       },
       calculationParts = {
-        daily-run = ["utc_09_30_daily_except_friday"],
+        daily-run     = ["utc_09_30_daily_except_friday"],
         weekly-update = ["utc_09_30_friday"]
       }
     }
@@ -323,7 +323,7 @@ locals {
         daily-run = ["utc_09_30_daily_except_sunday", "utc_10_00_sunday"]
       },
       calculationParts = {
-        daily-run = ["utc_09_30_daily_except_friday"],
+        daily-run     = ["utc_09_30_daily_except_friday"],
         weekly-update = ["utc_09_30_friday"]
       }
     }
