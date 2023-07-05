@@ -341,7 +341,7 @@ class CalculationPartsIngester(BaseIngester):
             )
             logger.info(f"Published table: {table_dict['table_name']}")
 
-    # updates calc parts full snapshot using a day range
+    # updates calc parts full snapshot using a range of days
     # https://github.com/dwp/dataworks-aws-corporate-data-ingestion/blob/master/docs/data-engineering-summary.md#update
     def update(self):
 
@@ -386,7 +386,7 @@ class CalculationPartsIngester(BaseIngester):
         )
         published_bucket = self._configuration.configuration_file.s3_published_bucket
 
-        #
+        # source of daily records
         # eg s3://61dxx/corporate_data_ingestion/orc/daily/calculator/calculationParts
         daily_output_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=daily_output_prefix.lstrip("/"))
 
@@ -400,6 +400,7 @@ class CalculationPartsIngester(BaseIngester):
             self._configuration.export_date,
         )
 
+        # location of full snapshot exports
         # eg s3://61dxx/corporate_data_ingestion/exports/calculator/calculationParts/
         export_output_url = path.join(f"s3://{published_bucket}", export_output_prefix)
 
@@ -549,7 +550,7 @@ class CalculationPartsIngester(BaseIngester):
                     x.utf8_decrypted_record,
                 )
 
-            # write decrypted daily records to compressed ORC format
+            # write decrypted daily records in compressed ORC format
             # daily_output_url with partition prefixes looks like this
             # eg s3://61dxx/corporate_data_ingestion/orc/daily/calculator/calculationParts/export_year=2023/export_month=7/export_day=4/id_part=00
             # id - the guid from the calc parts collection _id.id eg f7420bec-1697-4589-b125-882a5976ca1e
