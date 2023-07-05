@@ -293,9 +293,9 @@ locals {
     }
   }
 
-  # The following defines the shedules we can use within the collections
-  # It is better to define a new schedule than change an existing one (especialy if it is in use)
-  cron_shedules = {
+  # The following defines the schedules we can use within the collections
+  # It is better to define a new schedule than change an existing one (especially if it is in use)
+  cron_schedules = {
     utc_09_30_daily_except_sunday = "cron(30 09 ? * 2-7 *)"
     utc_10_00_sunday              = "cron(00 10 ? * 1 *)"
     utc_09_30_daily_except_friday = "cron(30 09 ? * 1-5,7 *)"
@@ -304,42 +304,49 @@ locals {
   }
 
   # Define the schedules for each environment per collection
-  #
-  # environment = { "collection name" = { "scedule description" = ["cron schedule"] } }
+  # environment = { "collection name" = { "schedule description" = ["cron schedule"] } }
   collection_schedules = {
     development = {}
     qa          = {}
     integration = {}
-    preprod = { businessAudit = { daily-run = ["utc_09_30_daily_except_sunday", "utc_10_00_sunday"] },
-      calculationParts = { daily-run = ["utc_09_30_daily_except_friday"],
+    preprod = {
+      businessAudit = {
+        daily-run = ["utc_09_30_daily_except_sunday", "utc_10_00_sunday"]
+      },
+      calculationParts = {
+        daily-run = ["utc_09_30_daily_except_friday"],
         weekly-update = ["utc_09_30_friday"]
       }
     }
-    production = { businessAudit = { daily-run = ["utc_09_30_daily_except_sunday", "utc_10_00_sunday"] },
-      calculationParts = { daily-run = ["utc_09_30_daily_except_friday"],
+    production = {
+      businessAudit = {
+        daily-run = ["utc_09_30_daily_except_sunday", "utc_10_00_sunday"]
+      },
+      calculationParts = {
+        daily-run = ["utc_09_30_daily_except_friday"],
         weekly-update = ["utc_09_30_friday"]
       }
     }
   }
 
-  # Allows you to overide parameters per environment, collection, shedule
+  # Allows you to override parameters per environment, collection, schedule
   # default means all environments
-  collection_overides = {
+  collection_overrides = {
     # Specify that in all environments for the calculationParts weekly job add the extra parameter
     default = { calculationParts = { weekly-update = { extra_args = "--force_collection_update" } } }
-    # Example overide for a specific environment
+    # Example override for a specific environment
     # development  = { calculationParts = { weekly-run = { extra_args = "--do_nothing_extra" }}}
   }
 
   # the following takes the configuration for collection schedules and creates a map , if nothing is defined for the environment (workspace) return empty
-  collection_shedules_mapping = flatten([
+  collection_schedules_mapping = flatten([
     for collection_name, schedule_data in try(local.collection_schedules[local.environment], {}) : [
       for schedule_name, schedules in schedule_data : [
         for schedule in schedules : {
           collection_name = collection_name
           schedule_name   = schedule_name
           cron_name       = schedule
-          cron_schedule   = local.cron_shedules[schedule]
+          cron_schedule   = local.cron_schedules[schedule]
         }
       ]
     ]
@@ -366,7 +373,7 @@ locals {
     }
   }
 
-  # Dynamicaly define the alert rules for the cluster based on loacl.alert_rules_emr
+  # Dynamically define the alert rules for the cluster based on local.alert_rules_emr
   alert_rules_cluster_mapping = flatten([
     for alert_type, alert_data in local.alert_rules_emr_cluster : [
       for alert_name, alert_criteria in alert_data : {
@@ -377,8 +384,8 @@ locals {
           detail = {
             state = [alert_criteria.state]
             name  = [local.emr_cluster_name]
-            # bellow we use prefix matching as we need to return a string for both true or false to get round wildcard matching in AWS
-            stateChangeReason = [{ prefix = "${alert_criteria.reason == null ? "" : jsonencode(alert_criteria.reason)}" }]
+            # below we use prefix matching as we need to return a string for both true or false to get round wildcard matching in AWS
+            stateChangeReason = [{ prefix = alert_criteria.reason == null ? "" : jsonencode(alert_criteria.reason) }]
           }
         }
         # alert data
@@ -391,7 +398,7 @@ locals {
     ]
   ])
 
-  # Dynamicaly define the alert rules for the steps based on loacl.alert_rules_emr_step
+  # Dynamically define the alert rules for the steps based on local.alert_rules_emr_step
   alert_rules_step_mapping = flatten([
     for collection_name, collection_config in local.collections_configuration : [
       for alert_type, alert_data in local.alert_rules_emr_step : [
