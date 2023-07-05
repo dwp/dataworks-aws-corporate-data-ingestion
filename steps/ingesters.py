@@ -57,7 +57,7 @@ class BusinessAuditIngester(BaseIngester):
         self.user_db_name = "uc"
         self.destination_prefix = None
 
-    # Processes and publishes data
+    # Processes and publishes data for audit log
     def decrypt_and_process(self):
         correlation_id = self._configuration.correlation_id
         prefix_date = (dt.datetime.strptime(self._configuration.export_date, "%Y-%m-%d") - dt.timedelta(days=1)).strftime("%Y-%m-%d")
@@ -84,7 +84,7 @@ class BusinessAuditIngester(BaseIngester):
         s3_source_url = "s3://{bucket}/{prefix}".format(bucket=corporate_bucket, prefix=source_prefix.lstrip("/"))
         s3_destination_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=destination_prefix.lstrip("/"))
 
-        # begin processing
+        # begin processing for audit log
         try:
             dks_hit_accumulator = self._spark_session.sparkContext.accumulator(0)
             dks_miss_accumulator = self._spark_session.sparkContext.accumulator(0)
@@ -134,10 +134,12 @@ class BusinessAuditIngester(BaseIngester):
             )
             raise
 
+    # audit log
     def run(self):
         self.decrypt_and_process()
         self.execute_hive_statements()
 
+    # audit log
     def execute_hive_statements(self):
         published_bucket = self._configuration.configuration_file.s3_published_bucket
         destination_prefix = self.destination_prefix
@@ -280,6 +282,7 @@ class CalculationPartsIngester(BaseIngester):
         if self._configuration.force_export_to_hive:
             self.export_to_hive_table()
 
+    # calc parts
     def export_to_hive_table(self):
         tables_to_publish = [
             {
@@ -338,7 +341,12 @@ class CalculationPartsIngester(BaseIngester):
             )
             logger.info(f"Published table: {table_dict['table_name']}")
 
+    # updates calc parts full snapshot using a day range
+    # https://github.com/dwp/dataworks-aws-corporate-data-ingestion/blob/master/docs/data-engineering-summary.md#update
     def update(self):
+
+        #TODO decouple from dynamoDB
+
         # Retrieves latest  CDI export entry from dynamodb
         dynamodb = boto3.resource("dynamodb")
         table = dynamodb.Table("data_pipeline_metadata")
@@ -365,7 +373,7 @@ class CalculationPartsIngester(BaseIngester):
             latest_cdi_export_s3_prefix = latest_cdi_export_dynamodb_entry["S3_Prefix_CDI_Export"]
             latest_cdi_export_date = dt.datetime.strptime(latest_cdi_export_dynamodb_entry["Date"], "%Y-%m-%d")
         else:
-            # raise ValueError("Could not find a CDI export to update")
+            #TODO raise ValueError("Could not find a CDI export to update")
             latest_cdi_export_s3_prefix = "corporate_data_ingestion/exports/calculator/calculationParts/2023-05-17/"
             latest_cdi_export_date = dt.datetime.strptime("2023-05-17", "%Y-%m-%d")
 
@@ -377,7 +385,12 @@ class CalculationPartsIngester(BaseIngester):
             self._configuration.table_name,
         )
         published_bucket = self._configuration.configuration_file.s3_published_bucket
+
+        #
+        # eg s3://61dxx/corporate_data_ingestion/orc/daily/calculator/calculationParts
         daily_output_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=daily_output_prefix.lstrip("/"))
+
+        #TODO decouple from dynamoDB
 
         # Latest CDI export from dynamoDB entry
         latest_cdi_export_s3_url = path.join("s3://", published_bucket, latest_cdi_export_s3_prefix)
@@ -386,6 +399,8 @@ class CalculationPartsIngester(BaseIngester):
             "calculator/calculationParts/",
             self._configuration.export_date,
         )
+
+        # eg s3://61dxx/corporate_data_ingestion/exports/calculator/calculationParts/
         export_output_url = path.join(f"s3://{published_bucket}", export_output_prefix)
 
         self.dynamodb_helper.update_status(
@@ -394,6 +409,7 @@ class CalculationPartsIngester(BaseIngester):
             extra={"S3_Prefix_CDI_Export": {"Value": {"S": export_output_prefix}}},
         )
 
+        # schema for uc decrypted dailies
         schema_dailies = StructType(
             [
                 StructField("id", StringType(), nullable=False),
@@ -406,6 +422,7 @@ class CalculationPartsIngester(BaseIngester):
             ]
         )
 
+        # schema for the full snapshot
         schema_cdi_output = StructType(
             [
                 StructField("id", StringType(), nullable=False),
@@ -425,7 +442,8 @@ class CalculationPartsIngester(BaseIngester):
         cdi_month = latest_cdi_export_date.month
         cdi_day = latest_cdi_export_date.day
 
-        # Read daily data since last export
+        # Read all daily folders in list
+        # the default is all days since the last export date entry which is stored in audit database table
         df_dailies = (
             self._spark_session.read.schema(schema_dailies)
             .orc(daily_output_url)
@@ -437,20 +455,23 @@ class CalculationPartsIngester(BaseIngester):
             .select(col("id"), col("db_type"), col("val"), col("id_part"))
         )
 
-        # read most recent export
+        # read most recent full snapshot
         df_cdi_output = (
             self._spark_session.read.schema(schema_cdi_output)
             .orc(latest_cdi_export_s3_url)
             .select(col("id"), col("db_type"), col("val"), col("id_part"))
          )
 
-        # Union and find latest record for each ID
+        #TODO remove number of partitions and influence via spark config for merge
+
+        # union all dailies with the full snapshot then get latest record for each id
+        # write in compressed orc format and partition by id_part (first 2 chars of id field)
         window_spec = Window.partitionBy("id_part", "id").orderBy("db_type")
         (
             df_cdi_output.union(df_dailies)
             .repartitionByRange(
                 4096, "id_part", "id"
-            )  # todo: remove number of partitions and influence via spark config
+            )
             .withColumn("row_number", row_number().over(window_spec))
             .filter(col("row_number") == 1)
             .write.partitionBy("id_part")
@@ -459,6 +480,8 @@ class CalculationPartsIngester(BaseIngester):
 
         logger.info("Completed Merge")
 
+    # calc parts
+    # https://github.com/dwp/dataworks-aws-corporate-data-ingestion/blob/master/docs/data-engineering-summary.md#decrypt-and-process-1
     def decrypt_and_process(self):
         correlation_id = self._configuration.correlation_id
         export_date = self._configuration.export_date
@@ -483,7 +506,12 @@ class CalculationPartsIngester(BaseIngester):
         )
         published_bucket = self._configuration.configuration_file.s3_published_bucket
 
+        # source of kafka uc encrypted data written by K2HB
+        # eg s3://485xxx/corporate_storage/ucfs_main/2023/07/02/calculator/calculationParts/
         s3_source_url = "s3://{bucket}/{prefix}".format(bucket=corporate_bucket, prefix=source_prefix.lstrip("/"))
+
+        # location for uc decrypted daily data in orc format partitioned by year/month/day/id_part
+        # eg s3://61dxx/corporate_data_ingestion/orc/daily/calculator/calculationParts
         daily_output_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=daily_output_prefix.lstrip("/"))
 
         # begin processing
@@ -521,7 +549,15 @@ class CalculationPartsIngester(BaseIngester):
                     x.utf8_decrypted_record,
                 )
 
-            # Persist records to JSONL in S3
+            # write decrypted daily records to compressed ORC format
+            # daily_output_url with partition prefixes looks like this
+            # eg s3://61dxx/corporate_data_ingestion/orc/daily/calculator/calculationParts/export_year=2023/export_month=7/export_day=4/id_part=00
+            # id - the guid from the calc parts collection _id.id eg f7420bec-1697-4589-b125-882a5976ca1e
+            # id_part - first 2 characters of the id guid so range is 00-ff - used for partitioning, has equal spread over values
+            # export_year/export_month/export_day - date to export dropping leading zeros
+            # db_type either DELETE or INSERT for calc parts - usually come as a pair of records - DELETE is final state
+            # val - the full json content
+            # there are several optimisations here - see docs/data-engineering-summary.md#decrypt-and-process-1
             logger.info("starting pyspark processing")
             pyspark_df = (
                 self.read_dir(s3_source_url)
