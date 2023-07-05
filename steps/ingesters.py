@@ -282,7 +282,8 @@ class CalculationPartsIngester(BaseIngester):
         if self._configuration.force_export_to_hive:
             self.export_to_hive_table()
 
-    # calc parts
+    # calc parts - write to uc labs tables
+    # https://github.com/dwp/dataworks-aws-corporate-data-ingestion/blob/master/docs/data-engineering-summary.md#export-to-hive-table
     def export_to_hive_table(self):
         tables_to_publish = [
             {
@@ -299,6 +300,7 @@ class CalculationPartsIngester(BaseIngester):
             },
         ]
 
+        # ensure tabled are dropped as there can be issues overwriting them with spark
         self._hive_session.execute_queries([f"DROP TABLE IF EXISTS uc_lab_staging.{item['table_name']}" for item in tables_to_publish])
 
         published_bucket = self._configuration.configuration_file.s3_published_bucket
@@ -307,8 +309,12 @@ class CalculationPartsIngester(BaseIngester):
             "calculator/calculationParts/",
             self._configuration.export_date,
         )
+
+        # full snapshot export location
+        # eg s3://61dxx/corporate_data_ingestion/exports/calculator/calculationParts/
         export_output_url = path.join(f"s3://{published_bucket}", export_output_prefix)
 
+        # schema of full snapshot
         schema_cdi_output = StructType(
             [
                 StructField("id", StringType(), nullable=False),
@@ -321,6 +327,7 @@ class CalculationPartsIngester(BaseIngester):
         logger.info("Publishing calculationParts tables")
         logger.info(f"Export path: {export_output_url}")
 
+        # read full snapshot into dataframe and persist it
         source_df = (
             self._spark_session
             .read
@@ -328,6 +335,10 @@ class CalculationPartsIngester(BaseIngester):
             .orc(export_output_url)
             .persist(storageLevel=StorageLevel.DISK_ONLY)
         )
+
+        #TODO handle hardcoded partition range 1024
+
+        # gets the json schema for each table and write only that subset of json fields into orc format
         for table_dict in tables_to_publish:
             logger.info(f"Publishing table: {table_dict['table_name']}")
             with open(f"/opt/emr/calculation_parts_ddl/{table_dict['ddl']}", "r") as f:
@@ -463,7 +474,7 @@ class CalculationPartsIngester(BaseIngester):
             .select(col("id"), col("db_type"), col("val"), col("id_part"))
          )
 
-        #TODO remove number of partitions and influence via spark config for merge
+        # TODO remove number of partitions and influence via spark config for merge
 
         # union all dailies with the full snapshot then get latest record for each id
         # write in compressed orc format and partition by id_part (first 2 chars of id field)
