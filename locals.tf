@@ -30,7 +30,8 @@ locals {
   }
 
   #Note that if you change this, you MUST first remove the use of it from all log groups because CI can't (and shouldn't) delete them
-  emr_cluster_name = "corporate-data-ingestion"
+  emr_cluster_name    = "corporate-data-ingestion"
+  emr_cluster_acronym = "cdi"
 
   env_certificate_bucket = "dw-${local.environment}-public-certificates"
   mgt_certificate_bucket = "dw-${local.management_account[local.environment]}-public-certificates"
@@ -275,15 +276,6 @@ locals {
 
   hive_metastore_location = "data/dataworks-aws-corporate-data-ingestion"
 
-
-  run_daily_export_on_schedule = {
-    development = false
-    qa          = false
-    integration = false
-    preprod     = true
-    production  = true
-  }
-
   collections_configuration = {
     businessAudit = {
       source_s3_prefix      = "corporate_storage/ucfs_audit"
@@ -292,8 +284,137 @@ locals {
       collection            = "businessAudit"
       concurrency           = "1"
     }
+    calculationParts = {
+      source_s3_prefix      = "corporate_storage/ucfs_main"
+      destination_s3_prefix = "corporate_data_ingestion/exports"
+      db                    = "calculator"
+      collection            = "calculationParts"
+      concurrency           = "1"
+    }
   }
 
+  # The following defines the shedules we can use within the collections
+  # It is better to define a new schedule than change an existing one (especialy if it is in use)
+  cron_shedules = {
+    utc_09_30_daily_except_sunday = "cron(30 09 ? * 2-7 *)"
+    utc_10_00_sunday              = "cron(00 10 ? * 1 *)"
+    utc_09_30_daily_except_friday = "cron(30 09 ? * 1-5,7 *)"
+    utc_09_30_friday              = "cron(30 09 ? * 6 *)"
+    #utc_09_30_last_sunday_of_month = "cron(30 09 ? * 1L *)"
+  }
+
+  # Define the schedules for each environment per collection
+  #
+  # environment = { "collection name" = { "scedule description" = ["cron schedule"] } }
+  collection_schedules = {
+    development = {}
+    qa          = {}
+    integration = {}
+    preprod = { businessAudit = { daily-run = ["utc_09_30_daily_except_sunday", "utc_10_00_sunday"] },
+      calculationParts = { daily-run = ["utc_09_30_daily_except_friday"],
+        weekly-update = ["utc_09_30_friday"]
+      }
+    }
+    production = { businessAudit = { daily-run = ["utc_09_30_daily_except_sunday", "utc_10_00_sunday"] },
+      calculationParts = { daily-run = ["utc_09_30_daily_except_friday"],
+        weekly-update = ["utc_09_30_friday"]
+      }
+    }
+  }
+
+  # Allows you to overide parameters per environment, collection, shedule
+  # default means all environments
+  collection_overides = {
+    # Specify that in all environments for the calculationParts weekly job add the extra parameter
+    default = { calculationParts = { weekly-update = { extra_args = "--force_collection_update" } } }
+    # Example overide for a specific environment
+    # development  = { calculationParts = { weekly-run = { extra_args = "--do_nothing_extra" }}}
+  }
+
+  # the following takes the configuration for collection schedules and creates a map , if nothing is defined for the environment (workspace) return empty
+  collection_shedules_mapping = flatten([
+    for collection_name, schedule_data in try(local.collection_schedules[local.environment], {}) : [
+      for schedule_name, schedules in schedule_data : [
+        for schedule in schedules : {
+          collection_name = collection_name
+          schedule_name   = schedule_name
+          cron_name       = schedule
+          cron_schedule   = local.cron_shedules[schedule]
+        }
+      ]
+    ]
+  ])
+
+  # Define the alert rules for an EMR cluster
+  alert_rules_emr_cluster = {
+    Cluster = {
+      failed              = { notification_type = "Error", severity = "Critical", state = "TERMINATED_WITH_ERRORS", reason = null }
+      terminated          = { notification_type = "Information", severity = "High", state = "TERMINATED", reason = { code = "USER_REQUEST", message = "Terminated by user request" } }
+      success             = { notification_type = "Information", severity = "Critical", state = "TERMINATED", reason = { code = "ALL_STEPS_COMPLETED", message = "Steps completed" } }
+      success_with_errors = { notification_type = "Warning", severity = "High    ", state = "TERMINATED", reason = { code = "STEP_FAILURE", message = "Steps completed with errors" } }
+      running             = { notification_type = "Information", severity = "Critical", state = "RUNNING", reason = null }
+    }
+  }
+
+  # Define the alert rules for an EMR cluster Step
+  alert_rules_emr_step = {
+    Step = {
+      running   = { notification_type = "Information", severity = "Critical", state = "RUNNING" }
+      success   = { notification_type = "Information", severity = "Critical", state = "COMPLETED" }
+      failed    = { notification_type = "Error", severity = "Critical", state = "FAILED" }
+      cancelled = { notification_type = "Information", severity = "High", state = "CANCELLED" }
+    }
+  }
+
+  # Dynamicaly define the alert rules for the cluster based on loacl.alert_rules_emr
+  alert_rules_cluster_mapping = flatten([
+    for alert_type, alert_data in local.alert_rules_emr_cluster : [
+      for alert_name, alert_criteria in alert_data : {
+        # This defines the json to be passed for the matching of events
+        alert_rule = {
+          source      = ["aws.emr"]
+          detail-type = ["EMR ${alert_type} State Change"]
+          detail = {
+            state = [alert_criteria.state]
+            name  = [local.emr_cluster_name]
+            # bellow we use prefix matching as we need to return a string for both true or false to get round wildcard matching in AWS
+            stateChangeReason = [{ prefix = "${alert_criteria.reason == null ? "" : jsonencode(alert_criteria.reason)}" }]
+          }
+        }
+        # alert data
+        alert_type        = alert_type
+        alert_name        = alert_name
+        alert_state       = alert_criteria.state
+        notification_type = alert_criteria.notification_type
+        severity          = alert_criteria.severity
+      }
+    ]
+  ])
+
+  # Dynamicaly define the alert rules for the steps based on loacl.alert_rules_emr_step
+  alert_rules_step_mapping = flatten([
+    for collection_name, collection_config in local.collections_configuration : [
+      for alert_type, alert_data in local.alert_rules_emr_step : [
+        for alert_name, alert_criteria in alert_data : {
+          # This defines the json to be passed for the matching of events
+          alert_rule = {
+            source = ["aws.emr"]
+            detail-type = ["EMR ${alert_type} Status Change"]
+            detail = {
+              state = [alert_criteria.state]
+              name  = [{ prefix = "${local.emr_cluster_name}::${collection_name}" }]
+            }
+          }
+          alert_type        = alert_type
+          alert_name        = alert_name
+          alert_state       = alert_criteria.state
+          alert_collection  = collection_name
+          notification_type = alert_criteria.notification_type
+          severity          = alert_criteria.severity
+        }
+      ]
+    ]
+  ])
 
   tenable_install = {
     development    = "true"

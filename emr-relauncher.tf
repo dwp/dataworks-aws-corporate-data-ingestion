@@ -40,7 +40,7 @@ resource "aws_lambda_function" "dataworks_aws_corporate_data_ingestion_emr_relau
 }
 
 resource "aws_cloudwatch_event_target" "dataworks_aws_corporate_data_ingestion_emr_relauncher_target" {
-  rule      = aws_cloudwatch_event_rule.dataworks_aws_corporate_data_ingestion_failed.name
+  rule      = aws_cloudwatch_event_rule.dataworks_aws_corporate_data_ingestion_cluster_alerts["Cluster-failed"].name
   target_id = "dataworks_aws_corporate_data_ingestion_emr_relauncher_target"
   arn       = aws_lambda_function.dataworks_aws_corporate_data_ingestion_emr_relauncher.arn
 }
@@ -58,7 +58,7 @@ resource "aws_lambda_permission" "dataworks_aws_corporate_data_ingestion_emr_rel
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.dataworks_aws_corporate_data_ingestion_emr_relauncher.function_name
   principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.dataworks_aws_corporate_data_ingestion_failed.arn
+  source_arn    = aws_cloudwatch_event_rule.dataworks_aws_corporate_data_ingestion_cluster_alerts["Cluster-failed"].arn
 }
 
 data "aws_iam_policy_document" "dataworks_aws_corporate_data_ingestion_emr_relauncher_assume_policy" {
