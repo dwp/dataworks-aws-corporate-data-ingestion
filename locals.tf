@@ -398,7 +398,7 @@ locals {
         for alert_name, alert_criteria in alert_data : {
           # This defines the json to be passed for the matching of events
           alert_rule = {
-            source = ["aws.emr"]
+            source      = ["aws.emr"]
             detail-type = ["EMR ${alert_type} Status Change"]
             detail = {
               state = [alert_criteria.state]
