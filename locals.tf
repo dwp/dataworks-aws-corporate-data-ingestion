@@ -369,12 +369,12 @@ locals {
   token    = jsondecode(data.aws_secretsmanager_secret_version.terraform_secrets.secret_binary).trend.token
 
   policy_id = {
-    development    = "69"
-    qa             = "69"
-    integration    = "69"
-    preprod        = "69"
-    production     = "69"
-    management-dev = "69"
-    management     = "69"
+    development    = "1651"
+    qa             = "1651"
+    integration    = "1651"
+    preprod        = "1717"
+    production     = "1717"
+    management-dev = "1651"
+    management     = "1717"
   }
 }
