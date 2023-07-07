@@ -30,6 +30,7 @@ class Configuration:
     db_name: str
     table_name: str
     source_s3_prefix: str
+    snapshot_s3_prefix: str
     destination_s3_prefix: str
     concurrency: int
     configuration_file: ConfigurationFile
