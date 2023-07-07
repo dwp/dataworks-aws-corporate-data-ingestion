@@ -52,6 +52,7 @@ def get_arguments() -> argparse.Namespace:
     # Parse command line inputs and set defaults
     parser.add_argument("--correlation_id", default=str(uuid.uuid4()))
     parser.add_argument("--source_s3_prefix", required=False)
+    parser.add_argument("--snapshot_s3_prefix", required=False)
     parser.add_argument("--destination_s3_prefix", required=False)
     parser.add_argument("--start_date", required=False, help="format %Y-%m-%d, uses previous day if not provided")
     parser.add_argument("--end_date", required=False, help="format %Y-%m-%d, uses previous day if not provided")
@@ -171,6 +172,7 @@ def main():
                 db_name=value["db"],
                 table_name=value["table"],
                 source_s3_prefix=args.source_s3_prefix,
+                snapshot_s3_prefix=args.snapshot_s3_prefix,
                 destination_s3_prefix=args.destination_s3_prefix,
                 concurrency=int(args.concurrency),
                 cluster_id=os.environ.get("EMR_CLUSTER_ID", "NOT_SET"),

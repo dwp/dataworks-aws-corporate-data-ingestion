@@ -5,7 +5,8 @@ from os import path
 
 import boto3
 from boto3.dynamodb.conditions import Attr
-from pyspark.sql.functions import row_number, col, from_json
+from pyspark.sql import Row
+from pyspark.sql.functions import count, row_number, col, from_json
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 from pyspark.sql.window import Window
 from pyspark.storagelevel import StorageLevel
@@ -202,6 +203,7 @@ class BusinessAuditIngester(BaseIngester):
             "#{hivevar:serde}": "org.openx.data.jsonserde.JsonSerDe",
             "#{hivevar:data_location}": s3_destination_url,
         }
+
         hive_session.execute_sql_statement_with_interpolation(
             file=path.join(sql_file_base_location, "auditlog_external_table.sql"),
             interpolation_dict=interpolation_dict,
@@ -401,18 +403,18 @@ class CalculationPartsIngester(BaseIngester):
         # eg s3://61dxx/corporate_data_ingestion/orc/daily/calculator/calculationParts
         daily_output_url = "s3://{bucket}/{prefix}".format(bucket=published_bucket, prefix=daily_output_prefix.lstrip("/"))
 
-        #TODO decouple from dynamoDB
 
-        # Latest CDI export from dynamoDB entry
+        # Latest CDI export
+        # snapshot_s3_prefix allows the source snapshot to be set in args
         latest_cdi_export_s3_url = path.join("s3://", published_bucket, latest_cdi_export_s3_prefix)
-        export_output_prefix = path.join(
+        export_output_prefix = self._configuration.snapshot_s3_prefix or path.join(
             self.DEFAULT_CDI_EXPORT_PREFIX,
             "calculator/calculationParts/",
             self._configuration.export_date,
         )
 
         # location of full snapshot exports
-        # eg s3://61dxx/corporate_data_ingestion/exports/calculator/calculationParts/
+        # eg s3://61dxx/corporate_data_ingestion/exports/calculator/calculationParts/2023-06-30/
         export_output_url = path.join(f"s3://{published_bucket}", export_output_prefix)
 
         self.dynamodb_helper.update_status(
@@ -491,6 +493,74 @@ class CalculationPartsIngester(BaseIngester):
         )
 
         logger.info("Completed Merge")
+
+
+        # validate that records exist for all days up to and including the latest_cdi_export_date
+        # there should be 1000s for each day in each sample but there may be a bit of bleed near midnight where records
+        # appear in next day folder so we set a minimum so these get ignored
+
+        # how many days to check - can check back a few years just as easily as last month
+        # and give better coverage
+        day_sample_count=365 * 3
+
+        # minimum records per day sample
+        minimum_records_per_day=30
+
+        # optimisation - the % of records for spark to sample
+        percent_sample=0.1
+
+        # eg 2023-06-29
+        latest_export_date_string = latest_cdi_export_date.strftime('%Y-%m-%d')
+
+        # source folder for latest snapshot
+        source_df = (
+            spark.read.schema(schema_cdi_output).orc(export_output_url)
+        )
+
+        # minimal structure we need to apply to the json to get the fields we need
+        json_schema = StructType(
+            [
+                StructField("_id", StructType([
+                    StructField("id", StringType())
+                    ,StructField("type", StringType())
+                ]))
+                    ,StructField("_lastModifiedDateTime", StructType([
+                    StructField("d_date", StringType())
+                ]))
+            ]
+        )
+
+        # get the last modified date and id from the json field called val
+        # optimisation - just use one partition for id_part
+        json_df=source_df.filter(source_df.id_part == '00') \
+            .select(from_json("val", json_schema).alias("val")).select("val.*")
+
+        fractional_df = json_df.sample(fraction=percent_sample)
+
+        # count records grouping by last modified date in reverse date order
+        # agg with filter are the spark equivalent of the sql 'having count(*) > minimum_records_per_day'
+        date_list = fractional_df.rdd.map(lambda x: Row(last_modified=x._lastModifiedDateTime.d_date[:10], _id=x._id)).toDF() \
+            .groupBy('last_modified') \
+            .agg(count('*').alias('count')) \
+            .filter(col('count') >= minimum_records_per_day) \
+            .orderBy(col("last_modified").desc()) \
+            .take(day_sample_count)
+
+        # in reverse order so latest is index 0
+        # eg 2023-06-29
+        latest_date_string=date_list[0].last_modified
+        eariest_date_string=date_list[-1].last_modified
+
+        date_difference = dt.datetime.strptime(latest_date_string, '%Y-%m-%d') - dt.datetime.strptime(eariest_date_string, '%Y-%m-%d')
+
+        if day_sample_count != date_difference.days + 1:
+            raise Exception(f"EXCEPTION: days are missing - last {day_sample_count} days found go further back than expected to {eariest_date_string} from {latest_date_string}")
+
+        if latest_date_string != latest_export_date_string:
+            raise Exception(f"EXCEPTION: the latest date {latest_date_string} does not match {latest_export_date_string}")
+
+        logger.info(f"The latest date found is {latest_export_date_string} which is correct and the last {day_sample_count} days are all present")
+
 
     # calc parts
     # https://github.com/dwp/dataworks-aws-corporate-data-ingestion/blob/master/docs/data-engineering-summary.md#decrypt-and-process-1
