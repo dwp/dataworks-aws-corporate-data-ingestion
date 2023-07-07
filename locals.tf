@@ -30,8 +30,7 @@ locals {
   }
 
   #Note that if you change this, you MUST first remove the use of it from all log groups because CI can't (and shouldn't) delete them
-  emr_cluster_name    = "corporate-data-ingestion"
-  emr_cluster_acronym = "cdi"
+  emr_cluster_name = "corporate-data-ingestion"
 
   env_certificate_bucket = "dw-${local.environment}-public-certificates"
   mgt_certificate_bucket = "dw-${local.management_account[local.environment]}-public-certificates"
@@ -276,6 +275,15 @@ locals {
 
   hive_metastore_location = "data/dataworks-aws-corporate-data-ingestion"
 
+
+  run_daily_export_on_schedule = {
+    development = false
+    qa          = false
+    integration = false
+    preprod     = true
+    production  = true
+  }
+
   collections_configuration = {
     businessAudit = {
       source_s3_prefix      = "corporate_storage/ucfs_audit"
@@ -284,73 +292,9 @@ locals {
       collection            = "businessAudit"
       concurrency           = "1"
     }
-    calculationParts = {
-      source_s3_prefix      = "corporate_storage/ucfs_main"
-      destination_s3_prefix = "corporate_data_ingestion/exports"
-      db                    = "calculator"
-      collection            = "calculationParts"
-      concurrency           = "1"
-    }
   }
 
-  # The following defines the schedules we can use within the collections
-  # It is better to define a new schedule than change an existing one (especially if it is in use)
-  cron_schedules = {
-    utc_09_30_daily_except_sunday = "cron(30 09 ? * 2-7 *)"
-    utc_10_00_sunday              = "cron(00 10 ? * 1 *)"
-    utc_09_30_daily_except_friday = "cron(30 09 ? * 1-5,7 *)"
-    utc_09_30_friday              = "cron(30 09 ? * 6 *)"
-    #utc_09_30_last_sunday_of_month = "cron(30 09 ? * 1L *)"
-  }
-
-  # Define the schedules for each environment per collection
-  # environment = { "collection name" = { "schedule description" = ["cron schedule"] } }
-  collection_schedules = {
-    development = {}
-    qa          = {}
-    integration = {}
-    preprod = {
-      businessAudit = {
-        daily-run = ["utc_09_30_daily_except_sunday", "utc_10_00_sunday"]
-      },
-      calculationParts = {
-        daily-run     = ["utc_09_30_daily_except_friday"],
-        weekly-update = ["utc_09_30_friday"]
-      }
-    }
-    production = {
-      businessAudit = {
-        daily-run = ["utc_09_30_daily_except_sunday", "utc_10_00_sunday"]
-      },
-      calculationParts = {
-        daily-run     = ["utc_09_30_daily_except_friday"],
-        weekly-update = ["utc_09_30_friday"]
-      }
-    }
-  }
-
-  # Allows you to override parameters per environment, collection, schedule
-  # default means all environments
-  collection_overrides = {
-    # Specify that in all environments for the calculationParts weekly job add the extra parameter
-    default = { calculationParts = { weekly-update = { extra_args = "--force_collection_update" } } }
-    # Example override for a specific environment
-    # development  = { calculationParts = { weekly-run = { extra_args = "--do_nothing_extra" }}}
-  }
-
-  # the following takes the configuration for collection schedules and creates a map , if nothing is defined for the environment (workspace) return empty
-  collection_schedules_mapping = flatten([
-    for collection_name, schedule_data in try(local.collection_schedules[local.environment], {}) : [
-      for schedule_name, schedules in schedule_data : [
-        for schedule in schedules : {
-          collection_name = collection_name
-          schedule_name   = schedule_name
-          cron_name       = schedule
-          cron_schedule   = local.cron_schedules[schedule]
-        }
-      ]
-    ]
-  ])
+  alert_on_collections = ["businessAudit", "calculationParts"]
 
   # Define the alert rules for an EMR cluster
   alert_rules_emr_cluster = {
@@ -400,7 +344,7 @@ locals {
 
   # Dynamically define the alert rules for the steps based on local.alert_rules_emr_step
   alert_rules_step_mapping = flatten([
-    for collection_name, collection_config in local.collections_configuration : [
+    for collection_name in local.alert_on_collections : [
       for alert_type, alert_data in local.alert_rules_emr_step : [
         for alert_name, alert_criteria in alert_data : {
           # This defines the json to be passed for the matching of events
