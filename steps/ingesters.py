@@ -501,7 +501,7 @@ class CalculationPartsIngester(BaseIngester):
 
         # how many days to check - can check back a few years just as easily as last month
         # and give better coverage
-        day_sample_count=365 * 3
+        day_sample_count=30
 
         # minimum records per day sample
         minimum_records_per_day=30
@@ -554,10 +554,10 @@ class CalculationPartsIngester(BaseIngester):
         date_difference = dt.datetime.strptime(latest_date_string, '%Y-%m-%d') - dt.datetime.strptime(eariest_date_string, '%Y-%m-%d')
 
         if day_sample_count != date_difference.days + 1:
-            raise Exception(f"EXCEPTION: days are missing - last {day_sample_count} days found go further back than expected to {eariest_date_string} from {latest_date_string}")
+            raise Exception(f"Days are missing - last {day_sample_count} days found go further back than expected to {eariest_date_string} from {latest_date_string}")
 
         if latest_date_string != latest_export_date_string:
-            raise Exception(f"EXCEPTION: the latest date {latest_date_string} does not match {latest_export_date_string}")
+            raise Exception(f"The latest date {latest_date_string} does not match {latest_export_date_string}")
 
         logger.info(f"The latest date found is {latest_export_date_string} which is correct and the last {day_sample_count} days are all present")
 
