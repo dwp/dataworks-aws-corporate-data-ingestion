@@ -501,13 +501,13 @@ class CalculationPartsIngester(BaseIngester):
 
         # how many days to check - can check back a few years just as easily as last month
         # and give better coverage
-        day_sample_count=30
+        day_sample_count = 30
 
         # minimum records per day sample
-        minimum_records_per_day=30
+        minimum_records_per_day = 30
 
         # optimisation - the % of records for spark to sample
-        percent_sample=0.1
+        percent_sample = 0.1
 
         # eg 2023-06-29
         latest_export_date_string = latest_cdi_export_date.strftime('%Y-%m-%d')
@@ -548,8 +548,8 @@ class CalculationPartsIngester(BaseIngester):
 
         # in reverse order so latest is index 0
         # eg 2023-06-29
-        latest_date_string=date_list[0].last_modified
-        eariest_date_string=date_list[-1].last_modified
+        latest_date_string = date_list[0].last_modified
+        eariest_date_string = date_list[-1].last_modified
 
         date_difference = dt.datetime.strptime(latest_date_string, '%Y-%m-%d') - dt.datetime.strptime(eariest_date_string, '%Y-%m-%d')
 
