@@ -294,6 +294,78 @@ locals {
     }
   }
 
+  alert_on_collections = ["businessAudit", "calculationParts"]
+
+  # Define the alert rules for an EMR cluster
+  alert_rules_emr_cluster = {
+    Cluster = {
+      failed              = { notification_type = "Error", severity = "Critical", state = "TERMINATED_WITH_ERRORS", reason = null }
+      terminated          = { notification_type = "Information", severity = "High", state = "TERMINATED", reason = { code = "USER_REQUEST", message = "Terminated by user request" } }
+      success             = { notification_type = "Information", severity = "Critical", state = "TERMINATED", reason = { code = "ALL_STEPS_COMPLETED", message = "Steps completed" } }
+      success_with_errors = { notification_type = "Warning", severity = "High    ", state = "TERMINATED", reason = { code = "STEP_FAILURE", message = "Steps completed with errors" } }
+      running             = { notification_type = "Information", severity = "Critical", state = "RUNNING", reason = null }
+    }
+  }
+
+  # Define the alert rules for an EMR cluster Step
+  alert_rules_emr_step = {
+    Step = {
+      running   = { notification_type = "Information", severity = "Critical", state = "RUNNING" }
+      success   = { notification_type = "Information", severity = "Critical", state = "COMPLETED" }
+      failed    = { notification_type = "Error", severity = "Critical", state = "FAILED" }
+      cancelled = { notification_type = "Information", severity = "High", state = "CANCELLED" }
+    }
+  }
+
+  # Dynamically define the alert rules for the cluster based on local.alert_rules_emr
+  alert_rules_cluster_mapping = flatten([
+    for alert_type, alert_data in local.alert_rules_emr_cluster : [
+      for alert_name, alert_criteria in alert_data : {
+        # This defines the json to be passed for the matching of events
+        alert_rule = {
+          source      = ["aws.emr"]
+          detail-type = ["EMR ${alert_type} State Change"]
+          detail = {
+            state = [alert_criteria.state]
+            name  = [local.emr_cluster_name]
+            # below we use prefix matching as we need to return a string for both true or false to get round wildcard matching in AWS
+            stateChangeReason = [{ prefix = alert_criteria.reason == null ? "" : jsonencode(alert_criteria.reason) }]
+          }
+        }
+        # alert data
+        alert_type        = alert_type
+        alert_name        = alert_name
+        alert_state       = alert_criteria.state
+        notification_type = alert_criteria.notification_type
+        severity          = alert_criteria.severity
+      }
+    ]
+  ])
+
+  # Dynamically define the alert rules for the steps based on local.alert_rules_emr_step
+  alert_rules_step_mapping = flatten([
+    for collection_name in local.alert_on_collections : [
+      for alert_type, alert_data in local.alert_rules_emr_step : [
+        for alert_name, alert_criteria in alert_data : {
+          # This defines the json to be passed for the matching of events
+          alert_rule = {
+            source      = ["aws.emr"]
+            detail-type = ["EMR ${alert_type} Status Change"]
+            detail = {
+              state = [alert_criteria.state]
+              name  = [{ prefix = "${local.emr_cluster_name}::${collection_name}" }]
+            }
+          }
+          alert_type        = alert_type
+          alert_name        = alert_name
+          alert_state       = alert_criteria.state
+          alert_collection  = collection_name
+          notification_type = alert_criteria.notification_type
+          severity          = alert_criteria.severity
+        }
+      ]
+    ]
+  ])
 
   tenable_install = {
     development    = "true"

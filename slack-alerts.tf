@@ -1,150 +1,31 @@
-resource "aws_cloudwatch_event_rule" "dataworks_aws_corporate_data_ingestion_failed" {
-  name          = "${local.emr_cluster_name}_failed"
-  description   = "Sends failed message to slack when dataworks_aws_corporate_data_ingestion cluster terminates with errors"
-  event_pattern = <<EOF
-{
-  "source": [
-    "aws.emr"
-  ],
-  "detail-type": [
-    "EMR Cluster State Change"
-  ],
-  "detail": {
-    "state": [
-      "TERMINATED_WITH_ERRORS"
-    ],
-    "name": [
-      "${local.emr_cluster_name}"
-    ]
-  }
-}
-EOF
+# Event rules for the cluster
+resource "aws_cloudwatch_event_rule" "dataworks_aws_corporate_data_ingestion_cluster_alerts" {
+  for_each      = { for alert_rule in local.alert_rules_cluster_mapping : "${alert_rule.alert_type}-${alert_rule.alert_name}" => alert_rule }
+  name          = "${local.emr_cluster_name}_${each.key}"
+  description   = "Sends ${each.value.alert_name} message to slack when ${local.emr_cluster_name} ${each.value.alert_type} ${each.value.alert_state}"
+  event_pattern = jsonencode(each.value.alert_rule)
 
   tags = {
-    Name = "${local.emr_cluster_name}_failed"
+    Name = "${local.emr_cluster_name}_${each.key}"
   }
 }
 
-resource "aws_cloudwatch_event_rule" "dataworks_aws_corporate_data_ingestion_terminated" {
-  name          = "${local.emr_cluster_name}_terminated"
-  description   = "Sends failed message to slack when dataworks_aws_corporate_data_ingestion cluster terminates by user request"
-  event_pattern = <<EOF
-{
-  "source": [
-    "aws.emr"
-  ],
-  "detail-type": [
-    "EMR Cluster State Change"
-  ],
-  "detail": {
-    "state": [
-      "TERMINATED"
-    ],
-    "name": [
-      "${local.emr_cluster_name}"
-    ],
-    "stateChangeReason": [
-      "{\"code\":\"USER_REQUEST\",\"message\":\"User request\"}"
-    ]
-  }
-}
-EOF
+#Event rules for each step in a defined collection 
+resource "aws_cloudwatch_event_rule" "dataworks_aws_corporate_data_ingestion_step_alerts" {
+  for_each      = { for alert_rule in local.alert_rules_step_mapping : "${alert_rule.alert_type}-${alert_rule.alert_collection}-${alert_rule.alert_name}" => alert_rule }
+  name          = "${local.emr_cluster_name}_${each.key}"
+  description   = "Sends ${each.value.alert_name} message to slack when ${local.emr_cluster_name} ${each.value.alert_type} ${each.value.alert_state}"
+  event_pattern = jsonencode(each.value.alert_rule)
 
   tags = {
-    Name = "${local.emr_cluster_name}_terminated"
+    Name = "${local.emr_cluster_name}_${each.key}"
   }
 }
 
-resource "aws_cloudwatch_event_rule" "dataworks_aws_corporate_data_ingestion_success" {
-  name          = "${local.emr_cluster_name}_success"
-  description   = "checks that all steps complete"
-  event_pattern = <<EOF
-{
-  "source": [
-    "aws.emr"
-  ],
-  "detail-type": [
-    "EMR Cluster State Change"
-  ],
-  "detail": {
-    "state": [
-      "TERMINATED"
-    ],
-    "name": [
-      "${local.emr_cluster_name}"
-    ],
-    "stateChangeReason": [
-      "{\"code\":\"ALL_STEPS_COMPLETED\",\"message\":\"Steps completed\"}"
-    ]
-  }
-}
-EOF
-
-  tags = {
-    Name = "${local.emr_cluster_name}_success"
-  }
-}
-
-resource "aws_cloudwatch_event_rule" "dataworks_aws_corporate_data_ingestion_success_with_errors" {
-  name          = "${local.emr_cluster_name}_success_with_errors"
-  description   = "checks that all mandatory steps complete but with failures on non mandatory steps"
-  event_pattern = <<EOF
-{
-  "source": [
-    "aws.emr"
-  ],
-  "detail-type": [
-    "EMR Cluster State Change"
-  ],
-  "detail": {
-    "state": [
-      "TERMINATED"
-    ],
-    "name": [
-      "${local.emr_cluster_name}"
-    ],
-    "stateChangeReason": [
-      "{\"code\":\"STEP_FAILURE\",\"message\":\"Steps completed with errors\"}"
-    ]
-  }
-}
-EOF
-
-  tags = {
-    Name = "${local.emr_cluster_name}_success_with_errors"
-  }
-}
-
-resource "aws_cloudwatch_event_rule" "dataworks_aws_corporate_data_ingestion_running" {
-  name          = "${local.emr_cluster_name}_running"
-  description   = "checks that dataworks_aws_corporate_data_ingestion is running"
-  event_pattern = <<EOF
-{
-  "source": [
-    "aws.emr"
-  ],
-  "detail-type": [
-    "EMR Cluster State Change"
-  ],
-  "detail": {
-    "state": [
-      "RUNNING"
-    ],
-    "name": [
-      "${local.emr_cluster_name}"
-    ]
-  }
-}
-EOF
-
-  tags = {
-    Name = "${local.emr_cluster_name}_running"
-  }
-}
-
-resource "aws_cloudwatch_metric_alarm" "dataworks_aws_corporate_data_ingestion_failed" {
-  count                     = local.dataworks_aws_corporate_data_ingestion_alerts[local.environment] == true ? 1 : 0
-  alarm_name                = "${local.emr_cluster_name}_failed"
+# Alarms for the cluster
+resource "aws_cloudwatch_metric_alarm" "dataworks_aws_corporate_data_ingestion_cluster" {
+  for_each                  = local.dataworks_aws_corporate_data_ingestion_alerts[local.environment] == true ? { for alert_rule in local.alert_rules_cluster_mapping : "${alert_rule.alert_type}-${alert_rule.alert_name}" => alert_rule } : {}
+  alarm_name                = "${local.emr_cluster_name}-${each.key}"
   comparison_operator       = "GreaterThanOrEqualToThreshold"
   evaluation_periods        = "1"
   metric_name               = "TriggeredRules"
@@ -152,22 +33,23 @@ resource "aws_cloudwatch_metric_alarm" "dataworks_aws_corporate_data_ingestion_f
   period                    = "60"
   statistic                 = "Sum"
   threshold                 = "1"
-  alarm_description         = "This metric monitors cluster failed with errors"
+  alarm_description         = "This metric monitors ${local.emr_cluster_name} ${each.key}"
   insufficient_data_actions = []
   alarm_actions             = [data.terraform_remote_state.security-tools.outputs.sns_topic_london_monitoring.arn]
   dimensions = {
-    RuleName = aws_cloudwatch_event_rule.dataworks_aws_corporate_data_ingestion_failed.name
+    RuleName = aws_cloudwatch_event_rule.dataworks_aws_corporate_data_ingestion_cluster_alerts[each.key].name
   }
   tags = {
-    Name              = "${local.emr_cluster_name}_failed",
-    notification_type = "Error",
-    severity          = "Critical"
+    Name              = "${local.emr_cluster_name}_${each.key}",
+    notification_type = "${each.value.notification_type}",
+    severity          = "${each.value.severity}"
   }
 }
 
-resource "aws_cloudwatch_metric_alarm" "dataworks_aws_corporate_data_ingestion_terminated" {
-  count                     = local.dataworks_aws_corporate_data_ingestion_alerts[local.environment] == true ? 1 : 0
-  alarm_name                = "${local.emr_cluster_name}_terminated"
+# Alarms for the steps
+resource "aws_cloudwatch_metric_alarm" "dataworks_aws_corporate_data_ingestion_step" {
+  for_each                  = local.dataworks_aws_corporate_data_ingestion_alerts[local.environment] == true ? { for alert_rule in local.alert_rules_step_mapping : "${alert_rule.alert_type}-${alert_rule.alert_collection}-${alert_rule.alert_name}" => alert_rule } : {}
+  alarm_name                = "${local.emr_cluster_name}-${each.key}"
   comparison_operator       = "GreaterThanOrEqualToThreshold"
   evaluation_periods        = "1"
   metric_name               = "TriggeredRules"
@@ -175,84 +57,15 @@ resource "aws_cloudwatch_metric_alarm" "dataworks_aws_corporate_data_ingestion_t
   period                    = "60"
   statistic                 = "Sum"
   threshold                 = "1"
-  alarm_description         = "This metric monitors cluster terminated by user request"
+  alarm_description         = "This metric monitors ${local.emr_cluster_name} ${each.key}"
   insufficient_data_actions = []
   alarm_actions             = [data.terraform_remote_state.security-tools.outputs.sns_topic_london_monitoring.arn]
   dimensions = {
-    RuleName = aws_cloudwatch_event_rule.dataworks_aws_corporate_data_ingestion_terminated.name
+    RuleName = aws_cloudwatch_event_rule.dataworks_aws_corporate_data_ingestion_step_alerts[each.key].name
   }
   tags = {
-    Name              = "${local.emr_cluster_name}_terminated",
-    notification_type = "Information",
-    severity          = "High"
-  }
-}
-
-resource "aws_cloudwatch_metric_alarm" "dataworks_aws_corporate_data_ingestion_success" {
-  count                     = local.dataworks_aws_corporate_data_ingestion_alerts[local.environment] == true ? 1 : 0
-  alarm_name                = "${local.emr_cluster_name}_success"
-  comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "1"
-  metric_name               = "TriggeredRules"
-  namespace                 = "AWS/Events"
-  period                    = "60"
-  statistic                 = "Sum"
-  threshold                 = "1"
-  alarm_description         = "Monitoring dataworks_aws_corporate_data_ingestion completion"
-  insufficient_data_actions = []
-  alarm_actions             = [data.terraform_remote_state.security-tools.outputs.sns_topic_london_monitoring.arn]
-  dimensions = {
-    RuleName = aws_cloudwatch_event_rule.dataworks_aws_corporate_data_ingestion_success.name
-  }
-  tags = {
-    Name              = "${local.emr_cluster_name}_success",
-    notification_type = "Information",
-    severity          = "Critical"
-  }
-}
-
-resource "aws_cloudwatch_metric_alarm" "dataworks_aws_corporate_data_ingestion_success_with_errors" {
-  count                     = local.dataworks_aws_corporate_data_ingestion_alerts[local.environment] == true ? 1 : 0
-  alarm_name                = "${local.emr_cluster_name}_success_with_errors"
-  comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "1"
-  metric_name               = "TriggeredRules"
-  namespace                 = "AWS/Events"
-  period                    = "60"
-  statistic                 = "Sum"
-  threshold                 = "1"
-  alarm_description         = "Monitoring dataworks_aws_corporate_data_ingestion completion"
-  insufficient_data_actions = []
-  alarm_actions             = [data.terraform_remote_state.security-tools.outputs.sns_topic_london_monitoring.arn]
-  dimensions = {
-    RuleName = aws_cloudwatch_event_rule.dataworks_aws_corporate_data_ingestion_success_with_errors.name
-  }
-  tags = {
-    Name              = "${local.emr_cluster_name}_success_with_errors",
-    notification_type = "Warning",
-    severity          = "High"
-  }
-}
-
-resource "aws_cloudwatch_metric_alarm" "dataworks_aws_corporate_data_ingestion_running" {
-  count                     = local.dataworks_aws_corporate_data_ingestion_alerts[local.environment] == true ? 1 : 0
-  alarm_name                = "${local.emr_cluster_name}_running"
-  comparison_operator       = "GreaterThanOrEqualToThreshold"
-  evaluation_periods        = "1"
-  metric_name               = "TriggeredRules"
-  namespace                 = "AWS/Events"
-  period                    = "60"
-  statistic                 = "Sum"
-  threshold                 = "1"
-  alarm_description         = "Monitoring dataworks_aws_corporate_data_ingestion running"
-  insufficient_data_actions = []
-  alarm_actions             = [data.terraform_remote_state.security-tools.outputs.sns_topic_london_monitoring.arn]
-  dimensions = {
-    RuleName = aws_cloudwatch_event_rule.dataworks_aws_corporate_data_ingestion_running.name
-  }
-  tags = {
-    Name              = "${local.emr_cluster_name}_running",
-    notification_type = "Information",
-    severity          = "Critical"
+    Name              = "${local.emr_cluster_name}_${each.key}",
+    notification_type = "${each.value.notification_type}",
+    severity          = "${each.value.severity}"
   }
 }
