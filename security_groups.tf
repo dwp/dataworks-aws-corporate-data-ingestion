@@ -100,43 +100,43 @@ resource "aws_security_group_rule" "ingress_internet_proxy" {
 }
 
 resource "aws_security_group_rule" "cdi_host_outbound_tanium_1" {
-  description       = "CDI host outbound port 1 to Tanium"
-  type              = "egress"
-  from_port         = var.tanium_port_1
-  to_port           = var.tanium_port_1
-  protocol          = "tcp"
-  prefix_list_ids   = local.tanium_prefix[local.environment]
-  security_group_id = aws_security_group.dataworks_aws_corporate_data_ingestion_common.id
+  description              = "CDI host outbound port 1 to Tanium"
+  type                     = "egress"
+  from_port                = var.tanium_port_1
+  to_port                  = var.tanium_port_1
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.dataworks_aws_corporate_data_ingestion_common.id
+  source_security_group_id = data.terraform_remote_state.internal_compute.outputs.tanium_service_endpoint.sg
 }
 
 resource "aws_security_group_rule" "cdi_host_outbound_tanium_2" {
-  description       = "CDI host outbound port 2 to Tanium"
-  type              = "egress"
-  from_port         = var.tanium_port_2
-  to_port           = var.tanium_port_2
-  protocol          = "tcp"
-  prefix_list_ids   = local.tanium_prefix[local.environment]
-  security_group_id = aws_security_group.dataworks_aws_corporate_data_ingestion_common.id
+  description              = "CDI host outbound port 2 to Tanium"
+  type                     = "egress"
+  from_port                = var.tanium_port_2
+  to_port                  = var.tanium_port_2
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.dataworks_aws_corporate_data_ingestion_common.id
+  source_security_group_id = data.terraform_remote_state.internal_compute.outputs.tanium_service_endpoint.sg
 }
 
 resource "aws_security_group_rule" "cdi_host_inbound_tanium_1" {
-  description       = "CDI host inbound port 1 from Tanium"
-  type              = "ingress"
-  from_port         = var.tanium_port_1
-  to_port           = var.tanium_port_1
-  protocol          = "tcp"
-  prefix_list_ids   = local.tanium_prefix[local.environment]
-  security_group_id = aws_security_group.dataworks_aws_corporate_data_ingestion_common.id
+  description              = "CDI host inbound port 1 from Tanium"
+  type                     = "ingress"
+  from_port                = var.tanium_port_1
+  to_port                  = var.tanium_port_1
+  protocol                 = "tcp"
+  security_group_id        = data.terraform_remote_state.internal_compute.outputs.tanium_service_endpoint.sg
+  source_security_group_id = aws_security_group.dataworks_aws_corporate_data_ingestion_common.id
 }
 
 resource "aws_security_group_rule" "cdi_host_inbound_tanium_2" {
-  description       = "CDI host inbound port 2 from Tanium"
-  type              = "ingress"
-  from_port         = var.tanium_port_2
-  to_port           = var.tanium_port_2
-  protocol          = "tcp"
-  prefix_list_ids   = local.tanium_prefix[local.environment]
-  security_group_id = aws_security_group.dataworks_aws_corporate_data_ingestion_common.id
+  description              = "CDI host inbound port 2 from Tanium"
+  type                     = "ingress"
+  from_port                = var.tanium_port_2
+  to_port                  = var.tanium_port_2
+  protocol                 = "tcp"
+  security_group_id        = data.terraform_remote_state.internal_compute.outputs.tanium_service_endpoint.sg
+  source_security_group_id = aws_security_group.dataworks_aws_corporate_data_ingestion_common.id
 }
 
 resource "aws_security_group_rule" "egress_dataworks_aws_corporate_data_ingestion_to_dks" {
@@ -172,7 +172,6 @@ resource "aws_security_group_rule" "emr_service_ingress_master" {
   source_security_group_id = aws_security_group.dataworks_aws_corporate_data_ingestion_master.id
   security_group_id        = aws_security_group.dataworks_aws_corporate_data_ingestion_emr_service.id
 }
-
 
 # The EMR service will automatically add the ingress equivalent of this rule,
 # but doesn't inject this egress counterpart
