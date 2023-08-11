@@ -173,7 +173,6 @@ resource "aws_security_group_rule" "emr_service_ingress_master" {
   security_group_id        = aws_security_group.dataworks_aws_corporate_data_ingestion_emr_service.id
 }
 
-
 # The EMR service will automatically add the ingress equivalent of this rule,
 # but doesn't inject this egress counterpart
 resource "aws_security_group_rule" "emr_master_to_core_egress_tcp" {
