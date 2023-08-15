@@ -1,3 +1,5 @@
+# REPO MOVED to internal Github - **** DO NOT USE ****  No longer updated
+
 # dataworks-aws-corporate-data-ingestion
 
 The corporate data ingestion pipeline is built to regularly ingest data from the corporate storage bucket.
